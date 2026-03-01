@@ -18,7 +18,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const { user } = useUser();
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasScrolledRef = useRef(false);
-  const lastFetchTimeRef = useRef<number>(0);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [game, setGame] = useState<Game | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
@@ -58,12 +58,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const fetchGame = async (force = false) => {
+  const fetchGame = async () => {
     if (!id || !user) return;
-    const now = Date.now();
-    // 初始加载完成后 1.5s 内由 SSE 触发的刷新忽略（防止动画双跳）
-    if (!force && lastFetchTimeRef.current && now - lastFetchTimeRef.current < 1500) return;
-    lastFetchTimeRef.current = now;
     try {
       const { game, buyIns, players } = await gamesApi.get(id);
       setGame(game);
@@ -117,7 +113,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     },
     // 所有用户：游戏数据刷新
     onGameRefresh: () => {
-      fetchGame();
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchGame();
+      }, 300);
     },
     // 申请用户：审核通过通知（由 buy_ins INSERT 事件触发）
     onBuyinApproved: (data: any) => {
