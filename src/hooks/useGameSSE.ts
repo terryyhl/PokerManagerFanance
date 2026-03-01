@@ -4,7 +4,7 @@ export interface SSEHandlers {
     onConnected?: (isHost: boolean) => void;
     onBuyinRequest?: (data: PendingBuyinEvent) => void;
     onPendingList?: (data: PendingBuyinEvent[]) => void;
-    onGameRefresh?: (data: { type: string; userId: string }) => void;
+    onGameRefresh?: (data: { type: string; userId: string; username?: string; amount?: number; totalAmount?: number }) => void;
     onBuyinApproved?: (data: { amount: number; type: string }) => void;
     onBuyinRejected?: (data: { amount: number; type: string; requestId: string }) => void;
     onGameSettled?: (data: { message: string }) => void;

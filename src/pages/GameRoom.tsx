@@ -43,6 +43,9 @@ export default function GameRoom() {
   const [confirmReq, setConfirmReq] = useState<PendingBuyinEvent | null>(null);
   const [confirming, setConfirming] = useState(false);
 
+  // 买入成功状态
+  const [buyinSuccess, setBuyinSuccess] = useState<{ amount: number; total: number } | null>(null);
+
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
@@ -112,8 +115,10 @@ export default function GameRoom() {
       fetchGame();
     },
     // 申请用户：审核通过通知
-    onBuyinApproved: (data) => {
+    onBuyinApproved: (data: any) => {
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
+      setBuyinSuccess({ amount: data.amount, total: data.totalAmount });
+      setShowBuyIn(true);
       fetchGame();
     },
     // 申请用户：审核拒绝通知
@@ -202,9 +207,10 @@ export default function GameRoom() {
     // 直接买入（无审核 or 房主）
     setSubmitting(true);
     try {
-      await buyInApi.record(id, user.id, amount, type);
+      const res = await buyInApi.record(id, user.id, amount, type);
       await fetchGame();
-      setBuyInAmount(''); setShowBuyIn(false);
+      setBuyinSuccess({ amount, total: (res as any).totalAmount });
+      setBuyInAmount('');
     } catch (err: any) {
       showToast(err.message || '买入失败', 'error');
     } finally { setSubmitting(false); }
@@ -503,8 +509,18 @@ export default function GameRoom() {
                       </div>
                       <div className="rounded-2xl rounded-bl-none bg-white dark:bg-[#1e2936] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">{b.type === 'initial' ? '初始买入' : '重买/加注'}</p>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex flex-col gap-1">
                           <span className="text-2xl font-bold text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}</span>
+                          <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
+                            <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-[14px]">account_balance_wallet</span>
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">总买入: ${
+                              buyIns
+                                .filter(prev => prev.user_id === b.user_id &&
+                                  (prev.type === 'initial' || prev.type === 'rebuy') &&
+                                  new Date(prev.created_at).getTime() <= new Date(b.created_at).getTime())
+                                .reduce((sum, prev) => sum + prev.amount, 0)
+                            }</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -550,34 +566,61 @@ export default function GameRoom() {
         {/* Buy-in Modal */}
         {showBuyIn && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setBuyInAmount(''); setShowBuyIn(false); }} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setBuyInAmount(''); setShowBuyIn(false); setBuyinSuccess(null); }} />
             <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10">
-              <div className="px-6 py-5 text-center border-b border-slate-700/50">
-                <h3 className="text-lg font-bold text-white">买入筹码</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  {game ? `单次限制: $${game.min_buyin} - $${game.max_buyin}` : '请输入买入筹码数量'}
-                </p>
-              </div>
-              <div className="px-6 py-8">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                    <span className="text-2xl font-bold text-primary">$</span>
+
+              {buyinSuccess ? (
+                <div className="px-6 py-10 text-center">
+                  <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-emerald-500 text-[40px]">check_circle</span>
                   </div>
-                  <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 pl-10 pr-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
-                    inputMode="decimal" placeholder="0" type="number" value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} />
+                  <h3 className="text-xl font-bold text-white mb-2">买入成功</h3>
+                  <div className="space-y-1 mb-8">
+                    <p className="text-slate-400 text-sm">本次买入: <span className="text-white font-bold">{buyinSuccess.amount} 积分</span></p>
+                    <p className="text-slate-400 text-sm">当前总买入: <span className="text-primary font-bold text-lg">{buyinSuccess.total} 积分</span></p>
+                  </div>
+                  <button
+                    onClick={() => { setBuyinSuccess(null); setShowBuyIn(false); }}
+                    className="w-full py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-colors"
+                  >
+                    我知道了
+                  </button>
                 </div>
-                {needsApproval && !isHost && (
-                  <p className="mt-3 text-center text-xs text-amber-400 flex items-center justify-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">info</span>已开启带入审核，提交后等待房主批准
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-px bg-slate-700/50">
-                <button onClick={() => { setBuyInAmount(''); setShowBuyIn(false); }} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors">取消</button>
-                <button onClick={handleBuyInSubmit} disabled={submitting || !buyInAmount} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-bold text-primary hover:bg-slate-800 transition-colors disabled:opacity-50">
-                  {submitting ? '处理中...' : needsApproval && !isHost ? '提交申请' : '确认买入'}
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div className="px-6 py-5 text-center border-b border-slate-700/50">
+                    <h3 className="text-lg font-bold text-white">买入筹码</h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {game ? `单次限制: $${game.min_buyin} - $${game.max_buyin}` : '请输入买入筹码数量'}
+                    </p>
+                  </div>
+                  <div className="px-6 py-8">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                        <span className="text-2xl font-bold text-primary">$</span>
+                      </div>
+                      <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 pl-10 pr-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
+                        inputMode="decimal" placeholder="0" type="number" value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} />
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2">
+                      <p className="text-center text-xs text-slate-500 font-medium">
+                        当前总买入: <span className="text-slate-300">{myTotalBuyIn} 积分</span>
+                      </p>
+                      {needsApproval && !isHost && (
+                        <p className="text-center text-xs text-amber-400 flex items-center justify-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">info</span>已开启带入审核，提交后等待房主批准
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-slate-700/50">
+                    <button onClick={() => { setBuyInAmount(''); setShowBuyIn(false); }} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors">取消</button>
+                    <button onClick={handleBuyInSubmit} disabled={submitting || !buyInAmount} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-bold text-primary hover:bg-slate-800 transition-colors disabled:opacity-50">
+                      {submitting ? '处理中...' : (needsApproval && !isHost) ? '提交申请' : '确认买入'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -44,7 +44,16 @@ router.post('/', async (req, res) => {
         // 广播刷新事件给所有房间用户
         broadcastToGame(gameId, 'game_refresh', { type: 'buyin', userId });
 
-        return res.status(201).json({ buyIn: data });
+        // 计算当前总买入
+        const { data: allUserBuyins } = await supabase
+            .from('buy_ins')
+            .select('amount')
+            .eq('game_id', gameId)
+            .eq('user_id', userId);
+
+        const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
+
+        return res.status(201).json({ buyIn: data, totalAmount });
     } catch (err: any) {
         console.error('[buyin/create] Unhandled error:', err);
         return res.status(500).json({ error: err.message || '服务器内部错误' });
@@ -64,11 +73,21 @@ router.post('/pending', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
+        // 计算当前总买入，用于房主审核时参考
+        const { data: allUserBuyins } = await supabase
+            .from('buy_ins')
+            .select('amount')
+            .eq('game_id', gameId)
+            .eq('user_id', userId);
+
+        const currentTotal = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
+
         const pending = await addPending({
             gameId,
             userId,
             username,
             amount: parseInt(amount, 10),
+            totalBuyIn: currentTotal,
             type: type === 'rebuy' ? 'rebuy' : 'initial',
         });
 
@@ -133,10 +152,24 @@ router.post('/pending/:id/approve', async (req, res) => {
         // 广播给所有人刷新
         broadcastToGame(pending.gameId, 'game_refresh', { type: 'buyin_approved', userId: pending.userId });
 
-        // 额外通知申请人：你的买入申请已通过
-        notifyUser(pending.gameId, pending.userId, 'buyin_approved', { amount: pending.amount, type: pending.type });
+        // 计算当前总买入
+        const { data: allUserBuyins } = await supabase
+            .from('buy_ins')
+            .select('amount')
+            .eq('game_id', pending.gameId)
+            .eq('user_id', pending.userId);
 
-        return res.status(201).json({ buyIn: data });
+        const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
+
+        // 额外通知申请人：你的买入申请已通过
+        notifyUser(pending.gameId, pending.userId, 'buyin_approved', {
+            requestId: id,
+            amount: pending.amount,
+            type: pending.type,
+            totalAmount: totalAmount
+        });
+
+        return res.status(201).json({ buyIn: data, totalAmount });
     } catch (err: any) {
         console.error('[buyin/approve] Unhandled error:', err);
         return res.status(500).json({ error: '审批处理时发生错误' });

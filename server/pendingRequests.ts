@@ -6,6 +6,7 @@ export interface PendingBuyinRequest {
     userId: string;
     username: string;
     amount: number;
+    totalBuyIn: number;
     type: 'initial' | 'rebuy';
     createdAt: string;
 }
@@ -18,6 +19,7 @@ export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdA
             user_id: req.userId,
             username: req.username,
             amount: req.amount,
+            total_buyin: req.totalBuyIn,
             type: req.type
         })
         .select()
@@ -34,6 +36,7 @@ export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdA
         userId: data.user_id,
         username: data.username,
         amount: data.amount,
+        totalBuyIn: data.total_buyin || 0,
         type: data.type,
         createdAt: data.created_at
     };
@@ -54,6 +57,7 @@ export async function getPending(gameId: string): Promise<PendingBuyinRequest[]>
         userId: item.user_id,
         username: item.username,
         amount: item.amount,
+        totalBuyIn: item.total_buyin || 0,
         type: item.type,
         createdAt: item.created_at
     }));
@@ -75,6 +79,7 @@ export async function removePending(id: string): Promise<PendingBuyinRequest | n
         userId: data.user_id,
         username: data.username,
         amount: data.amount,
+        totalBuyIn: data.total_buyin || 0,
         type: data.type,
         createdAt: data.created_at
     };
