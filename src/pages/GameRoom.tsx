@@ -392,7 +392,7 @@ export default function GameRoom() {
                   <div key={`p-${req.id}`} className="flex items-end gap-3 opacity-0">
                     <div className="relative">
                       <div className="h-10 w-10 rounded-full border-2 border-amber-300 dark:border-amber-600 overflow-hidden">
-                        <Avatar username={req.username || '?'} />
+                        <Avatar username={req.username || '?'} isAdmin={req.userId === game?.created_by} />
                       </div>
                       <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 ring-2 ring-background-dark">
                         <span className="material-symbols-outlined text-white text-[10px]">pending</span>
@@ -434,7 +434,7 @@ export default function GameRoom() {
                   <div key={b.id} className="flex items-end gap-3 group opacity-0">
                     <div className="relative">
                       <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-background-light dark:border-background-dark ring-2 ring-primary/20">
-                        <Avatar username={b.users?.username || '?'} />
+                        <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
                       </div>
                       <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark" />
                     </div>
