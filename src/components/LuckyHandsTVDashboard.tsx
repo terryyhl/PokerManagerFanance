@@ -141,7 +141,7 @@ export default function LuckyHandsTVDashboard({
 
                         {/* 表身 */}
                         <div className="flex flex-col flex-1">
-                            {players.map((player, pIdx) => {
+                            {players.filter(p => allLuckyHands.some(h => h.user_id === p.user_id)).map((player, pIdx) => {
                                 const userHands = allLuckyHands.filter(h => h.user_id === player.user_id);
 
                                 return (
