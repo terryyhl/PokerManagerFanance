@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import anime from 'animejs/lib/anime.es.js';
 import Avatar from './Avatar';
 import PokerCardDisp from './PokerCardDisp';
 
@@ -20,6 +21,54 @@ export default function LuckyHandsTVDashboard({
 }: LuckyHandsTVDashboardProps) {
     const [isPortrait, setIsPortrait] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    // 用于内部拦截闪烁提示的 Toast
+    const [hitToastParams, setHitToastParams] = useState<{ username: string, targetHand: number, hitCount: number } | null>(null);
+    const prevHandsRef = useRef<any[]>([]);
+
+    // 监听 hand 数据变化并触发亮起
+    useEffect(() => {
+        if (!isOpen) {
+            prevHandsRef.current = [];
+            return;
+        }
+
+        const prevHands = prevHandsRef.current;
+        if (prevHands.length > 0 && allLuckyHands.length > 0) {
+            // 找出 hit_count 增加的 hand
+            allLuckyHands.forEach(currHand => {
+                const prevHand = prevHands.find(p => p.id === currHand.id);
+                if (prevHand && currHand.hit_count > prevHand.hit_count) {
+
+                    // 找到对应的 player 拿到名字
+                    const owner = players.find(p => p.user_id === currHand.user_id);
+                    if (owner) {
+                        const name = owner.users?.username || '某人';
+
+                        // 触发闪屏
+                        anime({
+                            targets: `.tv-row-${owner.id}`,
+                            backgroundColor: ['rgba(234, 179, 8, 0.4)', 'rgba(255, 255, 255, 0)', 'rgba(234, 179, 8, 0.2)', 'rgba(51, 65, 85, 0)'],
+                            duration: 2000,
+                            easing: 'easeInOutQuad',
+                        });
+
+                        // 弹窗公告
+                        setHitToastParams({
+                            username: name,
+                            targetHand: currHand.hand_index,
+                            hitCount: currHand.hit_count
+                        });
+
+                        // 3秒后自动清除
+                        setTimeout(() => setHitToastParams(null), 3500);
+                    }
+                }
+            });
+        }
+
+        prevHandsRef.current = JSON.parse(JSON.stringify(allLuckyHands));
+    }, [allLuckyHands, players, isOpen]);
 
     useEffect(() => {
         setMounted(true);
@@ -53,7 +102,26 @@ export default function LuckyHandsTVDashboard({
                     <p className="text-slate-500 max-w-sm">请将您的设备横向放置或全屏投射至横向电视面板，以展示最完整的玩家矩阵手牌数据极简列表。</p>
                 </div>
             ) : (
-                <main className="flex-1 overflow-auto no-scrollbar">
+                <main className="flex-1 overflow-auto no-scrollbar relative">
+
+                    {/* 内置拦截通知框 */}
+                    {hitToastParams && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[300000] animate-in zoom-in spin-in-12 fade-in duration-700 pointer-events-none">
+                            <div className="bg-gradient-to-br from-yellow-500/90 to-amber-700/90 backdrop-blur-md px-10 py-8 rounded-3xl shadow-[0_0_80px_rgba(234,179,8,0.5)] border-2 border-yellow-300/50 flex flex-col items-center">
+                                <span className="material-symbols-outlined text-7xl text-yellow-100 mb-2 drop-shadow-xl animate-bounce">celebration</span>
+                                <h1 className="text-4xl md:text-5xl font-black text-white text-center tracking-wider drop-shadow-md">
+                                    <span className="text-yellow-200">{hitToastParams.username}</span> 达成了
+                                </h1>
+                                <h2 className="text-2xl md:text-3xl font-bold text-amber-100 mt-2 text-center">
+                                    幸运牌型 {hitToastParams.targetHand}
+                                    <span className="ml-3 bg-yellow-950/40 px-3 py-1 rounded-full text-yellow-300 border border-yellow-500/50 shadow-inner">
+                                        累计 {hitToastParams.hitCount} 次
+                                    </span>
+                                </h2>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 无边界 全向滑动的表格视图 */}
                     <div className="w-full h-full min-h-full min-w-max flex flex-col pb-16">
 
@@ -79,7 +147,7 @@ export default function LuckyHandsTVDashboard({
                                 return (
                                     <div
                                         key={player.id}
-                                        className={`grid gap-2 p-2 md:p-3 items-center transition-colors hover:bg-slate-700/30 ${pIdx !== players.length - 1 ? 'border-b border-slate-700/30' : ''}`}
+                                        className={`tv-row-${player.id} grid gap-2 p-2 md:p-3 items-center transition-colors border-b border-slate-700/30`}
                                         style={{ gridTemplateColumns: `minmax(140px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(140px, 1fr))` }}
                                     >
 
@@ -98,23 +166,20 @@ export default function LuckyHandsTVDashboard({
                                             const hand = userHands.find(h => h.hand_index === i + 1);
                                             return (
                                                 <div key={i} className="flex justify-center items-center">
-                                                    <div className={`flex flex-col items-center justify-center w-[54px] h-[60px] md:w-[64px] md:h-[70px] rounded-xl border-2 relative transition-all
-                                                    ${hand ? (hand.hit_count > 0 ? 'border-yellow-500 bg-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'border-indigo-500/30 bg-indigo-900/20') : 'border-slate-700/50 border-dashed bg-slate-800/10'}
-                                                `}>
-                                                        {hand && hand.hit_count > 0 && (
-                                                            <div className="absolute -top-3 w-full flex justify-center z-10">
-                                                                <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-[10px] md:text-xs font-black px-1.5 py-0.5 rounded shadow flex items-center gap-0.5 transform -skew-x-6">
-                                                                    <span className="material-symbols-outlined text-[10px] md:text-[12px]">star</span>
-                                                                    ×{hand.hit_count}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
+                                                    <div className="flex items-center gap-3">
                                                         {hand ? (
-                                                            <div className="flex -space-x-3 md:-space-x-4">
-                                                                <PokerCardDisp card={hand.card_1} className="text-[10px] md:text-[12px] px-1 shadow-md transition-transform hover:-translate-y-1 hover:rotate-[-5deg]" />
-                                                                <PokerCardDisp card={hand.card_2} className="text-[10px] md:text-[12px] px-1 shadow-md transition-transform hover:-translate-y-1 hover:rotate-[5deg]" />
-                                                            </div>
+                                                            <>
+                                                                <div className="flex items-center gap-1.5 md:gap-2">
+                                                                    <PokerCardDisp card={hand.card_1} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
+                                                                    <PokerCardDisp card={hand.card_2} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
+                                                                </div>
+                                                                {hand.hit_count > 0 && (
+                                                                    <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-xs md:text-sm font-black px-2 py-0.5 rounded shadow flex items-center gap-0.5">
+                                                                        <span className="material-symbols-outlined text-[14px] md:text-[16px]">close</span>
+                                                                        {hand.hit_count}
+                                                                    </span>
+                                                                )}
+                                                            </>
                                                         ) : (
                                                             <div className="text-slate-600 font-bold tracking-widest text-xs opacity-40">
                                                                 未配置
