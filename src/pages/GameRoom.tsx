@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AnimatedPage from '../components/AnimatedPage';
 
@@ -77,8 +77,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   useEffect(() => { fetchGame(); }, [id, user]);
 
 
-  // 初次加载完成：立即跳到底部
-  useEffect(() => {
+  // 初次加载完成：立即跳到底部（使用 useLayoutEffect 避免绘制后发生肉眼抖动）
+  useLayoutEffect(() => {
     if (!isLoading && scrollContainerRef.current && !hasScrolledRef.current) {
       hasScrolledRef.current = true;
       const el = scrollContainerRef.current;
