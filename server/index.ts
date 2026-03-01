@@ -17,11 +17,15 @@ const PORT = process.env.PORT || 3001;
 startCronJobs();
 
 // ─── Middleware ────────────────────────────────────────────────────────────
-app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-    credentials: true,
-}));
+app.use(cors()); // Allow all origins to avoid Vercel deployment issues
 app.use(express.json());
+
+// ─── Diagnostics ──────────────────────────────────────────────────────────
+console.log('--- Environment Diagnostics ---');
+console.log(`📡 Supabase URL: ${process.env.SUPABASE_URL ? '✅ Configured' : '❌ MISSING'}`);
+console.log(`📡 Supabase Key: ${process.env.SUPABASE_ANON_KEY ? '✅ Configured' : '❌ MISSING'}`);
+console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
+console.log('-------------------------------');
 
 // ─── Routes ───────────────────────────────────────────────────────────────
 app.use('/api/users', usersRouter);
