@@ -94,7 +94,6 @@ export default function GameRoom() {
     },
     // 房主收到新的待审核申请
     onBuyinRequest: (req) => {
-      console.log('[SSE] buyin_request:', req);
       setPendingRequests(prev => {
         if (prev.find(r => r.id === req.id)) return prev;
         return [...prev, req];
@@ -103,23 +102,19 @@ export default function GameRoom() {
     },
     // 房主上线时同步当前待审核列表
     onPendingList: (list) => {
-      console.log('[SSE] pending_list:', list);
       setPendingRequests(list);
     },
     // 所有用户：游戏数据刷新
     onGameRefresh: (data) => {
-      console.log('[SSE] game_refresh:', data);
       fetchGame();
     },
     // 申请用户：审核通过通知
     onBuyinApproved: (data) => {
-      console.log('[SSE] buyin_approved:', data);
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
       fetchGame();
     },
     // 申请用户：审核拒绝通知
     onBuyinRejected: (data) => {
-      console.log('[SSE] buyin_rejected:', data);
       showToast(`❌ 买入申请被拒绝 $${data.amount}`, 'error');
       setPendingRequests(prev => prev.filter(r => r.id !== data.requestId));
     },
