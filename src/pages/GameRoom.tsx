@@ -61,7 +61,7 @@ export default function GameRoom() {
     }
   };
 
-  useEffect(() => { fetchGame(); }, [id]);
+  useEffect(() => { fetchGame(); }, [id, user]);
 
   useEffect(() => {
     if (!isLoading && listRef.current) {

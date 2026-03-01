@@ -220,6 +220,11 @@ router.post('/join', async (req, res) => {
         .from('game_players')
         .upsert({ game_id: game.id, user_id: userId }, { onConflict: 'game_id,user_id' });
 
+    // 广播通知房间内所有人，有新玩家加入
+    import('../sse.js').then((sse) => {
+        sse.broadcastToGame(game.id, 'game_refresh', { type: 'player_join', userId });
+    });
+
     return res.json({ game });
 });
 
