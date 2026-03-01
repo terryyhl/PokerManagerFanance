@@ -5,7 +5,7 @@ import AnimatedPage from '../components/AnimatedPage';
 import { gamesApi, Game } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
-import { useGameSSE } from '../hooks/useGameSSE';
+import { supabase } from '../lib/supabase';
 
 export default function Lobby() {
   const navigate = useNavigate();
@@ -39,10 +39,16 @@ export default function Lobby() {
     fetchGames();
   }, []);
 
-  // 监听大厅全局事件（如新房间创建）
-  useGameSSE('lobby', user?.id, {
-    onLobbyRefresh: () => fetchGames(true),
-  });
+  // 监听 games 表变化，有新房间创建/关闭时自动刷新（不重复触发初始加载）
+  useEffect(() => {
+    const channel = supabase
+      .channel('lobby:games')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
+        fetchGames(true); // 静默刷新，不显示 loading
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && games.length > 0) {
