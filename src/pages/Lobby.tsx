@@ -65,7 +65,7 @@ export default function Lobby() {
           <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">大厅</h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={fetchGames}
+              onClick={() => fetchGames()}
               className="flex items-center justify-center size-9 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
             >
               <span className="material-symbols-outlined text-[20px] text-slate-500 dark:text-slate-400">refresh</span>
