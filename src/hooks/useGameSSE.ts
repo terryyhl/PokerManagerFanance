@@ -61,12 +61,16 @@ export function useGameSSE(
                         // 是我自己的买入记录被写入
                         const pending = pendingSubmittedRef.current;
                         if (pending) {
-                            // 曾提交过待审核申请 → 视为审批通过，触发弹窗
-                            pendingSubmittedRef.current = null; // 清除标记
+                            // 曾提交过待审核申请 → 视为审批通过，触发弹窗 + 数据刷新
+                            pendingSubmittedRef.current = null;
                             handlersRef.current.onBuyinApproved?.({
                                 amount: newBuyin.amount,
                                 type: newBuyin.type,
-                                // totalAmount 会在 fetchGame 之后通过界面计算
+                            });
+                            // 同时触发数据刷新，确保用户端列表实时更新
+                            handlersRef.current.onGameRefresh?.({
+                                type: 'buyin_approved',
+                                userId: newBuyin.user_id,
                             });
                         } else {
                             // 直接买入（无审核）→ 仅刷新数据，不弹窗

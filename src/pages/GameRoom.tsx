@@ -471,6 +471,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                         <div className="flex-1 rounded-2xl rounded-bl-none bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 p-3">
                           <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-0.5">{req.type === 'initial' ? '初始买入申请' : '重买申请'}</p>
                           <span className="text-xl font-bold text-amber-600 dark:text-amber-400">${req.amount}</span>
+                          <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-700/50">
+                            <span className="material-symbols-outlined text-amber-500 dark:text-amber-400 text-[12px]">account_balance_wallet</span>
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                              已有总买入: ${buyIns.filter(b => b.user_id === req.userId && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0)}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex flex-col gap-1.5 shrink-0">
                           <button
