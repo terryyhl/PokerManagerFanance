@@ -141,57 +141,65 @@ export default function LuckyHandsTVDashboard({
 
                         {/* 表身 */}
                         <div className="flex flex-col flex-1">
-                            {players.filter(p => allLuckyHands.some(h => h.user_id === p.user_id)).map((player, pIdx) => {
-                                const userHands = allLuckyHands.filter(h => h.user_id === player.user_id);
+                            {players
+                                .filter(p => allLuckyHands.some(h => h.user_id === p.user_id))
+                                .map(p => {
+                                    const userHands = allLuckyHands.filter(h => h.user_id === p.user_id);
+                                    const totalHits = userHands.reduce((acc, h) => acc + (h.hit_count || 0), 0);
+                                    return { ...p, userHands, totalHits };
+                                })
+                                .sort((a, b) => b.totalHits - a.totalHits)
+                                .map((player, pIdx) => {
+                                    const userHands = player.userHands;
 
-                                return (
-                                    <div
-                                        key={player.id}
-                                        className={`tv-row-${player.id} grid gap-2 p-2 md:p-3 items-center transition-colors border-b border-slate-700/30`}
-                                        style={{ gridTemplateColumns: `minmax(140px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(140px, 1fr))` }}
-                                    >
+                                    return (
+                                        <div
+                                            key={player.id}
+                                            className={`tv-row-${player.id} grid gap-2 p-2 md:p-3 items-center transition-colors border-b border-slate-700/30`}
+                                            style={{ gridTemplateColumns: `minmax(140px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(140px, 1fr))` }}
+                                        >
 
-                                        {/* Column 1: 用户信息 */}
-                                        <div className="flex items-center gap-3 pl-2 md:pl-4">
-                                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full shadow-md ring-2 ring-slate-700/50 bg-slate-900 flex-shrink-0">
-                                                <Avatar username={player.users?.username || '?'} className="w-full h-full" />
-                                            </div>
-                                            <h2 className="text-sm md:text-base lg:text-lg font-bold text-slate-100 truncate">
-                                                {player.users?.username}
-                                            </h2>
-                                        </div>
-
-                                        {/* Column 2+: 各个槽位的展示 */}
-                                        {Array.from({ length: luckyHandsCount }).map((_, i) => {
-                                            const hand = userHands.find(h => h.hand_index === i + 1);
-                                            return (
-                                                <div key={i} className="flex justify-center items-center">
-                                                    <div className="flex items-center gap-3">
-                                                        {hand ? (
-                                                            <>
-                                                                <div className="flex items-center gap-1.5 md:gap-2">
-                                                                    <PokerCardDisp card={hand.card_1} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
-                                                                    <PokerCardDisp card={hand.card_2} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
-                                                                </div>
-                                                                {hand.hit_count > 0 && (
-                                                                    <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-xs md:text-sm font-black px-2 py-0.5 rounded shadow flex items-center gap-0.5">
-                                                                        <span className="material-symbols-outlined text-[14px] md:text-[16px]">close</span>
-                                                                        {hand.hit_count}
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <div className="text-slate-600 font-bold tracking-widest text-xs opacity-40">
-                                                                未配置
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                            {/* Column 1: 用户信息 */}
+                                            <div className="flex items-center gap-3 pl-2 md:pl-4">
+                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full shadow-md ring-2 ring-slate-700/50 bg-slate-900 flex-shrink-0">
+                                                    <Avatar username={player.users?.username || '?'} className="w-full h-full" />
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })}
+                                                <h2 className="text-sm md:text-base lg:text-lg font-bold text-slate-100 truncate">
+                                                    {player.users?.username}
+                                                </h2>
+                                            </div>
+
+                                            {/* Column 2+: 各个槽位的展示 */}
+                                            {Array.from({ length: luckyHandsCount }).map((_, i) => {
+                                                const hand = userHands.find(h => h.hand_index === i + 1);
+                                                return (
+                                                    <div key={i} className="flex justify-center items-center">
+                                                        <div className="flex items-center gap-3">
+                                                            {hand ? (
+                                                                <>
+                                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                                        <PokerCardDisp card={hand.card_1} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
+                                                                        <PokerCardDisp card={hand.card_2} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
+                                                                    </div>
+                                                                    {hand.hit_count > 0 && (
+                                                                        <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-xs md:text-sm font-black px-2 py-0.5 rounded shadow flex items-center gap-0.5">
+                                                                            <span className="material-symbols-outlined text-[14px] md:text-[16px]">close</span>
+                                                                            {hand.hit_count}
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <div className="text-slate-600 font-bold tracking-widest text-xs opacity-40">
+                                                                    未配置
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })}
                         </div>
                     </div>
                 </main>
