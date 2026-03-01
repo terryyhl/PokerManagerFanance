@@ -149,13 +149,18 @@ export default function PlayerStatsModal({
                                                                 <PokerCardDisp card={data.card_1} className="text-[13px] px-1 shadow-sm" />
                                                                 <PokerCardDisp card={data.card_2} className="text-[13px] px-1 shadow-sm" />
                                                             </div>
-                                                            {currentUserId === userId && onModifyLuckyHand && (
+                                                            {currentUserId === userId && onModifyLuckyHand && data.hit_count === 0 && (
                                                                 <button
                                                                     onClick={() => onModifyLuckyHand(handIndex)}
                                                                     className="mt-2 text-[10px] text-indigo-500 hover:text-white hover:bg-indigo-500 font-bold bg-white dark:bg-[#192633] px-2 py-0.5 rounded shadow-sm border border-indigo-200 transition-colors"
                                                                 >
                                                                     修改手牌
                                                                 </button>
+                                                            )}
+                                                            {currentUserId === userId && data.hit_count > 0 && (
+                                                                <div className="mt-2 text-[10px] text-slate-400 font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 cursor-not-allowed text-center">
+                                                                    已得分锁定
+                                                                </div>
                                                             )}
                                                         </div>
                                                     ) : (
