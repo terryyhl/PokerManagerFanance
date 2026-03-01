@@ -64,7 +64,7 @@ function AppShell() {
   const isTopOverlay = !isPublic && !isMain && !isGamePage;
 
   return (
-    <div className="w-full max-w-[430px] h-[100dvh] sm:h-[min(932px,100dvh)] sm:rounded-[2.5rem] sm:border-[8px] border-gray-800 dark:border-gray-950 bg-white dark:bg-background-dark overflow-hidden relative shadow-2xl">
+    <div className="w-full h-[100dvh] bg-white dark:bg-background-dark overflow-hidden relative">
 
       {/* 公开页 */}
       {isPublic && (
@@ -124,7 +124,7 @@ export default function App() {
 
   return (
     <UserProvider>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex justify-center items-center">
+      <div className="w-full min-h-screen bg-white dark:bg-background-dark flex justify-center items-center">
         <Router>
           <AppShell />
         </Router>

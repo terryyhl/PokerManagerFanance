@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Avatar from './Avatar';
 import PokerCardDisp from './PokerCardDisp';
 
@@ -17,9 +18,11 @@ export default function LuckyHandsTVDashboard({
     allLuckyHands,
     luckyHandsCount
 }: LuckyHandsTVDashboardProps) {
-    const [isPortrait, setIsPortrait] = React.useState(false);
+    const [isPortrait, setIsPortrait] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
+        setMounted(true);
         const checkOrientation = () => {
             setIsPortrait(window.innerHeight > window.innerWidth);
         };
@@ -31,10 +34,10 @@ export default function LuckyHandsTVDashboard({
         return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
-    if (!isOpen) return null;
+    if (!isOpen || !mounted) return null;
 
-    return (
-        <div className="fixed inset-0 z-[9999] bg-[#0a0f16] flex flex-col text-white animate-in fade-in zoom-in-95 duration-300">
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] bg-[#0a0f16] flex flex-col text-white animate-in fade-in zoom-in-95 duration-300">
             <header className="flex items-center justify-between p-6 md:p-8 bg-gradient-to-b from-black/80 to-transparent">
                 <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-yellow-500 text-4xl">emoji_events</span>
@@ -123,6 +126,7 @@ export default function LuckyHandsTVDashboard({
                     </div>
                 </main>
             )}
-        </div>
+        </div>,
+        document.body
     );
 }
