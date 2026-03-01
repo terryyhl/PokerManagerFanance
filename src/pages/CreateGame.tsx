@@ -20,7 +20,12 @@ export default function CreateGame() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 设置默认名字并引入初始入场动画
   useEffect(() => {
+    if (user?.username) {
+      setRoomName(`${user.username} 的牌局`);
+    }
+
     anime({
       targets: formRef.current?.children,
       translateY: [20, 0],
