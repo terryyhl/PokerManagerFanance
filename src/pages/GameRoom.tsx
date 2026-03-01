@@ -278,13 +278,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   };
 
   // ──────────────── Lucky Hands Handles ────────────────
-  const handleSelectSlot = async (handIndex: number, action: 'setup' | 'hit' | 'modify') => {
+  const handleSelectSlot = async (handIndex: number, action: 'setup' | 'hit') => {
     if (action === 'setup') {
       setIsModifyingLuckyHand(false);
-      setTargetHandIndex(handIndex);
-      setIsCardSelectorOpen(true);
-    } else if (action === 'modify') {
-      setIsModifyingLuckyHand(true);
       setTargetHandIndex(handIndex);
       setIsCardSelectorOpen(true);
     } else if (action === 'hit') {
@@ -305,20 +301,39 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     }
   };
 
+  const handleModifyLuckyHandFromStats = (handIndex: number) => {
+    setSelectedPlayerStats(null); // 关闭大盘
+    setIsModifyingLuckyHand(true);
+    setTargetHandIndex(handIndex);
+    setIsCardSelectorOpen(true); // 调起选牌
+  };
+
   const handleConfirmCardSelection = async (card1: string, card2: string) => {
+    // 立即关闭面板，提升交互响应
+    setIsCardSelectorOpen(false);
+
     try {
       if (isModifyingLuckyHand) {
         const hand = luckyHands.find(h => h.hand_index === targetHandIndex);
         if (hand) {
-          await luckyHandsApi.requestUpdate(id!, user!.id, (hand as any).id, card1, card2);
-          showToast("改牌申请已发出，请等待房主同意", 'info');
+          if (isHost && user!.id === game?.created_by) {
+            // 房主修改自己的直接确认过免审
+            if (window.confirm("确定要修改此手牌吗？新的卡牌将即时生效，同时该组中奖次数将重置为 0。")) {
+              await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+              showToast("您的手牌修改成功", 'success');
+            }
+          } else {
+            await luckyHandsApi.requestUpdate(id!, user!.id, (hand as any).id, card1, card2);
+            showToast("改牌申请已发出，请等待房主同意", 'info');
+          }
         }
       } else {
         await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+        showToast("手牌设置完毕", 'success');
       }
-      setIsCardSelectorOpen(false);
     } catch (err) {
       console.error("Setup Card Error", err);
+      showToast("操作出现错误", 'error');
     }
   };
 
@@ -938,6 +953,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             userId={selectedPlayerStats.id}
             username={selectedPlayerStats.username}
             luckyHandsCount={game.lucky_hands_count}
+            onModifyLuckyHand={handleModifyLuckyHandFromStats}
+            currentUserId={user?.id}
           />
         )}
       </div>

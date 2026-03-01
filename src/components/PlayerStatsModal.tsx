@@ -11,6 +11,8 @@ interface PlayerStatsModalProps {
     userId: string;
     username: string;
     luckyHandsCount: number;
+    onModifyLuckyHand?: (handIndex: number) => void;
+    currentUserId?: string;
 }
 
 export default function PlayerStatsModal({
@@ -19,7 +21,9 @@ export default function PlayerStatsModal({
     gameId,
     userId,
     username,
-    luckyHandsCount
+    luckyHandsCount,
+    onModifyLuckyHand,
+    currentUserId
 }: PlayerStatsModalProps) {
     const [totalBuyin, setTotalBuyin] = useState(0);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
@@ -140,9 +144,19 @@ export default function PlayerStatsModal({
 
                                                     <div className="text-xs text-slate-400 font-bold mb-1">槽位 {handIndex}</div>
                                                     {data ? (
-                                                        <div className="flex gap-1 justify-center mt-1">
-                                                            <PokerCardDisp card={data.card_1} className="text-[13px] px-1 shadow-sm" />
-                                                            <PokerCardDisp card={data.card_2} className="text-[13px] px-1 shadow-sm" />
+                                                        <div className="flex flex-col items-center mt-1">
+                                                            <div className="flex gap-1 justify-center">
+                                                                <PokerCardDisp card={data.card_1} className="text-[13px] px-1 shadow-sm" />
+                                                                <PokerCardDisp card={data.card_2} className="text-[13px] px-1 shadow-sm" />
+                                                            </div>
+                                                            {currentUserId === userId && onModifyLuckyHand && (
+                                                                <button
+                                                                    onClick={() => onModifyLuckyHand(handIndex)}
+                                                                    className="mt-2 text-[10px] text-indigo-500 hover:text-white hover:bg-indigo-500 font-bold bg-white dark:bg-[#192633] px-2 py-0.5 rounded shadow-sm border border-indigo-200 transition-colors"
+                                                                >
+                                                                    修改手牌
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <div className="text-2xl text-slate-300 dark:text-slate-600 font-light">-</div>

@@ -12,7 +12,7 @@ export interface LuckyHandData {
 interface LuckyHandFABProps {
     maxHandsCount: number; // 0-3
     configuredHands: LuckyHandData[];
-    onSelectSlot: (handIndex: number, action: 'setup' | 'hit' | 'modify') => void;
+    onSelectSlot: (handIndex: number, action: 'setup' | 'hit') => void;
 }
 
 export default function LuckyHandFAB({
@@ -23,8 +23,6 @@ export default function LuckyHandFAB({
     if (maxHandsCount === 0) return null;
 
     const [isExpanded, setIsExpanded] = useState(false);
-    const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
-    const [isLongPressing, setIsLongPressing] = useState(false);
 
     // 展开/收起动画
     useEffect(() => {
@@ -44,9 +42,9 @@ export default function LuckyHandFAB({
                 },
                 opacity: [0, 1],
                 scale: [0.5, 1],
-                duration: 400,
-                delay: anime.stagger(40),
-                easing: 'easeOutElastic(1, .8)',
+                duration: 300,
+                delay: anime.stagger(30),
+                easing: 'easeOutCubic',
             });
         } else {
             anime({
@@ -60,44 +58,6 @@ export default function LuckyHandFAB({
             });
         }
     }, [isExpanded]);
-
-    const handleSlotPointerDown = (slotIndex: number, isConfigured: boolean, e: React.PointerEvent) => {
-        if (!isExpanded) return;
-        // 只有已配置的槽位才支持长按修改
-        if (isConfigured) {
-            setIsLongPressing(false);
-            const timer = setTimeout(() => {
-                setIsLongPressing(true);
-                if (navigator.vibrate) navigator.vibrate(50);
-                onSelectSlot(slotIndex, 'modify');
-                setIsExpanded(false);
-            }, 500); // 500ms 判定为长按
-            setPressTimer(timer);
-        }
-    };
-
-    const handleSlotPointerUp = (slotIndex: number, isConfigured: boolean) => {
-        if (pressTimer) clearTimeout(pressTimer);
-        if (!isExpanded) return;
-
-        if (isConfigured) {
-            // 如果是在没触发长按之前就抬起了，那就是普通点击
-            if (!isLongPressing) {
-                onSelectSlot(slotIndex, 'hit');
-                setIsExpanded(false);
-            }
-        } else {
-            // 没有配置的时候肯定是 setup
-            onSelectSlot(slotIndex, 'setup');
-            setIsExpanded(false);
-        }
-        setIsLongPressing(false);
-    };
-
-    const handleSlotPointerCancel = () => {
-        if (pressTimer) clearTimeout(pressTimer);
-        setIsLongPressing(false);
-    };
 
     // 渲染单张扑克小图标（用来在已配置手牌槽位上显示）
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
@@ -136,11 +96,11 @@ export default function LuckyHandFAB({
                     return (
                         <div
                             key={slotIndex}
-                            onPointerDown={(e) => handleSlotPointerDown(slotIndex, !!configured, e)}
-                            onPointerUp={() => handleSlotPointerUp(slotIndex, !!configured)}
-                            onPointerLeave={handleSlotPointerCancel}
-                            onPointerCancel={handleSlotPointerCancel}
-                            onContextMenu={(e) => { e.preventDefault(); }} // 阻止在带有长按逻辑的按钮上弹出右键菜单
+                            onClick={() => {
+                                if (!isExpanded) return;
+                                onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
+                                setIsExpanded(false);
+                            }}
                             className={`lucky-hand-item absolute w-14 h-14 rounded-full shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
                                 ? 'bg-indigo-600 text-white border-2 border-indigo-400'
                                 : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500 hover:bg-slate-600'

@@ -59,7 +59,7 @@ router.post('/:gameId/setup', async (req, res) => {
             return res.status(400).json({ error: '槽位不被房间配置允许' });
         }
 
-        // Upsert 写入对应用户+槽位配置
+        // Upsert 写入对应用户+槽位配置并重置中奖次数
         const { data, error } = await supabase
             .from('lucky_hands')
             .upsert({
@@ -68,6 +68,7 @@ router.post('/:gameId/setup', async (req, res) => {
                 hand_index: handIndex,
                 card_1: card1,
                 card_2: card2,
+                hit_count: 0,
             }, { onConflict: 'game_id,user_id,hand_index' })
             .select(`*, users(id, username)`)
             .single();
