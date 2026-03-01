@@ -18,6 +18,10 @@ export default function SettlementReport() {
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localChips, setLocalChips] = useState<Record<string, number>>({});
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 汇率：每积分对应的真实货币金额（例如 1积分 = 0.1元）
+  const [exchangeRate, setExchangeRate] = useState<number>(1);
+  const [rateInput, setRateInput] = useState<string>('1');
 
   const fetchData = async () => {
     if (!id) return;
@@ -26,7 +30,6 @@ export default function SettlementReport() {
       setGame(game);
       setStats(stats);
       setIsFinished(hasSettlement || game.status === 'finished');
-      // 初始化本地筹码输入值
       const chips: Record<string, number> = {};
       stats.forEach(s => { chips[s.userId] = s.finalChips; });
       setLocalChips(chips);
@@ -37,9 +40,7 @@ export default function SettlementReport() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [id]);
+  useEffect(() => { fetchData(); }, [id]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -56,30 +57,41 @@ export default function SettlementReport() {
 
   const handleChipChange = (userId: string, value: string) => {
     setLocalChips(prev => ({ ...prev, [userId]: parseInt(value, 10) || 0 }));
+    setErrorMsg(null);
+  };
+
+  const handleRateChange = (val: string) => {
+    setRateInput(val);
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && parsed > 0) setExchangeRate(parsed);
   };
 
   const handleFinalize = async () => {
     if (!id) return;
     setIsSubmitting(true);
+    setErrorMsg(null);
     try {
       const playerResults = stats.map(s => ({
         userId: s.userId,
         finalChips: localChips[s.userId] ?? s.finalChips,
       }));
       await settlementApi.submit(id, user!.id, playerResults);
-      await fetchData(); // 刷新数据
+      await fetchData();
       setIsFinished(true);
     } catch (err: any) {
-      alert(err.message || '结算提交失败');
+      setErrorMsg(err.message || '结算提交失败');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 计算合计（使用本地输入值）
   const totalBuyIn = stats.reduce((sum, s) => sum + s.totalBuyin, 0);
   const totalChips = stats.reduce((sum, s) => sum + (localChips[s.userId] ?? s.finalChips), 0);
   const totalProfit = totalChips - totalBuyIn;
+  const isBalanced = Math.abs(totalChips - totalBuyIn) <= 1;
+
+  // 格式化真实金额
+  const toReal = (chips: number) => (chips * exchangeRate).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   if (isLoading) {
     return (
@@ -131,6 +143,13 @@ export default function SettlementReport() {
                 <div className={`bg-white dark:bg-[#1a2632] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm ${isFinished ? 'opacity-90' : ''}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">玩家列表</h3>
+                    {/* 平账状态 */}
+                    {!isFinished && (
+                      <span className={`text-xs font-bold px-2 py-1 rounded flex items-center gap-1 ${isBalanced ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-500'}`}>
+                        <span className="material-symbols-outlined text-[12px]">{isBalanced ? 'check_circle' : 'error'}</span>
+                        {isBalanced ? '已平账' : `差 ${totalChips - totalBuyIn} 积分`}
+                      </span>
+                    )}
                   </div>
 
                   {stats.map(s => (
@@ -164,8 +183,32 @@ export default function SettlementReport() {
 
             <div className="h-2 bg-slate-100 dark:bg-[#0b1218] opacity-0"></div>
 
+            {/* 汇率设置 */}
+            <div className="px-4 py-4 opacity-0">
+              <div className="bg-white dark:bg-[#1a2632] rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary text-[22px]">currency_exchange</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">汇率设置</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">每积分换算成多少真实货币</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-slate-500">1 积分 =</span>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.01"
+                    value={rateInput}
+                    onChange={e => handleRateChange(e.target.value)}
+                    className="w-20 h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#111a22] text-slate-900 dark:text-white text-sm text-right px-2 focus:border-primary focus:outline-none"
+                    placeholder="1.00"
+                  />
+                  <span className="text-xs text-slate-500">元</span>
+                </div>
+              </div>
+            </div>
+
             {/* 对局总结 */}
-            <div className="px-4 py-6 opacity-0">
+            <div className="px-4 py-4 opacity-0">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-slate-900 dark:text-white text-lg font-bold">{game?.name || '对局总结'}</h2>
                 {isFinished ? (
@@ -181,7 +224,7 @@ export default function SettlementReport() {
                     <tr>
                       <th className="px-4 py-3 font-semibold">玩家</th>
                       <th className="px-4 py-3 font-semibold text-right">净盈亏</th>
-                      <th className="px-4 py-3 font-semibold text-right">筹码</th>
+                      <th className="px-4 py-3 font-semibold text-right">实际金额</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -195,11 +238,15 @@ export default function SettlementReport() {
                             {s.username}{isMe && <span className="ml-1 text-xs text-primary">(你)</span>}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className={`font-semibold ${profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-                              {profit > 0 ? '+' : ''}{profit} 积分
+                            <span className={`font-semibold text-sm ${profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {profit > 0 ? '+' : ''}{profit}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">{chips} 积分</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-bold text-sm ${profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {profit >= 0 ? '+' : ''}¥{toReal(profit)}
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
@@ -208,13 +255,23 @@ export default function SettlementReport() {
                     <tr>
                       <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">总池</td>
                       <td className={`px-4 py-3 text-right font-bold ${totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
-                        {totalProfit > 0 ? '+' : ''}{totalProfit} 积分
+                        {totalProfit > 0 ? '+' : ''}{totalProfit}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{totalChips} 积分</td>
+                      <td className={`px-4 py-3 text-right font-bold ${totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                        {totalProfit >= 0 ? '+' : ''}¥{toReal(totalProfit)}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+
+              {/* 错误提示 */}
+              {errorMsg && (
+                <div className="mt-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
+                  <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">error</span>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               <div className="mt-6 flex flex-col gap-3">
                 {!isFinished ? (

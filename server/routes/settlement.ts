@@ -114,15 +114,68 @@ router.post('/:gameId', async (req, res) => {
         return res.status(400).json({ error: '缺少玩家结算数据' });
     }
 
-    // 先获取每个玩家的总买入
-    const { data: buyIns } = await supabase
+    // ── 验证：所有玩家都需要结账 ─────────────────────────────────────────
+    // 获取该游戏的所有玩家
+    const { data: players } = await supabase
+        .from('game_players')
+        .select('user_id, users(username)')
+        .eq('game_id', gameId);
+
+    // 获取所有买入与结账记录
+    const { data: allBuyIns } = await supabase
         .from('buy_ins')
         .select('*')
-        .eq('game_id', gameId)
-        .in('type', ['initial', 'rebuy']);
+        .eq('game_id', gameId);
 
+    // 检查每个玩家是否有买入记录（有买入的才需要结账）
+    const playersWithBuyIn = new Set(
+        (allBuyIns || [])
+            .filter((b: any) => b.type === 'initial' || b.type === 'rebuy')
+            .map((b: any) => b.user_id)
+    );
+
+    // 检查哪些玩家已经结账
+    const playersWithCheckout = new Set(
+        (allBuyIns || [])
+            .filter((b: any) => b.type === 'checkout')
+            .map((b: any) => b.user_id)
+    );
+
+    // 找出还没结账的玩家
+    const notCheckedOut: string[] = [];
+    (players || []).forEach((p: any) => {
+        if (playersWithBuyIn.has(p.user_id) && !playersWithCheckout.has(p.user_id)) {
+            notCheckedOut.push(p.users?.username || p.user_id);
+        }
+    });
+
+    if (notCheckedOut.length > 0) {
+        return res.status(400).json({
+            error: `以下玩家尚未结账，无法关闭房间：${notCheckedOut.join('、')}`,
+            notCheckedOut
+        });
+    }
+
+    // ── 验证：账单需要平账 ────────────────────────────────────────────────
+    // 计算：总买入 vs 总结账筹码，差值不超过 1（允许积分舍入误差）
+    const totalBuyInAmount = (allBuyIns || [])
+        .filter((b: any) => b.type === 'initial' || b.type === 'rebuy')
+        .reduce((sum: number, b: any) => sum + b.amount, 0);
+
+    const submittedChipsTotal = playerResults.reduce((sum: number, p: any) => sum + (p.finalChips || 0), 0);
+
+    if (Math.abs(submittedChipsTotal - totalBuyInAmount) > 1) {
+        return res.status(400).json({
+            error: `账单未平账！总买入: ${totalBuyInAmount} 积分，总剩余筹码: ${submittedChipsTotal} 积分，差异: ${submittedChipsTotal - totalBuyInAmount} 积分`,
+            totalBuyIn: totalBuyInAmount,
+            totalChips: submittedChipsTotal,
+            diff: submittedChipsTotal - totalBuyInAmount
+        });
+    }
+
+    // ── 计算每位玩家的总买入（用于结算） ─────────────────────────────────
     const buyInByUser: Record<string, number> = {};
-    (buyIns || []).forEach((b: any) => {
+    (allBuyIns || []).filter((b: any) => b.type === 'initial' || b.type === 'rebuy').forEach((b: any) => {
         buyInByUser[b.user_id] = (buyInByUser[b.user_id] || 0) + b.amount;
     });
 
