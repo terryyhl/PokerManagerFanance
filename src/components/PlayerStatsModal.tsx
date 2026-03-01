@@ -25,7 +25,7 @@ export default function PlayerStatsModal({
     onModifyLuckyHand,
     currentUserId
 }: PlayerStatsModalProps) {
-    const [totalBuyin, setTotalBuyin] = useState(0);
+    const [buyInRecords, setBuyInRecords] = useState<{ amount: number, type: string, created_at: string, status: string }[]>([]);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -39,15 +39,14 @@ export default function PlayerStatsModal({
                 // Fetch buyins
                 const { data: buyinData, error: buyinError } = await supabase
                     .from('buy_ins')
-                    .select('amount, type')
+                    .select('amount, type, created_at, status')
                     .eq('game_id', gameId)
-                    .eq('user_id', userId);
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: true });
 
                 if (!buyinError && buyinData) {
-                    const total = buyinData
-                        .filter(b => b.type !== 'checkout')
-                        .reduce((sum, current) => sum + current.amount, 0);
-                    if (isMounted) setTotalBuyin(total);
+                    const validRecords = buyinData.filter(b => b.type !== 'checkout' && b.status === 'completed');
+                    if (isMounted) setBuyInRecords(validRecords);
                 }
 
                 // Fetch lucky hands
@@ -106,10 +105,34 @@ export default function PlayerStatsModal({
                         <>
                             {/* Finances */}
                             <div className="bg-slate-50 dark:bg-[#1f2e3d] rounded-xl p-4 border border-slate-100 dark:border-slate-800/60">
-                                <div className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">本局总买入</div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white font-mono flex items-baseline gap-1">
-                                    <span className="text-lg text-slate-400">¥</span>
-                                    {totalBuyin}
+                                <div className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-3 flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                                    买入记录流水
+                                </div>
+                                <div className="space-y-2 mb-4 max-h-32 overflow-y-auto pr-1 diy-scrollbar">
+                                    {buyInRecords.length > 0 ? buyInRecords.map((record, i) => (
+                                        <div key={i} className="flex justify-between items-center text-sm py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0">
+                                            <div className="text-slate-500 text-xs">
+                                                {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                <span className="ml-2 text-indigo-500 font-medium">
+                                                    {record.type === 'initial' ? '首次买入' : '补充买入'}
+                                                </span>
+                                            </div>
+                                            <div className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                                                + {record.amount}
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center text-slate-400 text-xs py-2">暂无已结算记录</div>
+                                    )}
+                                </div>
+
+                                <div className="pt-3 border-t border-slate-200 dark:border-slate-700/60 flex justify-between items-baseline">
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">总计买入</div>
+                                    <div className="text-2xl font-black text-slate-900 dark:text-white font-mono flex items-baseline gap-1">
+                                        <span className="text-base text-slate-400">¥</span>
+                                        {buyInRecords.reduce((sum, current) => sum + current.amount, 0)}
+                                    </div>
                                 </div>
                             </div>
 
