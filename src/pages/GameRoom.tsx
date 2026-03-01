@@ -24,6 +24,8 @@ export default function GameRoom() {
 
   // 带入审核：待审核队列（SSE 实时推送，房主可见）
   const [pendingRequests, setPendingRequests] = useState<PendingBuyinEvent[]>([]);
+  // 房间玩家列表
+  const [players, setPlayers] = useState<Player[]>([]);
 
   // 房间码弹窗
   const [showRoomCode, setShowRoomCode] = useState(false);
@@ -52,6 +54,7 @@ export default function GameRoom() {
       const { game, buyIns, players } = await gamesApi.get(id);
       setGame(game);
       setBuyIns(buyIns);
+      setPlayers(players);
       const isMember = (players as Player[]).some(p => p.user_id === user.id);
       if (!isMember) setNeedsPassword(true);
     } catch (err) {
@@ -336,7 +339,15 @@ export default function GameRoom() {
               <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>
             </button>
             <div>
-              <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white">{game?.name || '牌局'}</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white">{game?.name || '牌局'}</h2>
+                {game?.users && (
+                  <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50 flex items-center gap-0.5">
+                    <span className="material-symbols-outlined text-[12px]">grade</span>
+                    房主: {game.users.username}
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <span>{game?.room_code} • 盲注 {game?.blind_level}</span>
                 {needsApproval && <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded">带入审核</span>}
@@ -352,6 +363,35 @@ export default function GameRoom() {
             </button>
           </div>
         </header>
+
+        {/* 房间参与者列表 */}
+        <div className="bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1">
+            {/* 房主排第一 */}
+            {players
+              .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
+              .map(player => {
+                const isPlayerHost = player.user_id === game?.created_by;
+                return (
+                  <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0">
+                    <div className="relative">
+                      <Avatar
+                        username={player.users?.username || '?'}
+                        isAdmin={isPlayerHost}
+                        className="w-10 h-10"
+                      />
+                      {isPlayerHost && (
+                        <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
+                      )}
+                    </div>
+                    <span className={`text-[10px] font-bold truncate max-w-[50px] ${isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
+                      {player.users?.username}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
 
         {/* 房间码弹窗 */}
         {showRoomCode && (
