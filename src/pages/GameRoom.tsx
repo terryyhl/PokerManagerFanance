@@ -365,7 +365,7 @@ export default function GameRoom() {
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>lock</span>
             </button>
             <button onClick={() => navigate(`/settlement/${id}`)} className="flex items-center justify-center rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
-              <span className="material-symbols-outlined mr-1" style={{ fontSize: '18px' }}>receipt_long</span>结算
+              <span className="material-symbols-outlined mr-1" style={{ fontSize: '18px' }}>receipt_long</span>账单
             </button>
           </div>
         </header>
