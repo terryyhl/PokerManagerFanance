@@ -94,12 +94,16 @@ export function useGameSSE(
             };
         }
 
-        // Polling fallback for Vercel environments where SSE might be unstable
+        // Polling fallback (2s frequency) for Vercel serverless stability
         const pollingInterval = setInterval(() => {
             if (active) {
-                handlersRef.current.onGameRefresh?.({ type: 'polling', userId: userId! });
+                if (gameId === 'lobby') {
+                    handlersRef.current.onLobbyRefresh?.({ gameId: 'lobby' });
+                } else {
+                    handlersRef.current.onGameRefresh?.({ type: 'polling', userId: userId! });
+                }
             }
-        }, 3000);
+        }, 2000);
 
         connect();
 

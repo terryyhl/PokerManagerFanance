@@ -211,6 +211,7 @@ export default function GameRoom() {
       await pendingBuyInApi.approve(confirmReq.id);
       setPendingRequests(prev => prev.filter(r => r.id !== confirmReq.id));
       setConfirmReq(null);
+      await fetchGame(); // Immediate update for host
       // SSE game_refresh 广播会触发所有端 fetchGame
     } catch (err: any) { showToast(err.message || '批准失败', 'error'); }
     finally { setConfirming(false); }
@@ -220,6 +221,7 @@ export default function GameRoom() {
     try {
       await pendingBuyInApi.reject(req.id);
       setPendingRequests(prev => prev.filter(r => r.id !== req.id));
+      await fetchGame(); // Immediate update for host
     } catch (err: any) { showToast(err.message || '拒绝失败', 'error'); }
   };
 

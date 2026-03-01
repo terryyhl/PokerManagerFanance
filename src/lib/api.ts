@@ -19,7 +19,7 @@ async function request<T>(
         options.body = JSON.stringify(body);
     }
 
-    const res = await fetch(`${BASE_URL}${path}`, options);
+    const res = await fetch(`${BASE_URL}${path}${path.includes('?') ? '&' : '?'}_t=${Date.now()}`, options);
 
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: '请求失败' }));
