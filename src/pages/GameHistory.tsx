@@ -9,6 +9,7 @@ export default function GameHistory() {
     const navigate = useNavigate();
     const { user } = useUser();
     const listRef = useRef<HTMLDivElement>(null);
+    const hasAnimated = useRef(false);
     const [games, setGames] = useState<Game[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -32,7 +33,9 @@ export default function GameHistory() {
     }, []);
 
     useEffect(() => {
-        if (!isLoading && games.length > 0 && listRef.current) {
+        if (!isLoading && games.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            if (!listRef.current) return;
             anime({
                 targets: listRef.current.children,
                 translateY: [20, 0],

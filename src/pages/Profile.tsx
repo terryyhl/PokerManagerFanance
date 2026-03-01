@@ -28,6 +28,8 @@ export default function Profile() {
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
     const [history, setHistory] = useState<GameHistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -42,6 +44,7 @@ export default function Profile() {
                 setHistory(userHistory);
             } catch (err) {
                 console.error('Failed to load profile data:', err);
+                setError(true);
             } finally {
                 setIsLoading(false);
             }
@@ -61,18 +64,31 @@ export default function Profile() {
                     <div className="flex items-center gap-3">
                         <h2 className="text-xl font-bold">个人中心</h2>
                     </div>
-                    <button
-                        onClick={() => {
-                            if (window.confirm('确定要退出登录吗？')) {
-                                logout();
-                                navigate('/login');
-                            }
-                        }}
-                        className="flex items-center justify-center size-9 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                        title="退出登录"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">logout</span>
-                    </button>
+                    {showLogoutConfirm ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">确定退出？</span>
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={() => { logout(); navigate('/login'); }}
+                                className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                            >
+                                退出
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setShowLogoutConfirm(true)}
+                            className="flex items-center justify-center size-9 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                            aria-label="退出登录"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">logout</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 pb-6">
@@ -85,6 +101,14 @@ export default function Profile() {
                         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{user.username}</h1>
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">注册于 {new Date(user.created_at).toLocaleDateString('zh-CN')}</p>
                     </div>
+
+                    {/* Error Banner */}
+                    {error && (
+                        <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-500 text-sm">
+                            <span className="material-symbols-outlined text-[18px]">error_outline</span>
+                            数据加载失败，部分内容可能不准确
+                        </div>
+                    )}
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 gap-3 mb-8">

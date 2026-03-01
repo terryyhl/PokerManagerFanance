@@ -12,9 +12,10 @@ export default function PersonalBill() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
   const contentRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
   const [myStat, setMyStat] = useState<PlayerStat | null>(null);
-  const [buyIns, setBuyIns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +26,7 @@ export default function PersonalBill() {
         setMyStat(me || null);
       } catch (err) {
         console.error(err);
+        setError(true);
       } finally {
         setIsLoading(false);
       }
@@ -40,9 +42,11 @@ export default function PersonalBill() {
   });
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !hasAnimated.current) {
+      hasAnimated.current = true;
+      if (!contentRef.current) return;
       anime({
-        targets: contentRef.current?.children,
+        targets: contentRef.current.children,
         translateY: [20, 0],
         opacity: [0, 1],
         duration: 600,
@@ -57,6 +61,18 @@ export default function PersonalBill() {
       <AnimatedPage>
         <div className="flex items-center justify-center h-full bg-background-light dark:bg-background-dark">
           <span className="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+        </div>
+      </AnimatedPage>
+    );
+  }
+
+  if (error) {
+    return (
+      <AnimatedPage animationType="slide-left">
+        <div className="flex flex-col items-center justify-center h-full gap-3 bg-background-light dark:bg-background-dark text-slate-400">
+          <span className="material-symbols-outlined text-4xl">error_outline</span>
+          <p className="text-sm">加载失败，请返回后重试</p>
+          <button onClick={() => navigate(-1)} className="mt-2 text-primary text-sm font-bold">返回</button>
         </div>
       </AnimatedPage>
     );
@@ -115,8 +131,9 @@ export default function PersonalBill() {
           {myStat ? (
             <div className="opacity-0">
               <div className={`p-5 rounded-2xl border ${isProfit ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'} text-center`}>
-                <span className={`text-3xl font-black ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
-                  {isProfit ? '🎉 盈利' : '📉 亏损'} {isProfit ? '+' : ''}{netProfit} 积分
+                <span className={`text-3xl font-black flex items-center justify-center gap-2 ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
+                  <span className="material-symbols-outlined text-3xl">{isProfit ? 'celebration' : 'trending_down'}</span>
+                  {isProfit ? '盈利' : '亏损'} {isProfit ? '+' : ''}{netProfit} 积分
                 </span>
                 <p className="text-slate-400 text-sm mt-2">
                   总买入 {myStat.totalBuyin} 积分 → 带走 {myStat.finalChips} 积分

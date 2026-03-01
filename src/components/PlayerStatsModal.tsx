@@ -25,9 +25,11 @@ export default function PlayerStatsModal({
     onModifyLuckyHand,
     currentUserId
 }: PlayerStatsModalProps) {
-    const [buyInRecords, setBuyInRecords] = useState<{ amount: number, type: string, created_at: string, status: string }[]>([]);
+    const [buyInRecords, setBuyInRecords] = useState<{ amount: number, type: string, created_at: string }[]>([]);
+    const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number, created_at: string } | null>(null);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !gameId || !userId) return;
@@ -35,18 +37,20 @@ export default function PlayerStatsModal({
         let isMounted = true;
         const fetchStats = async () => {
             setIsLoading(true);
+            setError(false);
             try {
                 // Fetch buyins
                 const { data: buyinData, error: buyinError } = await supabase
                     .from('buy_ins')
-                    .select('amount, type, created_at, status')
+                    .select('amount, type, created_at')
                     .eq('game_id', gameId)
                     .eq('user_id', userId)
                     .order('created_at', { ascending: true });
 
-                if (!buyinError && buyinData) {
-                    const validRecords = buyinData.filter(b => b.type !== 'checkout' && b.status === 'completed');
-                    if (isMounted) setBuyInRecords(validRecords);
+                if (!buyinError && buyinData && isMounted) {
+                    setBuyInRecords(buyinData.filter(b => b.type !== 'checkout'));
+                    const checkout = buyinData.find(b => b.type === 'checkout');
+                    setCheckoutRecord(checkout ? { amount: checkout.amount, created_at: checkout.created_at } : null);
                 }
 
                 // Fetch lucky hands
@@ -64,6 +68,7 @@ export default function PlayerStatsModal({
                 }
             } catch (err) {
                 console.error('Fetch player stats error:', err);
+                if (isMounted) setError(true);
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -79,21 +84,26 @@ export default function PlayerStatsModal({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-sm bg-white dark:bg-[#192633] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative z-10 box-border text-slate-800 dark:text-slate-200 transform scale-100 transition-all">
+            <div className="w-full max-w-sm bg-white dark:bg-[#192633] rounded-2xl shadow-2xl overflow-visible flex flex-col relative z-10 box-border text-slate-800 dark:text-slate-200 transform scale-100 transition-all mt-7">
 
-                {/* Header Profile */}
-                <div className="relative pt-12 pb-6 px-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-900/40 dark:to-purple-900/40 flex flex-col items-center border-b border-indigo-100 dark:border-indigo-900/50">
+                {/* Avatar - half outside modal */}
+                <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20">
+                    <div className="w-14 h-14 shadow-xl ring-4 ring-white dark:ring-[#192633] rounded-full bg-white">
+                        <Avatar username={username} className="w-full h-full" />
+                    </div>
+                </div>
+
+                {/* Header */}
+                <div className="relative pt-10 pb-2 px-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-900/40 dark:to-purple-900/40 flex flex-col items-center border-b border-indigo-100 dark:border-indigo-900/50 rounded-t-2xl">
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        aria-label="关闭"
+                        className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                     >
                         <span className="material-symbols-outlined">close</span>
                     </button>
 
-                    <div className="w-20 h-20 mb-3 shadow-xl ring-4 ring-white dark:ring-[#192633] rounded-full bg-white">
-                        <Avatar username={username} className="w-full h-full" />
-                    </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{username}</h2>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">{username}</h2>
                 </div>
 
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
@@ -101,39 +111,92 @@ export default function PlayerStatsModal({
                         <div className="flex justify-center p-8">
                             <span className="material-symbols-outlined animate-spin text-primary text-3xl">rotate_right</span>
                         </div>
+                    ) : error ? (
+                        <div className="flex flex-col items-center py-8 text-center text-slate-400 text-sm gap-2">
+                            <span className="material-symbols-outlined text-3xl">error_outline</span>
+                            加载失败，请关闭后重试
+                        </div>
                     ) : (
                         <>
-                            {/* Finances */}
+                            {/* Finances - Timeline */}
                             <div className="bg-slate-50 dark:bg-[#1f2e3d] rounded-xl p-4 border border-slate-100 dark:border-slate-800/60">
                                 <div className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-3 flex items-center gap-1.5">
                                     <span className="material-symbols-outlined text-[18px]">receipt_long</span>
                                     买入记录流水
                                 </div>
-                                <div className="space-y-2 mb-4 max-h-32 overflow-y-auto pr-1 diy-scrollbar">
-                                    {buyInRecords.length > 0 ? buyInRecords.map((record, i) => (
-                                        <div key={i} className="flex justify-between items-center text-sm py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0">
-                                            <div className="text-slate-500 text-xs">
-                                                {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                <span className="ml-2 text-indigo-500 font-medium">
-                                                    {record.type === 'initial' ? '首次买入' : '补充买入'}
-                                                </span>
-                                            </div>
-                                            <div className="font-mono font-bold text-slate-700 dark:text-slate-300">
-                                                + {record.amount}
+
+                                {buyInRecords.length > 0 ? (
+                                    <div className="relative max-h-48 overflow-y-auto no-scrollbar">
+                                        <div className="absolute left-[11px] top-3 bottom-3 w-px bg-slate-200 dark:bg-slate-700" />
+                                        <div className="space-y-3">
+                                            {buyInRecords.map((record, i) => {
+                                                const isInitial = record.type === 'initial';
+                                                let runningTotal = 0;
+                                                for (let j = 0; j <= i; j++) runningTotal += buyInRecords[j].amount;
+                                                return (
+                                                    <div key={i} className="flex items-start gap-3 relative">
+                                                        <div className={`relative z-10 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white ${isInitial ? 'bg-primary' : 'bg-indigo-400 dark:bg-indigo-500'}`}>
+                                                            {i + 1}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isInitial ? 'bg-primary/10 text-primary' : 'bg-indigo-500/10 text-indigo-500'}`}>
+                                                                        {isInitial ? '首次买入' : '补充买入'}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-mono font-black text-sm text-slate-800 dark:text-slate-200">+{record.amount}</span>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                                累计: {runningTotal}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {checkoutRecord && (
+                                                <div className="flex items-start gap-3 relative">
+                                                    <div className="relative z-10 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500">
+                                                        <span className="material-symbols-outlined text-white text-[14px]">check</span>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">结账离场</span>
+                                                                <span className="text-[10px] text-slate-400">
+                                                                    {new Date(checkoutRecord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                            <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">{checkoutRecord.amount}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-slate-400 text-xs py-4">暂无买入记录</div>
+                                )}
+
+                                {buyInRecords.length > 0 && (
+                                    <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60 flex items-baseline justify-between">
+                                        <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">总买入</div>
+                                        <div className="flex items-baseline gap-3">
+                                            {checkoutRecord && (
+                                                <div className="text-xs text-slate-400">
+                                                    结账 <span className="font-bold text-emerald-500">{checkoutRecord.amount}</span>
+                                                </div>
+                                            )}
+                                            <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                                                {buyInRecords.reduce((sum, r) => sum + r.amount, 0)}
                                             </div>
                                         </div>
-                                    )) : (
-                                        <div className="text-center text-slate-400 text-xs py-2">暂无已结算记录</div>
-                                    )}
-                                </div>
-
-                                <div className="pt-3 border-t border-slate-200 dark:border-slate-700/60 flex justify-between items-baseline">
-                                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">总计买入</div>
-                                    <div className="text-2xl font-black text-slate-900 dark:text-white font-mono flex items-baseline gap-1">
-                                        <span className="text-base text-slate-400">¥</span>
-                                        {buyInRecords.reduce((sum, current) => sum + current.amount, 0)}
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Lucky Hands Section */}

@@ -56,6 +56,7 @@ export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHa
                     </div>
                     <button
                         onClick={handleClose}
+                        aria-label="关闭"
                         className="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                     >
                         <span className="material-symbols-outlined">close</span>
@@ -84,7 +85,7 @@ export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHa
                 <div className="p-4 overflow-y-auto">
                     <div className="flex flex-col gap-4 pb-4">
                         {SUITS.map(suit => (
-                            <div key={suit.name} className="flex flex-nowrap overflow-x-auto gap-2 pb-2 hide-scrollbar">
+                            <div key={suit.name} className="flex flex-nowrap overflow-x-auto gap-2 pb-2 no-scrollbar">
                                 <div className={`flex-shrink-0 w-8 flex items-center justify-center text-2xl ${suit.color}`}>
                                     {suit.symbol}
                                 </div>

@@ -11,6 +11,7 @@ export default function SettlementReport() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
   const contentRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
 
   const [game, setGame] = useState<Game | null>(null);
   const [stats, setStats] = useState<PlayerStat[]>([]);
@@ -43,9 +44,11 @@ export default function SettlementReport() {
   useEffect(() => { fetchData(); }, [id]);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !hasAnimated.current) {
+      hasAnimated.current = true;
+      if (!contentRef.current) return;
       anime({
-        targets: contentRef.current?.children,
+        targets: contentRef.current.children,
         translateY: [20, 0],
         opacity: [0, 1],
         duration: 600,
