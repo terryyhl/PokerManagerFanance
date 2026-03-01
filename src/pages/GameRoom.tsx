@@ -58,8 +58,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // Lucky Hands States
   const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
-  const [allLuckyHands, setAllLuckyHands] = useState<any[]>([]);
-  const [pendingLuckyHits, setPendingLuckyHits] = useState<any[]>([]);
+  const [allLuckyHands, setAllLuckyHands] = useState<import('../lib/api').LuckyHand[]>([]);
+  const [pendingLuckyHits, setPendingLuckyHits] = useState<import('../lib/api').PendingLuckyHit[]>([]);
   const [isCardSelectorOpen, setIsCardSelectorOpen] = useState(false);
   const [targetHandIndex, setTargetHandIndex] = useState(1);
   const [isModifyingLuckyHand, setIsModifyingLuckyHand] = useState(false);
@@ -67,6 +67,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [showTVDashboard, setShowTVDashboard] = useState(false);
 
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
+
+  // #26 自定义确认修改手牌的 Modal 状态
+  const [modifyConfirm, setModifyConfirm] = useState<{ card1: string; card2: string } | null>(null);
 
   // 买入成功状态
   const [buyinSuccess, setBuyinSuccess] = useState<{ amount: number; total: number } | null>(null);
@@ -79,9 +82,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const fetchGame = async () => {
     if (!id || !user) return;
     try {
-      const [{ game: gameData, buyIns: buyInsData, players: playersData }] = await Promise.all([
-        gamesApi.get(id)
-      ]);
+      const { game: gameData, buyIns: buyInsData, players: playersData } = await gamesApi.get(id);
 
       setGame({ ...gameData, created_at: gameData.created_at || new Date().toISOString() });
       setBuyIns(buyInsData);
@@ -92,7 +93,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         const { luckyHands: fetchedHands } = await luckyHandsApi.getAll(id);
         setAllLuckyHands(fetchedHands);
         // 这里我们只在 FAB 中关心【自己的】手牌配置
-        setLuckyHands(fetchedHands.filter((h: any) => h.user_id === user.id));
+        setLuckyHands(fetchedHands.filter((h) => h.user_id === user.id));
 
         if (gameData.created_by === user.id) {
           const { pendingHits } = await luckyHandsApi.getPending(id);
@@ -109,7 +110,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     }
   };
 
-  useEffect(() => { fetchGame(); }, [id, user]);
+  useEffect(() => {
+    fetchGame();
+    return () => {
+      // 清理 fetchTimeout，防止卸载后更新 state
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    };
+  }, [id, user]);
 
 
   // 初次加载完成：立即跳到底部（使用 useLayoutEffect 避免绘制后发生肉眼抖动）
@@ -154,7 +161,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       }, 300);
     },
     // 申请用户：审核通过通知（由 buy_ins INSERT 事件触发）
-    onBuyinApproved: (data: any) => {
+    onBuyinApproved: (data) => {
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
       // totalAmount 先用 0 占位，fetchGame 完成后界面会自动更新
       setBuyinSuccess({ amount: data.amount, total: data.totalAmount ?? 0 });
@@ -248,9 +255,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     // 直接买入（无审核 or 房主）
     setSubmitting(true);
     try {
-      const res = await buyInApi.record(id, user.id, amount, type);
+      const res = await buyInApi.record(id, user.id, amount, type) as { buyIn: BuyIn; totalAmount?: number };
       await fetchGame();
-      setBuyinSuccess({ amount, total: (res as any).totalAmount });
+      setBuyinSuccess({ amount, total: res.totalAmount ?? 0 });
       setBuyInAmount('');
     } catch (err: any) {
       showToast(err.message || '买入失败', 'error');
@@ -292,7 +299,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           setDirectHitConfirmHand(hand);
         } else {
           try {
-            await luckyHandsApi.submitHit(id!, user!.id, (hand as any).id);
+            await luckyHandsApi.submitHit(id!, user!.id, (hand as LuckyHandData & { id: string }).id);
             showToast("已向房主发起中奖审核，请等待批准", 'info');
             console.log("Submit hit successfully!");
           } catch (e: any) {
@@ -318,21 +325,18 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       if (isModifyingLuckyHand) {
         const hand = luckyHands.find(h => h.hand_index === targetHandIndex);
         if (hand) {
-          if (isHost && user!.id === game?.created_by) {
-            // 房主修改自己的直接确认过免审
-            if (window.confirm("确定要修改此手牌吗？新的卡牌将即时生效，同时该组中奖次数将重置为 0。")) {
-              setLuckyHands(prev => prev.map(h => h.hand_index === targetHandIndex ? { ...h, card_1: card1, card_2: card2, hit_count: 0 } : h));
-              await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
-              showToast("您的手牌修改成功", 'success');
-            }
+          if (isHost && user?.id === game?.created_by) {
+            // 房主修改自己的 → 弹出自定义确认 Modal
+            setModifyConfirm({ card1, card2 });
+            return; // 等待 Modal 确认后再执行
           } else {
-            await luckyHandsApi.requestUpdate(id!, user!.id, (hand as any).id, card1, card2);
+            await luckyHandsApi.requestUpdate(id!, user!.id, (hand as { id: string }).id, card1, card2);
             showToast("改牌申请已发出，请等待房主同意", 'info');
           }
         }
       } else {
         setLuckyHands(prev => {
-          const newHand = { id: `temp-${Date.now()}`, hand_index: targetHandIndex, card_1: card1, card_2: card2, hit_count: 0, user_id: user!.id, game_id: id! } as any;
+          const newHand: LuckyHandData = { id: `temp-${Date.now()}`, hand_index: targetHandIndex, card_1: card1, card_2: card2, hit_count: 0, user_id: user!.id, game_id: id! } as LuckyHandData;
           return [...prev.filter(h => h.hand_index !== targetHandIndex), newHand];
         });
         await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
@@ -492,7 +496,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         <div className="bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800 px-4 py-3">
           <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1">
             {/* 房主排第一 */}
-            {players
+            {[...players]
               .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
               .map(player => {
                 const isPlayerHost = player.user_id === game?.created_by;
@@ -885,6 +889,50 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* --- 浮层与模态框挂载区 --- */}
 
+        {/* #26 自定义修改手牌确认 Modal（替代 window.confirm） */}
+        {modifyConfirm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-500 mb-4 mx-auto">
+                <span className="material-symbols-outlined text-[28px]">edit_note</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-center text-slate-800 dark:text-slate-100">确定修改手牌？</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 text-center leading-relaxed">
+                新卡牌将即时生效，同时该组中奖次数将重置为 0。
+              </p>
+              <div className="flex gap-1 justify-center mb-6">
+                <PokerCardDisp card={modifyConfirm.card1} className="px-2 py-1 text-lg shadow-sm" />
+                <PokerCardDisp card={modifyConfirm.card2} className="px-2 py-1 text-lg shadow-sm" />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModifyConfirm(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={async () => {
+                    const { card1, card2 } = modifyConfirm;
+                    setModifyConfirm(null);
+                    try {
+                      setLuckyHands(prev => prev.map(h => h.hand_index === targetHandIndex ? { ...h, card_1: card1, card_2: card2, hit_count: 0 } : h));
+                      await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+                      showToast("您的手牌修改成功", 'success');
+                    } catch (err) {
+                      console.error(err);
+                      showToast("修改失败", 'error');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-lg shadow-amber-500/30 transition-all active:scale-95"
+                >
+                  确认修改
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 房主免审确认 Dialog */}
         {directHitConfirmHand && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -913,7 +961,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     setSubmitting(true);
                     try {
                       setLuckyHands(prev => prev.map(h => h.hand_index === directHitConfirmHand.hand_index ? { ...h, hit_count: h.hit_count + 1 } : h));
-                      await luckyHandsApi.hostDirectHit(id!, user!.id, (directHitConfirmHand as any).id);
+                      await luckyHandsApi.hostDirectHit(id!, user!.id, (directHitConfirmHand as LuckyHandData & { id: string }).id);
                       setDirectHitConfirmHand(null);
                     } catch (e) {
                       showToast('免审通过失败', 'error');

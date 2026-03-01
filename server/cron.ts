@@ -1,8 +1,8 @@
 import { supabase } from './supabase.js';
-import { broadcastToGame } from './sse.js';
 
 /**
  * 自动结算并关闭超过 24 小时的活跃房间
+ * #11 优化：批量查询所有过期游戏的玩家和买入记录，避免 N+1 查询
  */
 export async function autoCloseExpiredGames() {
     try {
@@ -28,52 +28,72 @@ export async function autoCloseExpiredGames() {
 
         console.log(`[cron] 发现 ${expiredGames.length} 个超过 24 小时未结束的房间，开始自动结算`);
 
+        const gameIds = expiredGames.map(g => g.id);
+
+        // 批量获取所有过期游戏的玩家
+        const { data: allPlayers } = await supabase
+            .from('game_players')
+            .select('user_id, game_id')
+            .in('game_id', gameIds);
+
+        // 批量获取所有过期游戏的买入记录
+        const { data: allBuyIns } = await supabase
+            .from('buy_ins')
+            .select('user_id, game_id, amount, type')
+            .in('game_id', gameIds);
+
+        // 按游戏分组
+        const playersByGame: Record<string, string[]> = {};
+        (allPlayers || []).forEach(p => {
+            if (!playersByGame[p.game_id]) playersByGame[p.game_id] = [];
+            playersByGame[p.game_id].push(p.user_id);
+        });
+
+        interface BuyInItem { user_id: string; game_id: string; amount: number; type: string }
+        const buyInsByGame: Record<string, BuyInItem[]> = {};
+        (allBuyIns || []).forEach((b: BuyInItem) => {
+            if (!buyInsByGame[b.game_id]) buyInsByGame[b.game_id] = [];
+            buyInsByGame[b.game_id].push(b);
+        });
+
+        // 收集所有结算记录，最后批量写入
+        const allSettlements: Array<{
+            game_id: string;
+            user_id: string;
+            final_chips: number;
+            total_buyin: number;
+            net_profit: number;
+        }> = [];
+
+        const gamesToClose: string[] = [];
+
         for (const game of expiredGames) {
             const gameId = game.id;
-
-            // 获取该游戏的所有玩家
-            const { data: players } = await supabase
-                .from('game_players')
-                .select('user_id')
-                .eq('game_id', gameId);
-
-            // 获取所有买入记录
-            const { data: buyIns } = await supabase
-                .from('buy_ins')
-                .select('*')
-                .eq('game_id', gameId);
+            const players = playersByGame[gameId] || [];
+            const buyIns = buyInsByGame[gameId] || [];
 
             const playerStats: Record<string, { totalBuyin: number; finalChips: number }> = {};
 
-            (players || []).forEach(p => {
-                playerStats[p.user_id] = { totalBuyin: 0, finalChips: 0 };
+            players.forEach(userId => {
+                playerStats[userId] = { totalBuyin: 0, finalChips: 0 };
             });
 
             // 统计总买入和已有的结账记录
-            (buyIns || []).forEach(b => {
+            const checkoutUsers = new Set<string>();
+            buyIns.forEach(b => {
                 if (!playerStats[b.user_id]) return;
                 if (b.type === 'initial' || b.type === 'rebuy') {
                     playerStats[b.user_id].totalBuyin += b.amount;
                 } else if (b.type === 'checkout') {
-                    // 如果用户自己登记了结账，就用它的最终筹码
                     playerStats[b.user_id].finalChips = b.amount;
+                    checkoutUsers.add(b.user_id);
                 }
             });
 
-            // 对于没有结账记录的玩家，自动将其 finalChips 设为 0 (自动结算视为清零，也可以根据需要设为 totalBuyin 视作保本。这里采取保本策略避免非预期的系统级输钱：即没有登记筹码，算作没输没赢)
-            // 修改：打牌通常如果人跑了没结账，按理是输光。但这里是记账工具，建议默认 `finalChips = totalBuyin` 强行平账，或者如果是真实比赛则是 0。
-            // 为了安全稳妥且防扯皮，系统自动结算时，如果用户完全没有 checkout 记录，将 final_chips 设置为当时的总买入 (盈亏 0)。
-            // 如果用户有 checkout 记录，那么上面已经赋值了 finalChips。
-            const hasCheckoutRecord = (userId: string) => (buyIns || []).some(b => b.user_id === userId && b.type === 'checkout');
-
-            const settlementsToInsert = Object.keys(playerStats).map(userId => {
+            const settlementsForGame = Object.keys(playerStats).map(userId => {
                 const stat = playerStats[userId];
-                let finalChips = stat.finalChips;
-
-                if (!hasCheckoutRecord(userId)) {
-                    // 没提交过结账的人，系统强行按盈亏 = 0 结算（最终筹码=总买入）
-                    finalChips = stat.totalBuyin;
-                }
+                // 没提交过结账的人，系统强行按盈亏 = 0 结算
+                const finalChips = checkoutUsers.has(userId) ? stat.finalChips : stat.totalBuyin;
 
                 return {
                     game_id: gameId,
@@ -84,27 +104,33 @@ export async function autoCloseExpiredGames() {
                 };
             });
 
-            if (settlementsToInsert.length > 0) {
-                const { error: insertError } = await supabase
-                    .from('settlements')
-                    .upsert(settlementsToInsert, { onConflict: 'game_id,user_id' });
+            allSettlements.push(...settlementsForGame);
+            gamesToClose.push(gameId);
+        }
 
-                if (insertError) {
-                    console.error(`[cron] 自动结算游戏 ${gameId} 写入记录失败:`, insertError);
-                    continue; // 写入失败就不关房间
-                }
+        // 批量写入结算记录
+        if (allSettlements.length > 0) {
+            const { error: insertError } = await supabase
+                .from('settlements')
+                .upsert(allSettlements, { onConflict: 'game_id,user_id' });
+
+            if (insertError) {
+                console.error('[cron] 批量自动结算写入记录失败:', insertError);
+                return;
             }
+        }
 
-            // 更新游戏状态为 finished
+        // 批量更新游戏状态为 finished
+        if (gamesToClose.length > 0) {
             const { error: updateError } = await supabase
                 .from('games')
                 .update({ status: 'finished', finished_at: new Date().toISOString() })
-                .eq('id', gameId);
+                .in('id', gamesToClose);
 
-            if (!updateError) {
-                console.log(`[cron] 已自动关闭过期房间: ${game.name} (${gameId})`);
-                // 广播通知可能还挂在房间里的端口
-                broadcastToGame(gameId, 'game_settled', { message: '房间超过 24 小时，已由系统自动结算并关闭' });
+            if (updateError) {
+                console.error('[cron] 批量关闭游戏失败:', updateError);
+            } else {
+                console.log(`[cron] 已自动关闭 ${gamesToClose.length} 个过期房间`);
             }
         }
     } catch (err) {

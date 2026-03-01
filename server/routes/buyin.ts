@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
-import { broadcastToGame, notifyHost, notifyUser } from '../sse.js';
 import { addPending, removePending, getPending } from '../pendingRequests.js';
 
 const router = Router();
@@ -18,6 +17,12 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
+        // #15 输入验证
+        const parsedAmount = parseInt(amount, 10);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            return res.status(400).json({ error: '买入金额必须为正整数' });
+        }
+
         const validType = type === 'rebuy' ? 'rebuy' : 'initial';
 
         const { data, error } = await supabase
@@ -25,7 +30,7 @@ router.post('/', async (req, res) => {
             .insert({
                 game_id: gameId,
                 user_id: userId,
-                amount: parseInt(amount, 10),
+                amount: parsedAmount,
                 type: validType,
             })
             .select(`*, users(id, username)`)
@@ -41,29 +46,54 @@ router.post('/', async (req, res) => {
             .from('game_players')
             .upsert({ game_id: gameId, user_id: userId }, { onConflict: 'game_id,user_id' });
 
-        // 广播刷新事件给所有房间用户
-        broadcastToGame(gameId, 'game_refresh', { type: 'buyin', userId });
-
         // 计算当前总买入
         const { data: allUserBuyins } = await supabase
             .from('buy_ins')
             .select('amount')
             .eq('game_id', gameId)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .in('type', ['initial', 'rebuy']);
 
         const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
         return res.status(201).json({ buyIn: data, totalAmount });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/create] Unhandled error:', err);
-        return res.status(500).json({ error: err.message || '服务器内部错误' });
+        const message = err instanceof Error ? err.message : '服务器内部错误';
+        return res.status(500).json({ error: message });
+    }
+});
+
+/**
+ * GET /api/buyin/player/:gameId/:userId
+ * 获取某个玩家在某局游戏中的买入记录（供前端 PlayerStatsModal 使用）
+ */
+router.get('/player/:gameId/:userId', async (req, res) => {
+    try {
+        const { gameId, userId } = req.params;
+
+        const { data, error } = await supabase
+            .from('buy_ins')
+            .select('amount, type, created_at')
+            .eq('game_id', gameId)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('[buyin/player]', error);
+            return res.status(500).json({ error: '获取玩家买入记录失败' });
+        }
+
+        return res.json({ buyIns: data || [] });
+    } catch (err: unknown) {
+        console.error('[buyin/player] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
     }
 });
 
 /**
  * POST /api/buyin/pending
  * 提交待审核买入申请（带入审核模式下，非房主用户使用）
- * 成功后 SSE 通知房主
  */
 router.post('/pending', async (req, res) => {
     try {
@@ -73,12 +103,19 @@ router.post('/pending', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
+        // #15 输入验证
+        const parsedAmount = parseInt(amount, 10);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            return res.status(400).json({ error: '买入金额必须为正整数' });
+        }
+
         // 计算当前总买入，用于房主审核时参考
         const { data: allUserBuyins } = await supabase
             .from('buy_ins')
             .select('amount')
             .eq('game_id', gameId)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .in('type', ['initial', 'rebuy']);
 
         const currentTotal = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
@@ -86,18 +123,16 @@ router.post('/pending', async (req, res) => {
             gameId,
             userId,
             username,
-            amount: parseInt(amount, 10),
+            amount: parsedAmount,
             totalBuyIn: currentTotal,
             type: type === 'rebuy' ? 'rebuy' : 'initial',
         });
 
-        // SSE 通知房主有新的待审核申请
-        notifyHost(gameId, 'buyin_request', pending);
-
         return res.status(201).json({ request: pending });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/pending] Unhandled error:', err);
-        return res.status(500).json({ error: err.message || '提交申请时发生错误' });
+        const message = err instanceof Error ? err.message : '提交申请时发生错误';
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -110,7 +145,7 @@ router.get('/pending/:gameId', async (req, res) => {
         const { gameId } = req.params;
         const requests = await getPending(gameId);
         return res.json({ requests });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/pending/list] error:', err);
         return res.status(500).json({ error: '获取申请列表失败' });
     }
@@ -118,7 +153,7 @@ router.get('/pending/:gameId', async (req, res) => {
 
 /**
  * POST /api/buyin/pending/:id/approve
- * 房主批准买入申请：写入 DB + 广播刷新 + 通知申请用户
+ * 房主批准买入申请：写入 DB + 通知申请用户
  */
 router.post('/pending/:id/approve', async (req, res) => {
     try {
@@ -149,30 +184,21 @@ router.post('/pending/:id/approve', async (req, res) => {
             .from('game_players')
             .upsert({ game_id: pending.gameId, user_id: pending.userId }, { onConflict: 'game_id,user_id' });
 
-        // 广播给所有人刷新
-        broadcastToGame(pending.gameId, 'game_refresh', { type: 'buyin_approved', userId: pending.userId });
-
         // 计算当前总买入
         const { data: allUserBuyins } = await supabase
             .from('buy_ins')
             .select('amount')
             .eq('game_id', pending.gameId)
-            .eq('user_id', pending.userId);
+            .eq('user_id', pending.userId)
+            .in('type', ['initial', 'rebuy']);
 
         const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
-        // 额外通知申请人：你的买入申请已通过
-        notifyUser(pending.gameId, pending.userId, 'buyin_approved', {
-            requestId: id,
-            amount: pending.amount,
-            type: pending.type,
-            totalAmount: totalAmount
-        });
-
         return res.status(201).json({ buyIn: data, totalAmount });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/approve] Unhandled error:', err);
-        return res.status(500).json({ error: '审批处理时发生错误' });
+        const message = err instanceof Error ? err.message : '审批处理时发生错误';
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -189,15 +215,8 @@ router.delete('/pending/:id', async (req, res) => {
             return res.status(404).json({ error: '申请不存在或已处理' });
         }
 
-        // 通知申请人：申请被拒绝
-        notifyUser(pending.gameId, pending.userId, 'buyin_rejected', {
-            amount: pending.amount,
-            type: pending.type,
-            requestId: id,
-        });
-
         return res.json({ success: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/pending/reject] error:', err);
         return res.status(500).json({ error: '拒绝申请失败' });
     }
@@ -205,7 +224,7 @@ router.delete('/pending/:id', async (req, res) => {
 
 /**
  * POST /api/buyin/checkout
- * 结账：广播刷新
+ * 结账：防止重复结账
  */
 router.post('/checkout', async (req, res) => {
     try {
@@ -215,12 +234,31 @@ router.post('/checkout', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
+        // #15 输入验证
+        const parsedChips = parseInt(chips, 10);
+        if (isNaN(parsedChips) || parsedChips < 0) {
+            return res.status(400).json({ error: '筹码数量必须为非负整数' });
+        }
+
+        // #16 防止重复结账
+        const { data: existingCheckout } = await supabase
+            .from('buy_ins')
+            .select('id')
+            .eq('game_id', gameId)
+            .eq('user_id', userId)
+            .eq('type', 'checkout')
+            .limit(1);
+
+        if (existingCheckout && existingCheckout.length > 0) {
+            return res.status(400).json({ error: '您已经结过账了，不能重复结账' });
+        }
+
         const { data, error } = await supabase
             .from('buy_ins')
             .insert({
                 game_id: gameId,
                 user_id: userId,
-                amount: parseInt(chips, 10),
+                amount: parsedChips,
                 type: 'checkout',
             })
             .select(`*, users(id, username)`)
@@ -231,12 +269,11 @@ router.post('/checkout', async (req, res) => {
             return res.status(500).json({ error: '结账记录提交失败' });
         }
 
-        broadcastToGame(gameId, 'game_refresh', { type: 'checkout', userId });
-
         return res.status(201).json({ checkout: data });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[buyin/checkout] Unhandled error:', err);
-        return res.status(500).json({ error: '结算时发生错误' });
+        const message = err instanceof Error ? err.message : '结算时发生错误';
+        return res.status(500).json({ error: message });
     }
 });
 

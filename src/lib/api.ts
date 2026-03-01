@@ -176,6 +176,22 @@ export interface PendingLuckyHit {
     lucky_hands?: { card_1: string; card_2: string, hand_index: number };
 }
 
+// ──────────────────────────── Player Stats API (game-specific) ─────────────
+
+export interface PlayerBuyInRecord {
+    amount: number;
+    type: string;
+    created_at: string;
+}
+
+export const playerStatsApi = {
+    /** 获取某玩家在某局的买入记录和幸运手牌 */
+    getBuyIns: (gameId: string, userId: string) =>
+        request<{ buyIns: PlayerBuyInRecord[] }>('GET', `/buyin/player/${gameId}/${userId}`),
+};
+
+// ──────────────────────────── Lucky Hands API ─────────────────────────────
+
 export const luckyHandsApi = {
     getAll: (gameId: string) =>
         request<{ luckyHands: LuckyHand[] }>('GET', `/lucky-hands/${gameId}`),

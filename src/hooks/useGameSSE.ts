@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface SSEHandlers {
@@ -23,7 +23,31 @@ export interface PendingBuyinEvent {
     createdAt: string;
 }
 
+interface SupabaseBuyInPayload {
+    user_id: string;
+    amount: number;
+    type: string;
+}
+
+interface SupabasePendingBuyinPayload {
+    id: string;
+    game_id: string;
+    user_id: string;
+    username: string;
+    amount: number;
+    total_buyin: number;
+    type: 'initial' | 'rebuy';
+    created_at: string;
+}
+
+interface SupabaseGamePayload {
+    status: string;
+}
+
 /**
+ * Supabase Realtime 实时订阅 Hook
+ * 已移除 SSE 通道，统一使用 Supabase Realtime
+ *
  * 返回值包含 markPendingSubmitted，供 GameRoom 在提交待审核申请后调用，
  * 以便 Hook 知道「我有待审核申请」，从而在 buy_ins INSERT 时识别为
  * 审批通过事件触发 onBuyinApproved。
@@ -36,24 +60,23 @@ export function useGameSSE(
     const handlersRef = useRef<SSEHandlers>(handlers);
     handlersRef.current = handlers;
 
-    // 记录「我已提交待审核申请」的信息：{ amount, type }
-    // Key = gameId，Value = 提交信息（只需记录最新一条）
+    // 记录「我已提交待审核申请」的信息
     const pendingSubmittedRef = useRef<{ amount: number; type: 'initial' | 'rebuy' } | null>(null);
 
-    const markPendingSubmitted = (amount: number, type: 'initial' | 'rebuy') => {
+    const markPendingSubmitted = useCallback((amount: number, type: 'initial' | 'rebuy') => {
         pendingSubmittedRef.current = { amount, type };
-    };
+    }, []);
 
     useEffect(() => {
         if (!gameId || !userId) return;
 
         // ─── Supabase Realtime 订阅 ──────────────────────────────────────────
-        const buyinsChannel = supabase.channel(`game:${gameId}:${userId}`)
+        const channel = supabase.channel(`game:${gameId}:${userId}`)
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'buy_ins', filter: `game_id=eq.${gameId}` },
                 (payload) => {
-                    const newBuyin = payload.new as any;
+                    const newBuyin = payload.new as SupabaseBuyInPayload;
 
                     if (newBuyin.type === 'checkout') return; // 忽略结账记录
 
@@ -61,19 +84,18 @@ export function useGameSSE(
                         // 是我自己的买入记录被写入
                         const pending = pendingSubmittedRef.current;
                         if (pending) {
-                            // 曾提交过待审核申请 → 视为审批通过，触发弹窗 + 数据刷新
+                            // 曾提交过待审核申请 → 视为审批通过
                             pendingSubmittedRef.current = null;
                             handlersRef.current.onBuyinApproved?.({
                                 amount: newBuyin.amount,
                                 type: newBuyin.type,
                             });
-                            // 同时触发数据刷新，确保用户端列表实时更新
                             handlersRef.current.onGameRefresh?.({
                                 type: 'buyin_approved',
                                 userId: newBuyin.user_id,
                             });
                         } else {
-                            // 直接买入（无审核）→ 仅刷新数据，不弹窗
+                            // 直接买入（无审核）→ 仅刷新数据
                             handlersRef.current.onGameRefresh?.({
                                 type: 'buyin',
                                 userId: newBuyin.user_id,
@@ -92,10 +114,9 @@ export function useGameSSE(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'pending_buyins', filter: `game_id=eq.${gameId}` },
                 (payload) => {
-                    const req = payload.new as any;
+                    const req = payload.new as SupabasePendingBuyinPayload;
 
-                    // 只有「别人」提交的申请才通知房主显示；
-                    // 自己提交的申请自己已经知道，不需要弹提示
+                    // 只有「别人」提交的申请才通知房主显示
                     if (req.user_id === userId) return;
 
                     const event: PendingBuyinEvent = {
@@ -114,96 +135,43 @@ export function useGameSSE(
             .on(
                 'postgres_changes',
                 { event: 'DELETE', schema: 'public', table: 'pending_buyins', filter: `game_id=eq.${gameId}` },
-                (_payload) => {
-                    // 申请被删除（批准或拒绝）→ 触发刷新，同步房主侧的待审核列表
-                    // 申请人侧的「审批通过」通知已经在 buy_ins INSERT 中处理
-                    handlersRef.current.onGameRefresh?.({ type: 'pending_update', userId: userId! });
+                () => {
+                    // 申请被删除（批准或拒绝）→ 触发刷新
+                    handlersRef.current.onGameRefresh?.({ type: 'pending_update', userId: userId });
                 }
             )
             .on(
                 'postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => {
-                    const updatedGame = payload.new as any;
+                    const updatedGame = payload.new as SupabaseGamePayload;
                     if (updatedGame.status === 'finished') {
                         handlersRef.current.onGameSettled?.({ message: '牌局已结算完成' });
                     } else {
-                        handlersRef.current.onGameRefresh?.({ type: 'game_update', userId: userId! });
+                        handlersRef.current.onGameRefresh?.({ type: 'game_update', userId: userId });
                     }
                 }
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'lucky_hands', filter: `game_id=eq.${gameId}` },
-                (_payload) => {
-                    handlersRef.current.onGameRefresh?.({ type: 'lucky_hands_update', userId: userId! });
+                () => {
+                    handlersRef.current.onGameRefresh?.({ type: 'lucky_hands_update', userId: userId });
                 }
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'pending_lucky_hits', filter: `game_id=eq.${gameId}` },
-                (_payload) => {
-                    handlersRef.current.onGameRefresh?.({ type: 'pending_lucky_hits_update', userId: userId! });
+                () => {
+                    handlersRef.current.onGameRefresh?.({ type: 'pending_lucky_hits_update', userId: userId });
                 }
             )
             .subscribe();
 
-        // ─── 旧 SSE 通道（本地开发备用）────────────────────────────────────
-        // 主要用于本地部署下的审批通知，Vercel 下会频繁重连但不影响主流程
-        const url = `/api/events/${gameId}?userId=${encodeURIComponent(userId!)}`;
-        const es = new EventSource(url);
-
-        es.addEventListener('connected', (e: any) => {
-            try { handlersRef.current.onConnected?.(JSON.parse(e.data).isHost); } catch { }
-        });
-        es.addEventListener('pending_list', (e: any) => {
-            try { handlersRef.current.onPendingList?.(JSON.parse(e.data)); } catch { }
-        });
-        // SSE buyin_approved 作为 Supabase Realtime 的备用通道
-        es.addEventListener('buyin_approved', (e: any) => {
-            try {
-                // 如果 Supabase Realtime 已经处理过了（pendingSubmittedRef 已清除），跳过
-                if (!pendingSubmittedRef.current) return;
-                pendingSubmittedRef.current = null; // Clear pending state as it's now approved
-                handlersRef.current.onBuyinApproved?.(JSON.parse(e.data));
-            } catch { }
-        });
-        es.addEventListener('buyin_rejected', (e: any) => {
-            try { handlersRef.current.onBuyinRejected?.(JSON.parse(e.data)); } catch { }
-        });
-
-        // 兜底刷新通道
-        es.addEventListener('game_refresh', (e: MessageEvent) => {
-            try {
-                const data = JSON.parse(e.data);
-                handlersRef.current.onGameRefresh?.(data);
-            } catch { }
-        });
-
-        es.addEventListener('lucky_hit_approved', (e: MessageEvent) => {
-            try {
-                const data = JSON.parse(e.data);
-                console.log('[SSE] Client received lucky_hit_approved', data);
-            } catch { }
-        });
-
-        es.addEventListener('lucky_hit_rejected', (e: MessageEvent) => {
-            try {
-                const data = JSON.parse(e.data);
-                console.log('[SSE] Client received lucky_hit_rejected', data);
-            } catch { }
-        });
-
-        es.onerror = (err) => {
-            console.error('[SSE Client Error]', err);
-            // 这里可以尝试加上重连机制...
-        };
-
         return () => {
-            supabase.removeChannel(buyinsChannel);
-            es.close();
+            supabase.removeChannel(channel);
         };
-    }, [gameId, userId]); // Dependencies
+    }, [gameId, userId]);
 
     return { markPendingSubmitted };
 }

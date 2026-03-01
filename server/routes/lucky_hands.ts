@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
-import { broadcastToGame, notifyUser } from '../sse.js';
 
 const router = Router();
 
@@ -34,9 +33,10 @@ router.get('/:gameId', async (req, res) => {
 
         if (error) throw error;
         return res.json({ luckyHands: data || [] });
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '获取幸运手牌数据失败';
         console.error('[lucky_hands/get]', err);
-        return res.status(500).json({ error: err.message || '获取幸运手牌数据失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -53,9 +53,18 @@ router.post('/:gameId/setup', async (req, res) => {
             return res.status(400).json({ error: '参数缺失' });
         }
 
+        const parsedHandIndex = parseInt(handIndex, 10);
+        if (isNaN(parsedHandIndex) || parsedHandIndex < 1 || parsedHandIndex > 3) {
+            return res.status(400).json({ error: '无效的槽位编号' });
+        }
+
+        if (typeof card1 !== 'string' || typeof card2 !== 'string' || !card1.trim() || !card2.trim()) {
+            return res.status(400).json({ error: '无效的卡牌' });
+        }
+
         const game = await getGameLuckyHandsConfig(gameId);
         if (game.status !== 'active') return res.status(400).json({ error: '游戏非活跃状态' });
-        if (handIndex < 1 || handIndex > game.lucky_hands_count) {
+        if (parsedHandIndex > game.lucky_hands_count) {
             return res.status(400).json({ error: '槽位不被房间配置允许' });
         }
 
@@ -65,9 +74,9 @@ router.post('/:gameId/setup', async (req, res) => {
             .upsert({
                 game_id: gameId,
                 user_id: userId,
-                hand_index: handIndex,
-                card_1: card1,
-                card_2: card2,
+                hand_index: parsedHandIndex,
+                card_1: card1.trim(),
+                card_2: card2.trim(),
                 hit_count: 0,
             }, { onConflict: 'game_id,user_id,hand_index' })
             .select(`*, users(id, username)`)
@@ -75,13 +84,11 @@ router.post('/:gameId/setup', async (req, res) => {
 
         if (error) throw error;
 
-        // 通知所有人已更新配置信息
-        broadcastToGame(gameId, 'game_refresh', { type: 'lucky_hand_setup', userId });
-
         return res.json({ success: true, luckyHand: data });
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '配置手牌失败';
         console.error('[lucky_hands/setup]', err);
-        return res.status(500).json({ error: err.message || '配置手牌失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -105,7 +112,7 @@ router.get('/:gameId/pending', async (req, res) => {
 
         if (error) throw error;
         return res.json({ pendingHits: data || [] });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[lucky_hands/pending]', err);
         return res.status(500).json({ error: '获取待审核列表失败' });
     }
@@ -137,9 +144,10 @@ router.post('/:gameId/hit-submit', async (req, res) => {
         if (error) throw error;
 
         return res.json({ success: true, pendingHit: data });
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '提交中奖审核失败';
         console.error('[lucky_hands/hit-submit]', err);
-        return res.status(500).json({ error: err.message || '提交中奖审核失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -170,15 +178,17 @@ router.post('/:gameId/update-submit', async (req, res) => {
         if (error) throw error;
 
         return res.json({ success: true, pendingUpdate: data });
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '提交修改审核失败';
         console.error('[lucky_hands/update-submit]', err);
-        return res.status(500).json({ error: err.message || '提交修改审核失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
 /**
  * POST /api/lucky-hands/:gameId/hit-direct
  * 房主直接点选自己的幸运手牌直接过审增加次数（不需要走 pending 库）
+ * 使用原子操作 rpc 增加 hit_count，避免竞态条件
  */
 router.post('/:gameId/hit-direct', async (req, res) => {
     try {
@@ -193,28 +203,19 @@ router.post('/:gameId/hit-direct', async (req, res) => {
             return res.status(403).json({ error: '只有房主本体才能使用直接过审接口' });
         }
 
-        const { data: luckyHand, error: handError } = await supabase
-            .from('lucky_hands')
-            .select('hit_count')
-            .eq('id', luckyHandId)
-            .single();
-
-        if (handError || !luckyHand) return res.status(500).json({ error: '关联的手牌记录不存在' });
-
-        const { error: updateError } = await supabase
-            .from('lucky_hands')
-            .update({ hit_count: luckyHand.hit_count + 1 })
-            .eq('id', luckyHandId);
+        // 原子自增 hit_count，避免竞态条件
+        const { data: updatedHand, error: updateError } = await supabase
+            .rpc('increment_hit_count', { hand_id: luckyHandId });
 
         if (updateError) throw updateError;
 
-        // 通知所有人该房主中奖了
-        broadcastToGame(gameId, 'game_refresh', { type: 'lucky_hit_approved', userId });
+        const newCount = updatedHand;
 
-        return res.json({ success: true, newCount: luckyHand.hit_count + 1 });
-    } catch (err: any) {
+        return res.json({ success: true, newCount });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '房主直接增加手牌记录失败';
         console.error('[lucky_hands/hit-direct]', err);
-        return res.status(500).json({ error: err.message || '房主直接增加手牌记录失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -245,6 +246,7 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
         if (handError || !luckyHand) return res.status(500).json({ error: '关联的手牌记录不存在' });
 
         const reqType = hit.request_type || 'hit';
+        let newCount: number;
 
         // 3. 执行核心业务逻辑
         if (reqType === 'update') {
@@ -253,35 +255,28 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
                 .update({
                     card_1: hit.new_card_1,
                     card_2: hit.new_card_2,
-                    hit_count: 0 // 改牌时一般重置计数，按需调整
+                    hit_count: 0 // 改牌时重置计数
                 })
                 .eq('id', hit.lucky_hand_id);
             if (updateCardErr) throw updateCardErr;
+            newCount = 0;
         } else {
-            // normal hit
-            const { error: updateCountErr } = await supabase
-                .from('lucky_hands')
-                .update({ hit_count: luckyHand.hit_count + 1 })
-                .eq('id', hit.lucky_hand_id);
-            if (updateCountErr) throw updateCountErr;
+            // 原子自增 hit_count，避免竞态条件
+            const { data: rpcResult, error: rpcError } = await supabase
+                .rpc('increment_hit_count', { hand_id: hit.lucky_hand_id });
+
+            if (rpcError) throw rpcError;
+            newCount = rpcResult;
         }
 
         // 4. 删除完毕
         await supabase.from('pending_lucky_hits').delete().eq('id', hitId);
 
-        // 5. 通知
-        broadcastToGame(gameId, 'game_refresh', { type: 'lucky_hit_approved', userId: hit.user_id });
-        notifyUser(gameId, hit.user_id, 'lucky_hit_approved', {
-            handIndex: luckyHand.hand_index,
-            cards: reqType === 'update' ? `${hit.new_card_1}, ${hit.new_card_2}` : `${luckyHand.card_1}, ${luckyHand.card_2}`,
-            newCount: reqType === 'update' ? 0 : luckyHand.hit_count + 1,
-            isUpdate: reqType === 'update'
-        });
-
-        return res.json({ success: true, newCount: reqType === 'update' ? 0 : luckyHand.hit_count + 1 });
-    } catch (err: any) {
+        return res.json({ success: true, newCount });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '审批处理失败';
         console.error('[lucky_hands/approve]', err);
-        return res.status(500).json({ error: err.message || '审批处理失败' });
+        return res.status(500).json({ error: message });
     }
 });
 
@@ -292,7 +287,7 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
  */
 router.post('/:gameId/hit-reject/:hitId', async (req, res) => {
     try {
-        const { gameId, hitId } = req.params;
+        const { hitId } = req.params;
 
         const { data: hit, error: hitError } = await supabase
             .from('pending_lucky_hits')
@@ -304,10 +299,8 @@ router.post('/:gameId/hit-reject/:hitId', async (req, res) => {
 
         await supabase.from('pending_lucky_hits').delete().eq('id', hitId);
 
-        notifyUser(gameId, hit.user_id, 'lucky_hit_rejected', {});
-
         return res.json({ success: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[lucky_hands/reject]', err);
         return res.status(500).json({ error: '拒绝申请失败' });
     }

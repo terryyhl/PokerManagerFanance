@@ -50,7 +50,7 @@ function AppShell() {
     if (gameId && gameId !== mountedGameId) {
       setMountedGameId(gameId);
     }
-  }, [gameId]);
+  }, [gameId, mountedGameId]);
 
   // 离开游戏上下文时，清除挂载的 GameRoom
   React.useEffect(() => {

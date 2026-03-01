@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { playerStatsApi, PlayerBuyInRecord, luckyHandsApi, LuckyHand } from '../lib/api';
 import { LuckyHandData } from './LuckyHandFAB';
 import Avatar from './Avatar';
 import PokerCardDisp from './PokerCardDisp';
@@ -25,8 +25,8 @@ export default function PlayerStatsModal({
     onModifyLuckyHand,
     currentUserId
 }: PlayerStatsModalProps) {
-    const [buyInRecords, setBuyInRecords] = useState<{ amount: number, type: string, created_at: string }[]>([]);
-    const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number, created_at: string } | null>(null);
+    const [buyInRecords, setBuyInRecords] = useState<PlayerBuyInRecord[]>([]);
+    const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number; created_at: string } | null>(null);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(false);
@@ -39,31 +39,28 @@ export default function PlayerStatsModal({
             setIsLoading(true);
             setError(false);
             try {
-                // Fetch buyins
-                const { data: buyinData, error: buyinError } = await supabase
-                    .from('buy_ins')
-                    .select('amount, type, created_at')
-                    .eq('game_id', gameId)
-                    .eq('user_id', userId)
-                    .order('created_at', { ascending: true });
+                // #19: 通过 API 层获取数据，而非直接查询 Supabase
+                const { buyIns: buyinData } = await playerStatsApi.getBuyIns(gameId, userId);
 
-                if (!buyinError && buyinData && isMounted) {
+                if (isMounted) {
                     setBuyInRecords(buyinData.filter(b => b.type !== 'checkout'));
                     const checkout = buyinData.find(b => b.type === 'checkout');
                     setCheckoutRecord(checkout ? { amount: checkout.amount, created_at: checkout.created_at } : null);
                 }
 
-                // Fetch lucky hands
+                // Fetch lucky hands via API
                 if (luckyHandsCount > 0) {
-                    const { data: handsData, error: handsError } = await supabase
-                        .from('lucky_hands')
-                        .select('hand_index, card_1, card_2, hit_count')
-                        .eq('game_id', gameId)
-                        .eq('user_id', userId)
-                        .order('hand_index', { ascending: true });
-
-                    if (!handsError && handsData && isMounted) {
-                        setLuckyHands(handsData as LuckyHandData[]);
+                    const { luckyHands: allHands } = await luckyHandsApi.getAll(gameId);
+                    if (isMounted) {
+                        const playerHands = allHands
+                            .filter((h: LuckyHand) => h.user_id === userId)
+                            .map((h: LuckyHand) => ({
+                                hand_index: h.hand_index,
+                                card_1: h.card_1,
+                                card_2: h.card_2,
+                                hit_count: h.hit_count,
+                            }));
+                        setLuckyHands(playerHands);
                     }
                 }
             } catch (err) {
@@ -223,7 +220,7 @@ export default function PlayerStatsModal({
                                                         <div className="absolute -top-2 w-full flex justify-center">
                                                             <span className="bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-sm shadow-sm flex items-center gap-0.5">
                                                                 <span className="material-symbols-outlined text-[10px]">star</span>
-                                                                ×{data.hit_count}
+                                                                x{data.hit_count}
                                                             </span>
                                                         </div>
                                                     )}

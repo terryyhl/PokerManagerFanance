@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS buy_ins (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount      INTEGER NOT NULL CHECK (amount > 0),
+  amount      INTEGER NOT NULL CHECK (amount >= 0),
   type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

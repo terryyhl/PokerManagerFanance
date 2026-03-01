@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import anime from 'animejs/lib/anime.es.js';
 import Avatar from './Avatar';
 import PokerCardDisp from './PokerCardDisp';
+import { Player, LuckyHand } from '../lib/api';
 
 interface LuckyHandsTVDashboardProps {
     isOpen: boolean;
     onClose: () => void;
-    players: any[];
-    allLuckyHands: any[];
+    players: Player[];
+    allLuckyHands: LuckyHand[];
     luckyHandsCount: number;
 }
 
@@ -24,7 +25,7 @@ export default function LuckyHandsTVDashboard({
 
     // 用于内部拦截闪烁提示的 Toast
     const [hitToastParams, setHitToastParams] = useState<{ username: string, targetHand: number, hitCount: number } | null>(null);
-    const prevHandsRef = useRef<any[]>([]);
+    const prevHandsRef = useRef<LuckyHand[]>([]);
 
     // 监听 hand 数据变化并触发亮起
     useEffect(() => {

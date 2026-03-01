@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Lobby() {
   const navigate = useNavigate();
-  const { user, logout } = useUser();
+  const { user } = useUser();
   const listRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
   const [games, setGames] = useState<Game[]>([]);
@@ -17,7 +17,8 @@ export default function Lobby() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-  const fetchGames = async (silent = false) => {
+
+  const fetchGames = useCallback(async (silent = false) => {
     if (!silent) {
       setIsLoading(true);
       setIsRefreshing(true);
@@ -26,33 +27,32 @@ export default function Lobby() {
     try {
       const { games } = await gamesApi.list();
       setGames(games);
-      setRefreshKey(k => k + 1); // 强制触发动画
-    } catch (err: any) {
-      if (!silent) setError(err.message || '加载游戏列表失败');
+      setRefreshKey(k => k + 1);
+    } catch (err: unknown) {
+      if (!silent) setError(err instanceof Error ? err.message : '加载游戏列表失败');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchGames();
-  }, []);
+  }, [fetchGames]);
 
   // 监听 games 表变化，有新房间创建/关闭时自动刷新
-  // 同时监听 game_players INSERT，有新玩家加入时更新人数显示
   useEffect(() => {
     const channel = supabase
       .channel('lobby:games')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
-        fetchGames(true); // 静默刷新，不显示 loading
+        fetchGames(true);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players' }, () => {
-        fetchGames(true); // 有新玩家加入时，更新大厅房间人数
+        fetchGames(true);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [fetchGames]);
 
   useEffect(() => {
     if (!isLoading && games.length > 0 && !hasAnimated.current) {
@@ -67,11 +67,11 @@ export default function Lobby() {
         delay: anime.stagger(100)
       });
     }
-  }, [refreshKey]);
+  }, [refreshKey, isLoading, games.length]);
 
-  const getPlayerCount = (game: Game) => {
+  const getPlayerCount = (game: Game): string | number => {
     if (game.game_players && Array.isArray(game.game_players)) {
-      const countObj = game.game_players[0] as any;
+      const countObj = game.game_players[0] as { count?: number } | undefined;
       return countObj?.count ?? '?';
     }
     return '?';
@@ -120,7 +120,7 @@ export default function Lobby() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <span className="material-symbols-outlined text-4xl text-slate-400 mb-3">wifi_off</span>
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{error}</p>
-              <button onClick={fetchGames} className="text-primary text-sm font-medium hover:underline">重试</button>
+              <button onClick={() => fetchGames()} className="text-primary text-sm font-medium hover:underline">重试</button>
             </div>
           )}
 
@@ -146,7 +146,7 @@ export default function Lobby() {
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h4 className="font-bold text-slate-900 dark:text-white text-base mb-1">{game.name}</h4>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">德州扑克 • 盲注 {game.blind_level}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">德州扑克 . 盲注 {game.blind_level}</p>
                         <div className="flex items-center gap-3 mt-2">
                           <div className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-primary text-base">payments</span>
