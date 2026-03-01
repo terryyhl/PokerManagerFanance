@@ -7,9 +7,14 @@ import { useUser } from '../contexts/UserContext';
 import { useGameSSE, PendingBuyinEvent } from '../hooks/useGameSSE';
 import Avatar from '../components/Avatar';
 
-export default function GameRoom() {
+interface GameRoomProps {
+  forcedId?: string;
+}
+
+export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { id: paramId } = useParams<{ id: string }>();
+  const id = forcedId ?? paramId;
   const { user } = useUser();
   const listRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
