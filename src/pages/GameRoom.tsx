@@ -81,7 +81,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   useEffect(() => { fetchGame(); }, [id, user]);
 
 
-  // 新买入/待审核出现：无条件平滑滚动到底部
+  // 初次加载完成：立即跳到底部
+  useEffect(() => {
+    if (!isLoading && scrollContainerRef.current && !hasScrolledRef.current) {
+      hasScrolledRef.current = true;
+      const el = scrollContainerRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [isLoading]);
+
+  // 新买入/待审核出现：平滑滚动到底部
   useEffect(() => {
     if (scrollContainerRef.current && hasScrolledRef.current) {
       const el = scrollContainerRef.current;
