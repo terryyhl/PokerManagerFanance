@@ -169,6 +169,9 @@ export interface PendingLuckyHit {
     user_id: string;
     lucky_hand_id: string;
     created_at: string;
+    request_type?: string;
+    new_card_1?: string;
+    new_card_2?: string;
     users?: { id: string; username: string };
     lucky_hands?: { card_1: string; card_2: string, hand_index: number };
 }
@@ -185,6 +188,12 @@ export const luckyHandsApi = {
 
     submitHit: (gameId: string, userId: string, luckyHandId: string) =>
         request<{ success: boolean; pendingHit: PendingLuckyHit }>('POST', `/lucky-hands/${gameId}/hit-submit`, { userId, luckyHandId }),
+
+    requestUpdate: (gameId: string, userId: string, luckyHandId: string, newCard1: string, newCard2: string) =>
+        request<{ success: boolean; pendingUpdate: PendingLuckyHit }>('POST', `/lucky-hands/${gameId}/update-submit`, { userId, luckyHandId, newCard1, newCard2 }),
+
+    hostDirectHit: (gameId: string, userId: string, luckyHandId: string) =>
+        request<{ success: boolean; newCount: number }>('POST', `/lucky-hands/${gameId}/hit-direct`, { userId, luckyHandId }),
 
     approveHit: (gameId: string, hitId: string) =>
         request<{ success: boolean; newCount: number }>('POST', `/lucky-hands/${gameId}/hit-approve/${hitId}`),

@@ -64,6 +64,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [targetHandIndex, setTargetHandIndex] = useState(1);
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
 
+  const [isModifyingLuckyHand, setIsModifyingLuckyHand] = useState(false);
+  const [directHitConfirmHand, setDirectHitConfirmHand] = useState<LuckyHandData | null>(null);
+
   // 买入成功状态
   const [buyinSuccess, setBuyinSuccess] = useState<{ amount: number; total: number } | null>(null);
 
@@ -275,21 +278,28 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   };
 
   // ──────────────── Lucky Hands Handles ────────────────
-  const handleSelectSlot = async (handIndex: number, isConfigured: boolean) => {
-    if (!isConfigured) {
-      // 如果还没有配置该槽位的手牌，则是调起选牌框
+  const handleSelectSlot = async (handIndex: number, action: 'setup' | 'hit' | 'modify') => {
+    if (action === 'setup') {
+      setIsModifyingLuckyHand(false);
       setTargetHandIndex(handIndex);
       setIsCardSelectorOpen(true);
-    } else {
-      // 如果已配置该槽位，抛起对应的已中奖申请给房主
+    } else if (action === 'modify') {
+      setIsModifyingLuckyHand(true);
+      setTargetHandIndex(handIndex);
+      setIsCardSelectorOpen(true);
+    } else if (action === 'hit') {
       const hand = luckyHands.find(h => h.hand_index === handIndex);
       if (hand) {
-        try {
-          await luckyHandsApi.submitHit(id!, user!.id, (hand as any).id);
-          // 可以通过状态更新来增加黄条，我们在 receive SSE 再拉全局刷新
-          console.log("Submit hit successfully!");
-        } catch (e: any) {
-          console.error(e);
+        if (isHost && user!.id === game?.created_by) {
+          setDirectHitConfirmHand(hand);
+        } else {
+          try {
+            await luckyHandsApi.submitHit(id!, user!.id, (hand as any).id);
+            showToast("已向房主发起中奖审核，请等待批准", 'info');
+            console.log("Submit hit successfully!");
+          } catch (e: any) {
+            console.error(e);
+          }
         }
       }
     }
@@ -297,9 +307,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   const handleConfirmCardSelection = async (card1: string, card2: string) => {
     try {
-      await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+      if (isModifyingLuckyHand) {
+        const hand = luckyHands.find(h => h.hand_index === targetHandIndex);
+        if (hand) {
+          await luckyHandsApi.requestUpdate(id!, user!.id, (hand as any).id, card1, card2);
+          showToast("改牌申请已发出，请等待房主同意", 'info');
+        }
+      } else {
+        await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+      }
       setIsCardSelectorOpen(false);
-      // 这里不必马上更新本地，因为 setup 发起了 SSE，整个页面会马上自动大刷
     } catch (err) {
       console.error("Setup Card Error", err);
     }
@@ -523,38 +540,50 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   <span className="material-symbols-outlined text-[20px]">workspace_premium</span>
                   幸运手牌中奖审核
                 </h3>
-                {pendingLuckyHits.map((hit) => (
-                  <div key={hit.id} className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                          {hit.users?.username?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-800 dark:text-slate-200">{hit.users?.username}</div>
-                          <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center mt-1">
-                            申请中奖：
-                            <div className="flex gap-1 ml-1">
-                              <PokerCardDisp card={hit.lucky_hands.card_1} className="text-xs px-1" />
-                              <PokerCardDisp card={hit.lucky_hands.card_2} className="text-xs px-1" />
+                {pendingLuckyHits.map((hit) => {
+                  const isUpdate = hit.request_type === 'update';
+                  return (
+                    <div key={hit.id} className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                            {hit.users?.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800 dark:text-slate-200">{hit.users?.username}</div>
+                            <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center mt-1">
+                              {isUpdate ? '申请修改手牌：' : '申请中奖：'}
+                              <div className="flex gap-1 ml-1">
+                                {isUpdate ? (
+                                  <>
+                                    <PokerCardDisp card={hit.new_card_1} className="text-xs px-1" />
+                                    <PokerCardDisp card={hit.new_card_2} className="text-xs px-1" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <PokerCardDisp card={hit.lucky_hands.card_1} className="text-xs px-1" />
+                                    <PokerCardDisp card={hit.lucky_hands.card_2} className="text-xs px-1" />
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApproveLuckyHit(hit.id)} className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all shadow-sm">
+                          <span className="flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                            {isUpdate ? '批准改牌' : '批准中奖'}
+                          </span>
+                        </button>
+                        <button onClick={() => handleRejectLuckyHit(hit.id)} className="px-4 py-2 bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-medium transition-all">
+                          忽略
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApproveLuckyHit(hit.id)} className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all shadow-sm">
-                        <span className="flex items-center justify-center gap-1">
-                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                          批准中奖
-                        </span>
-                      </button>
-                      <button onClick={() => handleRejectLuckyHit(hit.id)} className="px-4 py-2 bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-medium transition-all">
-                        忽略
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
@@ -839,6 +868,52 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         )}
 
         {/* --- 浮层与模态框挂载区 --- */}
+
+        {/* 房主免审确认 Dialog */}
+        {directHitConfirmHand && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in duration-200">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-500 mb-4 mx-auto">
+                <span className="material-symbols-outlined text-[28px]">workspace_premium</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-center text-slate-800 dark:text-slate-100">确认自己中奖？</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 text-center leading-relaxed">
+                房主特权：无需审核，直接为您增加该手牌组的中奖次数。
+              </p>
+              <div className="flex gap-1 justify-center mb-6">
+                <PokerCardDisp card={directHitConfirmHand.card_1} className="px-2 py-1 text-lg shadow-sm" />
+                <PokerCardDisp card={directHitConfirmHand.card_2} className="px-2 py-1 text-lg shadow-sm" />
+              </div>
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={() => setDirectHitConfirmHand(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold transition-colors"
+                  disabled={submitting}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={async () => {
+                    setSubmitting(true);
+                    try {
+                      await luckyHandsApi.hostDirectHit(id!, user!.id, (directHitConfirmHand as any).id);
+                      setDirectHitConfirmHand(null);
+                    } catch (e) {
+                      showToast('免审通过失败', 'error');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold shadow-lg shadow-yellow-500/30 transition-all active:scale-95"
+                  disabled={submitting}
+                >
+                  {submitting ? '处理中...' : '确认中奖'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {game?.lucky_hands_count > 0 && user && (
           <LuckyHandFAB
             maxHandsCount={game.lucky_hands_count}

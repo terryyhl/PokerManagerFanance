@@ -87,13 +87,10 @@ export default function PlayerStatsModal({
                         <span className="material-symbols-outlined">close</span>
                     </button>
 
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-indigo-500/30 mb-3 border-4 border-white dark:border-[#192633]">
-                        {username.charAt(0).toUpperCase()}
+                    <div className="w-20 h-20 mb-3 shadow-xl ring-4 ring-white dark:ring-[#192633] rounded-full bg-white">
+                        <Avatar username={username} className="w-full h-full" />
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">{username}</h2>
-                    <span className="text-xs bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full mt-1">
-                        玩家数据中心
-                    </span>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{username}</h2>
                 </div>
 
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">

@@ -128,14 +128,12 @@ router.post('/:gameId/hit-submit', async (req, res) => {
                 game_id: gameId,
                 user_id: userId,
                 lucky_hand_id: luckyHandId,
+                request_type: 'hit',
             })
             .select()
             .single();
 
         if (error) throw error;
-
-        // 不需要全员通知，只需要通知房主即可。由于前端也将读取 supabase_realtime，这里仅做备用
-        // 但安全起见我们不抛出错误，房主将收到 webhook
 
         return res.json({ success: true, pendingHit: data });
     } catch (err: any) {
@@ -144,10 +142,85 @@ router.post('/:gameId/hit-submit', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/lucky-hands/:gameId/update-submit
+ * 玩家发起手牌修改的人工审核申请
+ */
+router.post('/:gameId/update-submit', async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { userId, luckyHandId, newCard1, newCard2 } = req.body;
+
+        if (!userId || !luckyHandId || !newCard1 || !newCard2) return res.status(400).json({ error: '参数缺失' });
+
+        const { data, error } = await supabase
+            .from('pending_lucky_hits')
+            .insert({
+                game_id: gameId,
+                user_id: userId,
+                lucky_hand_id: luckyHandId,
+                request_type: 'update',
+                new_card_1: newCard1,
+                new_card_2: newCard2,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return res.json({ success: true, pendingUpdate: data });
+    } catch (err: any) {
+        console.error('[lucky_hands/update-submit]', err);
+        return res.status(500).json({ error: err.message || '提交修改审核失败' });
+    }
+});
+
+/**
+ * POST /api/lucky-hands/:gameId/hit-direct
+ * 房主直接点选自己的幸运手牌直接过审增加次数（不需要走 pending 库）
+ */
+router.post('/:gameId/hit-direct', async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { userId, luckyHandId } = req.body;
+
+        if (!userId || !luckyHandId) return res.status(400).json({ error: '参数缺失' });
+
+        // 验证该用户是否确实是房主
+        const game = await getGameLuckyHandsConfig(gameId);
+        if (game.created_by !== userId) {
+            return res.status(403).json({ error: '只有房主本体才能使用直接过审接口' });
+        }
+
+        const { data: luckyHand, error: handError } = await supabase
+            .from('lucky_hands')
+            .select('hit_count')
+            .eq('id', luckyHandId)
+            .single();
+
+        if (handError || !luckyHand) return res.status(500).json({ error: '关联的手牌记录不存在' });
+
+        const { error: updateError } = await supabase
+            .from('lucky_hands')
+            .update({ hit_count: luckyHand.hit_count + 1 })
+            .eq('id', luckyHandId);
+
+        if (updateError) throw updateError;
+
+        // 通知所有人该房主中奖了
+        broadcastToGame(gameId, 'game_refresh', { type: 'lucky_hit_approved', userId });
+
+        return res.json({ success: true, newCount: luckyHand.hit_count + 1 });
+    } catch (err: any) {
+        console.error('[lucky_hands/hit-direct]', err);
+        return res.status(500).json({ error: err.message || '房主直接增加手牌记录失败' });
+    }
+});
+
 
 /**
  * POST /api/lucky-hands/:gameId/hit-approve/:hitId
- * 房主批准某中奖申请：相关手牌 hit_count+1，删除该申请
+ * 房主批准某中奖申请或改牌申请：根据 request_type 处理业务，完成后删除申请
  */
 router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
     try {
@@ -161,7 +234,7 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
             .single();
         if (hitError || !hit) return res.status(404).json({ error: '审核申请不存在' });
 
-        // 2. 利用 RPC 或多次请求增加 hit_count (我们没有 RPC，用查询+覆盖由于并发可能问题，先妥协用最少代码查询再 update)
+        // 2. 获取手牌信息用于更新或加减
         const { data: luckyHand, error: handError } = await supabase
             .from('lucky_hands')
             .select('hit_count, card_1, card_2, hand_index')
@@ -170,25 +243,41 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
 
         if (handError || !luckyHand) return res.status(500).json({ error: '关联的手牌记录不存在' });
 
-        const { error: updateError } = await supabase
-            .from('lucky_hands')
-            .update({ hit_count: luckyHand.hit_count + 1 })
-            .eq('id', hit.lucky_hand_id);
+        const reqType = hit.request_type || 'hit';
 
-        if (updateError) throw updateError;
+        // 3. 执行核心业务逻辑
+        if (reqType === 'update') {
+            const { error: updateCardErr } = await supabase
+                .from('lucky_hands')
+                .update({
+                    card_1: hit.new_card_1,
+                    card_2: hit.new_card_2,
+                    hit_count: 0 // 改牌时一般重置计数，按需调整
+                })
+                .eq('id', hit.lucky_hand_id);
+            if (updateCardErr) throw updateCardErr;
+        } else {
+            // normal hit
+            const { error: updateCountErr } = await supabase
+                .from('lucky_hands')
+                .update({ hit_count: luckyHand.hit_count + 1 })
+                .eq('id', hit.lucky_hand_id);
+            if (updateCountErr) throw updateCountErr;
+        }
 
-        // 3. 删除
+        // 4. 删除完毕
         await supabase.from('pending_lucky_hits').delete().eq('id', hitId);
 
-        // 4. 通知
+        // 5. 通知
         broadcastToGame(gameId, 'game_refresh', { type: 'lucky_hit_approved', userId: hit.user_id });
         notifyUser(gameId, hit.user_id, 'lucky_hit_approved', {
             handIndex: luckyHand.hand_index,
-            cards: `${luckyHand.card_1}, ${luckyHand.card_2}`,
-            newCount: luckyHand.hit_count + 1
+            cards: reqType === 'update' ? `${hit.new_card_1}, ${hit.new_card_2}` : `${luckyHand.card_1}, ${luckyHand.card_2}`,
+            newCount: reqType === 'update' ? 0 : luckyHand.hit_count + 1,
+            isUpdate: reqType === 'update'
         });
 
-        return res.json({ success: true, newCount: luckyHand.hit_count + 1 });
+        return res.json({ success: true, newCount: reqType === 'update' ? 0 : luckyHand.hit_count + 1 });
     } catch (err: any) {
         console.error('[lucky_hands/approve]', err);
         return res.status(500).json({ error: err.message || '审批处理失败' });
