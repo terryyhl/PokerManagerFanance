@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { UserProvider } from './contexts/UserContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -17,40 +17,84 @@ const MAIN_PATHS = ['/lobby', '/history', '/profile'];
 const isMainPath = (p: string) => MAIN_PATHS.includes(p);
 const isPublicPath = (p: string) => p === '/' || p === '/login';
 
-// 从路径解析 gameId：/game/:id  /bill/:id  /settlement/:id 都属于同一个游戏上下文
 function extractGameId(pathname: string): string | null {
   const m = pathname.match(/^\/(game|bill|settlement)\/([^/]+)/);
   return m ? m[2] : null;
 }
+const isGameSubPage = (p: string) => /^\/(bill|settlement)\//.test(p);
 
-// 判断是否是游戏的"子页面"（账单 / 结算报告），需要在后台保留 GameRoom
-const isGameSubPage = (p: string) =>
-  /^\/(bill|settlement)\//.test(p);
+// ─── iOS 风格页面过渡 Hook ────────────────────────────────────────────────────
+/**
+ * iOS push: 新页面从右侧滑入
+ * iOS pop:  当前页面滑出到右侧（通过返回按钮）
+ * 通过监听路由层级判断是 push 还是 pop。
+ * 层级从低到高: public < main < overlay < gameSub
+ */
+function getPathLevel(p: string): number {
+  if (isPublicPath(p)) return 0;
+  if (isMainPath(p)) return 1;
+  if (p.startsWith('/game/')) return 2;
+  if (isGameSubPage(p)) return 3;
+  // create / join
+  return 2;
+}
+
+function useIOSTransition(containerRef: React.RefObject<HTMLDivElement>, pathname: string) {
+  const prevPathRef = useRef(pathname);
+  const animatingRef = useRef(false);
+
+  useEffect(() => {
+    const prevLevel = getPathLevel(prevPathRef.current);
+    const nextLevel = getPathLevel(pathname);
+    prevPathRef.current = pathname;
+
+    if (animatingRef.current) return;
+    if (prevLevel === nextLevel) return;
+
+    const el = containerRef.current;
+    if (!el) return;
+
+    animatingRef.current = true;
+    const isPush = nextLevel > prevLevel;
+
+    // Start position
+    el.style.transform = isPush ? 'translateX(100%)' : 'translateX(-30%)';
+    el.style.transition = 'none';
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 320ms cubic-bezier(0.42, 0, 0.58, 1)';
+        el.style.transform = 'translateX(0%)';
+        const end = () => {
+          el.style.transition = '';
+          el.style.transform = '';
+          animatingRef.current = false;
+          el.removeEventListener('transitionend', end);
+        };
+        el.addEventListener('transitionend', end, { once: true });
+      });
+    });
+  }, [pathname]);
+}
 
 /**
- * AppShell — 三层 Keep-Alive 架构
- *
- * Layer 0 (最底层): MainLayout (大厅/历史/个人) — 始终挂载
- * Layer 1 (中层):   GameRoom — 当处于游戏上下文时保持挂载
- * Layer 2 (顶层):   账单 / 结算报告 / 加入 / 创建 — 正常挂载/销毁
+ * AppShell — 三层 Keep-Alive + iOS 过渡动画
  */
 function AppShell() {
   const location = useLocation();
   const pathname = location.pathname;
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const isPublic = isPublicPath(pathname);
   const isMain = isMainPath(pathname);
   const gameId = extractGameId(pathname);
   const isGamePage = pathname.startsWith('/game/');
-  const isGameSub = isGameSubPage(pathname); // bill/:id 或 settlement/:id
-  const isGameContext = isGamePage || isGameSub; // 任何与游戏相关的页面
+  const isGameSub = isGameSubPage(pathname);
+  const isGameContext = isGamePage || isGameSub;
 
-  // 是否显示 MainLayout（不是公开页且不在游戏上下文中）
   const mainVisible = !isPublic && isMain;
-  // 是否保持 MainLayout 挂载（除了公开页，一直挂着）
   const mainMounted = !isPublic;
 
-  // GameRoom 应保持挂载（进入游戏相关页面后不销毁）
   const [mountedGameId, setMountedGameId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -59,17 +103,18 @@ function AppShell() {
     }
   }, [gameId]);
 
-  // GameRoom 是否可见（只有在 /game/:id 时才显示）
   const gameRoomVisible = isGamePage;
-  // GameRoom 是否挂载（在游戏上下文中始终保持）
   const gameRoomMounted = !!mountedGameId && isGameContext;
-
-  // 顶层覆盖页：join / create / bill / settlement
   const isTopOverlay = !isPublic && !isMain && !isGamePage;
 
-  return (
-    <div className="w-full max-w-[430px] h-[100dvh] sm:h-[min(932px,100dvh)] sm:rounded-[2.5rem] sm:border-[8px] border-gray-800 dark:border-gray-950 bg-white dark:bg-background-dark overflow-hidden relative shadow-2xl">
+  // iOS 过渡动画
+  useIOSTransition(containerRef, pathname);
 
+  return (
+    <div
+      ref={containerRef}
+      className="w-full max-w-[430px] h-[100dvh] sm:h-[min(932px,100dvh)] sm:rounded-[2.5rem] sm:border-[8px] border-gray-800 dark:border-gray-950 bg-white dark:bg-background-dark overflow-hidden relative shadow-2xl"
+    >
       {/* 公开页 */}
       {isPublic && (
         <Routes>
@@ -90,20 +135,19 @@ function AppShell() {
         </ProtectedRoute>
       )}
 
-      {/* Layer 1: GameRoom — 进入游戏后保持挂载，离开游戏上下文后销毁 */}
+      {/* Layer 1: GameRoom — 进入游戏后保持挂载 */}
       {gameRoomMounted && mountedGameId && (
         <ProtectedRoute>
           <div
             className="absolute inset-0 z-10"
             style={{ visibility: gameRoomVisible ? 'visible' : 'hidden' }}
           >
-            {/* 使用 key=mountedGameId 确保切换房间时重新创建 */}
             <GameRoom key={mountedGameId} />
           </div>
         </ProtectedRoute>
       )}
 
-      {/* Layer 2: 顶层覆盖页（join / create / bill / settlement） */}
+      {/* Layer 2: 顶层覆盖页 */}
       {isTopOverlay && (
         <div className="absolute inset-0 z-20">
           <ProtectedRoute>

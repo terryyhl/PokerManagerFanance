@@ -12,6 +12,8 @@ export default function GameRoom() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
   const listRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  const hasScrolledRef = useRef(false);
 
   const [game, setGame] = useState<Game | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
@@ -79,6 +81,15 @@ export default function GameRoom() {
     }
   }, [isLoading]);
 
+  // 首次加载完成：滚动到底部
+  useEffect(() => {
+    if (!isLoading && scrollContainerRef.current && !hasScrolledRef.current) {
+      hasScrolledRef.current = true;
+      const el = scrollContainerRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [isLoading]);
+
   useEffect(() => {
     if (!isLoading && listRef.current) {
       const children = Array.from(listRef.current.children) as HTMLElement[];
@@ -89,6 +100,17 @@ export default function GameRoom() {
       });
       if (newItems.length > 0) {
         anime({ targets: newItems, translateY: [20, 0], opacity: [0, 1], duration: 500, easing: 'easeOutExpo' });
+      }
+    }
+  }, [buyIns.length, pendingRequests.length]);
+
+  // 新买入/待审核出现：滚动到底部（让用户看到最新消息）
+  useEffect(() => {
+    if (scrollContainerRef.current && hasScrolledRef.current) {
+      const el = scrollContainerRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      if (isNearBottom) {
+        el.scrollTop = el.scrollHeight;
       }
     }
   }, [buyIns.length, pendingRequests.length]);
@@ -421,7 +443,7 @@ export default function GameRoom() {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
+        <main ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
           <div ref={listRef} className="flex flex-col gap-4">
             <div className="flex items-center justify-center py-2 opacity-0">
               <span className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
