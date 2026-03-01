@@ -94,6 +94,7 @@ export default function GameRoom() {
     },
     // 房主收到新的待审核申请
     onBuyinRequest: (req) => {
+      console.log('[SSE] buyin_request:', req);
       setPendingRequests(prev => {
         if (prev.find(r => r.id === req.id)) return prev;
         return [...prev, req];
@@ -102,19 +103,23 @@ export default function GameRoom() {
     },
     // 房主上线时同步当前待审核列表
     onPendingList: (list) => {
+      console.log('[SSE] pending_list:', list);
       setPendingRequests(list);
     },
     // 所有用户：游戏数据刷新
-    onGameRefresh: () => {
+    onGameRefresh: (data) => {
+      console.log('[SSE] game_refresh:', data);
       fetchGame();
     },
     // 申请用户：审核通过通知
     onBuyinApproved: (data) => {
+      console.log('[SSE] buyin_approved:', data);
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
       fetchGame();
     },
     // 申请用户：审核拒绝通知
     onBuyinRejected: (data) => {
+      console.log('[SSE] buyin_rejected:', data);
       showToast(`❌ 买入申请被拒绝 $${data.amount}`, 'error');
       setPendingRequests(prev => prev.filter(r => r.id !== data.requestId));
     },
@@ -181,13 +186,17 @@ export default function GameRoom() {
     const type = userBuyIns.length === 0 ? 'initial' : 'rebuy';
 
     // 带入审核模式 且 非房主 → 提交待审核申请（SSE 通知房主）
+    // 带入审核模式 且 非房主 → 提交待审核申请（SSE 通知房主）
     if (needsApproval && !isHost) {
+      setSubmitting(true);
       try {
         await pendingBuyInApi.submit(id, user.id, user.username, amount, type);
         showToast('申请已提交，等待房主审核...', 'info');
         setBuyInAmount(''); setShowBuyIn(false);
       } catch (err: any) {
         showToast(err.message || '提交失败', 'error');
+      } finally {
+        setSubmitting(false);
       }
       return;
     }
@@ -476,7 +485,10 @@ export default function GameRoom() {
         </main>
 
         <div className="fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3">
-          <button onClick={() => setShowBuyIn(true)} className="pointer-events-auto shadow-lg shadow-primary/20 flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-white transition-transform active:scale-95 hover:bg-primary/90 max-w-[200px]">
+          <button onClick={() => {
+            setShowBuyIn(true);
+            if (game?.min_buyin) setBuyInAmount(game.min_buyin.toString());
+          }} className="pointer-events-auto shadow-lg shadow-primary/20 flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-white transition-transform active:scale-95 hover:bg-primary/90 max-w-[200px]">
             <span className="material-symbols-outlined font-semibold" style={{ fontSize: '24px' }}>add_circle</span>
             <span className="text-base font-bold tracking-wide">买入</span>
           </button>
