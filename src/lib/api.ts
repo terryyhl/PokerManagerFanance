@@ -56,6 +56,7 @@ export interface Game {
     insurance_mode: boolean;
     room_code: string;
     status: 'active' | 'finished';
+    lucky_hands_count: number;
     created_by: string;
     created_at: string;
     finished_at?: string;
@@ -91,14 +92,9 @@ export const gamesApi = {
     get: (id: string) =>
         request<{ game: Game; buyIns: BuyIn[]; players: Player[] }>('GET', `/games/${id}`),
 
-    create: (payload: {
-        name: string;
-        blindLevel: string;
-        minBuyin: number;
-        maxBuyin: number;
-        insuranceMode: boolean;
-        userId: string;
-    }) => request<{ game: Game }>('POST', '/games', payload),
+    // 默认创建时开启幸运手牌次数为 0，让房间创建接口能够接收到该值
+    create: (name: string, userId: string, blindLevel?: string, minBuyin?: number, maxBuyin?: number, insuranceMode?: boolean, luckyHandsCount?: number) =>
+        request<{ game: Game }>('POST', '/games', { name, userId, blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount }),
 
     join: (roomCode: string, userId: string) =>
         request<{ game: Game }>('POST', '/games/join', { roomCode, userId }),
@@ -148,4 +144,51 @@ export const settlementApi = {
 
     submit: (gameId: string, userId: string, playerResults: { userId: string; finalChips: number }[]) =>
         request<{ settlements: unknown[] }>('POST', `/settlement/${gameId}`, { userId, playerResults }),
+
+    finalize: (gameId: string, userId: string, finalChipsMap: Record<string, number>) =>
+        request<{ message: string }>('POST', `/settlement/${gameId}/finalize`, { userId, finalChipsMap }),
+};
+
+// ──────────────────────────── Lucky Hands API ─────────────────────────────
+
+export interface LuckyHand {
+    id: string;
+    game_id: string;
+    user_id: string;
+    hand_index: number;
+    card_1: string;
+    card_2: string;
+    hit_count: number;
+    created_at: string;
+    users?: { id: string; username: string };
+}
+
+export interface PendingLuckyHit {
+    id: string;
+    game_id: string;
+    user_id: string;
+    lucky_hand_id: string;
+    created_at: string;
+    users?: { id: string; username: string };
+    lucky_hands?: { card_1: string; card_2: string, hand_index: number };
+}
+
+export const luckyHandsApi = {
+    getAll: (gameId: string) =>
+        request<{ luckyHands: LuckyHand[] }>('GET', `/lucky-hands/${gameId}`),
+
+    setup: (gameId: string, userId: string, handIndex: number, card1: string, card2: string) =>
+        request<{ success: boolean; luckyHand: LuckyHand }>('POST', `/lucky-hands/${gameId}/setup`, { userId, handIndex, card1, card2 }),
+
+    getPending: (gameId: string) =>
+        request<{ pendingHits: PendingLuckyHit[] }>('GET', `/lucky-hands/${gameId}/pending`),
+
+    submitHit: (gameId: string, userId: string, luckyHandId: string) =>
+        request<{ success: boolean; pendingHit: PendingLuckyHit }>('POST', `/lucky-hands/${gameId}/hit-submit`, { userId, luckyHandId }),
+
+    approveHit: (gameId: string, hitId: string) =>
+        request<{ success: boolean; newCount: number }>('POST', `/lucky-hands/${gameId}/hit-approve/${hitId}`),
+
+    rejectHit: (gameId: string, hitId: string) =>
+        request<{ success: boolean }>('POST', `/lucky-hands/${gameId}/hit-reject/${hitId}`),
 };

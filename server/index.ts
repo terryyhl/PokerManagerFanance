@@ -6,6 +6,7 @@ import gamesRouter from './routes/games.js';
 import buyInRouter from './routes/buyin.js';
 import settlementRouter from './routes/settlement.js';
 import eventsRouter from './routes/events.js';
+import luckyHandsRouter from './routes/lucky_hands.js';
 import { startCronJobs } from './cron.js';
 
 dotenv.config();
@@ -34,6 +35,7 @@ app.use('/api/buyin', buyInRouter);
 app.use('/api/checkout', buyInRouter);
 app.use('/api/settlement', settlementRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/lucky-hands', luckyHandsRouter);
 
 
 // ─── Health Check ─────────────────────────────────────────────────────────

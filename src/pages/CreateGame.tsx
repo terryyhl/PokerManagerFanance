@@ -16,6 +16,7 @@ export default function CreateGame() {
   const [roomName, setRoomName] = useState('Friday Night Poker');
   const [minBuyin, setMinBuyin] = useState(100);
   const [maxBuyin, setMaxBuyin] = useState(400);
+  const [luckyHandsCount, setLuckyHandsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -46,14 +47,15 @@ export default function CreateGame() {
     setError('');
 
     try {
-      const { game } = await gamesApi.create({
-        name: roomName.trim(),
-        blindLevel: isCustomBlind && customBlind.trim() ? customBlind.trim() : selectedBlind,
+      const { game } = await gamesApi.create(
+        roomName.trim(),
+        user.id,
+        isCustomBlind && customBlind.trim() ? customBlind.trim() : selectedBlind,
         minBuyin,
         maxBuyin,
-        insuranceMode: insurance,
-        userId: user.id,
-      });
+        insurance,
+        luckyHandsCount
+      );
       // 直接进入牌局，并替换当前历史记录（关闭创建页面）
       navigate(`/game/${game.id}`, { replace: true });
     } catch (err: any) {
@@ -173,6 +175,36 @@ export default function CreateGame() {
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${insurance ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}
             >
               <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${insurance ? 'translate-x-5' : 'translate-x-0'}`}></span>
+            </div>
+          </div>
+
+          {/* 幸运手牌设置 */}
+          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800 opacity-0">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-base font-bold text-slate-900 dark:text-white">幸运手牌</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">设置对局允许每人配置的固定手牌组数</span>
+              </div>
+              <span className="text-lg font-black text-primary bg-primary/10 px-3 py-1 rounded-lg">
+                {luckyHandsCount === 0 ? '关闭' : `${luckyHandsCount} 组`}
+              </span>
+            </div>
+            <div className="relative pt-2 pb-4">
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="1"
+                value={luckyHandsCount}
+                onChange={(e) => setLuckyHandsCount(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-xs text-slate-400 mt-2 px-1 font-mono">
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+              </div>
             </div>
           </div>
 

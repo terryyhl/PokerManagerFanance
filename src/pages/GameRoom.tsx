@@ -2,10 +2,13 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AnimatedPage from '../components/AnimatedPage';
 
-import { gamesApi, buyInApi, pendingBuyInApi, BuyIn, Game, Player } from '../lib/api';
+import { gamesApi, buyInApi, pendingBuyInApi, luckyHandsApi, BuyIn, Game, Player } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import { useGameSSE, PendingBuyinEvent } from '../hooks/useGameSSE';
 import Avatar from '../components/Avatar';
+import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
+import CardSelectorModal from '../components/CardSelectorModal';
+import PlayerStatsModal from '../components/PlayerStatsModal';
 
 interface GameRoomProps {
   forcedId?: string;
@@ -49,6 +52,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   // 审核确认对话框
   const [confirmReq, setConfirmReq] = useState<PendingBuyinEvent | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Lucky Hands States
+  const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
+  const [pendingLuckyHits, setPendingLuckyHits] = useState<any[]>([]);
+
+  // Modals
+  const [isCardSelectorOpen, setIsCardSelectorOpen] = useState(false);
+  const [targetHandIndex, setTargetHandIndex] = useState(1);
+  const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
 
   // 买入成功状态
   const [buyinSuccess, setBuyinSuccess] = useState<{ amount: number; total: number } | null>(null);
@@ -61,11 +74,27 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const fetchGame = async () => {
     if (!id || !user) return;
     try {
-      const { game, buyIns, players } = await gamesApi.get(id);
-      setGame(game);
-      setBuyIns(buyIns);
-      setPlayers(players);
-      const isMember = (players as Player[]).some(p => p.user_id === user.id);
+      const [{ game: gameData, buyIns: buyInsData, players: playersData }] = await Promise.all([
+        gamesApi.get(id)
+      ]);
+
+      setGame({ ...gameData, created_at: gameData.created_at || new Date().toISOString() });
+      setBuyIns(buyInsData);
+      setPlayers(playersData);
+
+      // 如果有幸运手牌功能开启，获取该功能的数据
+      if (gameData.lucky_hands_count > 0 && user) {
+        const { luckyHands: fetchedHands } = await luckyHandsApi.getAll(id);
+        // 这里我们只在 FAB 中关心【自己的】手牌配置
+        setLuckyHands(fetchedHands.filter((h: any) => h.user_id === user.id));
+
+        if (gameData.created_by === user.id) {
+          const { pendingHits } = await luckyHandsApi.getPending(id);
+          setPendingLuckyHits(pendingHits);
+        }
+      }
+
+      const isMember = (playersData as Player[]).some(p => p.user_id === user.id);
       if (!isMember) setNeedsPassword(true);
     } catch (err) {
       console.error(err);
@@ -244,6 +273,53 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     } catch (err: any) { showToast(err.message || '拒绝失败', 'error'); }
   };
 
+  // ──────────────── Lucky Hands Handles ────────────────
+  const handleSelectSlot = async (handIndex: number, isConfigured: boolean) => {
+    if (!isConfigured) {
+      // 如果还没有配置该槽位的手牌，则是调起选牌框
+      setTargetHandIndex(handIndex);
+      setIsCardSelectorOpen(true);
+    } else {
+      // 如果已配置该槽位，抛起对应的已中奖申请给房主
+      const hand = luckyHands.find(h => h.hand_index === handIndex);
+      if (hand) {
+        try {
+          await luckyHandsApi.submitHit(id!, user!.id, (hand as any).id);
+          // 可以通过状态更新来增加黄条，我们在 receive SSE 再拉全局刷新
+          console.log("Submit hit successfully!");
+        } catch (e: any) {
+          console.error(e);
+        }
+      }
+    }
+  };
+
+  const handleConfirmCardSelection = async (card1: string, card2: string) => {
+    try {
+      await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
+      setIsCardSelectorOpen(false);
+      // 这里不必马上更新本地，因为 setup 发起了 SSE，整个页面会马上自动大刷
+    } catch (err) {
+      console.error("Setup Card Error", err);
+    }
+  };
+
+  const handleApproveLuckyHit = async (hitId: string) => {
+    try {
+      await luckyHandsApi.approveHit(id!, hitId);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRejectLuckyHit = async (hitId: string) => {
+    try {
+      await luckyHandsApi.rejectHit(id!, hitId);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
 
   // ── 结账 ────────────────────────────────────────────────────────────────────
   const handleCheckoutSubmit = async () => {
@@ -385,7 +461,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               .map(player => {
                 const isPlayerHost = player.user_id === game?.created_by;
                 return (
-                  <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                    onClick={() => setSelectedPlayerStats({ id: player.user_id, username: player.users?.username || '?' })}
+                  >
                     <div className="relative">
                       <Avatar
                         username={player.users?.username || '?'}
@@ -434,6 +512,44 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 {game?.created_at ? `开始于 ${formatTime(game.created_at)}` : '游戏进行中'}
               </span>
             </div>
+
+            {/* 如果是房主，在此插入 幸运手牌待审核 卡片区域 */}
+            {isHost && pendingLuckyHits.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <h3 className="font-bold flex items-center gap-2 text-yellow-500 mb-2">
+                  <span className="material-symbols-outlined text-[20px]">workspace_premium</span>
+                  幸运手牌中奖审核
+                </h3>
+                {pendingLuckyHits.map((hit) => (
+                  <div key={hit.id} className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                          {hit.users?.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-slate-200">{hit.users?.username}</div>
+                          <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                            申请中奖：{hit.lucky_hands.card_1} + {hit.lucky_hands.card_2}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApproveLuckyHit(hit.id)} className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all shadow-sm">
+                        <span className="flex items-center justify-center gap-1">
+                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                          批准中奖
+                        </span>
+                      </button>
+                      <button onClick={() => handleRejectLuckyHit(hit.id)} className="px-4 py-2 bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-medium transition-all">
+                        忽略
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 时间线：待审核申请（房主可见）+ 已确认买入记录 合并显示，并按时间升序排列 */}
             {[
@@ -500,7 +616,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 const b = item as BuyIn & { _pending: false };
                 return (
                   <div key={b.id} className="flex items-end gap-3 group">
-                    <div className="relative">
+                    <div className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                      onClick={() => setSelectedPlayerStats({ id: b.user_id, username: b.users?.username || '?' })}
+                    >
                       <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-background-light dark:border-background-dark ring-2 ring-primary/20">
                         <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
                       </div>
@@ -711,6 +829,34 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* --- 浮层与模态框挂载区 --- */}
+        {game?.lucky_hands_count > 0 && user && (
+          <LuckyHandFAB
+            maxHandsCount={game.lucky_hands_count}
+            configuredHands={luckyHands}
+            onSelectSlot={handleSelectSlot}
+          />
+        )}
+
+        <CardSelectorModal
+          isOpen={isCardSelectorOpen}
+          onClose={() => setIsCardSelectorOpen(false)}
+          onConfirm={handleConfirmCardSelection}
+          targetHandIndex={targetHandIndex}
+        />
+
+        {/* 点击头像查看该玩家的大盘 */}
+        {selectedPlayerStats && game?.lucky_hands_count !== undefined && ( // 4. 在浮层区域挂载 PlayerStatsModal 组件
+          <PlayerStatsModal
+            isOpen={true}
+            onClose={() => setSelectedPlayerStats(null)}
+            gameId={id!}
+            userId={selectedPlayerStats.id}
+            username={selectedPlayerStats.username}
+            luckyHandsCount={game.lucky_hands_count}
+          />
         )}
       </div>
     </AnimatedPage>

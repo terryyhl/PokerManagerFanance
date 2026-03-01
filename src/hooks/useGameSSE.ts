@@ -132,6 +132,20 @@ export function useGameSSE(
                     }
                 }
             )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'lucky_hands', filter: `game_id=eq.${gameId}` },
+                (_payload) => {
+                    handlersRef.current.onGameRefresh?.({ type: 'lucky_hands_update', userId: userId! });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'pending_lucky_hits', filter: `game_id=eq.${gameId}` },
+                (_payload) => {
+                    handlersRef.current.onGameRefresh?.({ type: 'pending_lucky_hits_update', userId: userId! });
+                }
+            )
             .subscribe();
 
         // ─── 旧 SSE 通道（本地开发备用）────────────────────────────────────
@@ -150,7 +164,7 @@ export function useGameSSE(
             try {
                 // 如果 Supabase Realtime 已经处理过了（pendingSubmittedRef 已清除），跳过
                 if (!pendingSubmittedRef.current) return;
-                pendingSubmittedRef.current = null;
+                pendingSubmittedRef.current = null; // Clear pending state as it's now approved
                 handlersRef.current.onBuyinApproved?.(JSON.parse(e.data));
             } catch { }
         });
@@ -158,11 +172,38 @@ export function useGameSSE(
             try { handlersRef.current.onBuyinRejected?.(JSON.parse(e.data)); } catch { }
         });
 
+        // 兜底刷新通道
+        es.addEventListener('game_refresh', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data);
+                handlersRef.current.onGameRefresh?.(data);
+            } catch { }
+        });
+
+        es.addEventListener('lucky_hit_approved', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data);
+                console.log('[SSE] Client received lucky_hit_approved', data);
+            } catch { }
+        });
+
+        es.addEventListener('lucky_hit_rejected', (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data);
+                console.log('[SSE] Client received lucky_hit_rejected', data);
+            } catch { }
+        });
+
+        es.onerror = (err) => {
+            console.error('[SSE Client Error]', err);
+            // 这里可以尝试加上重连机制...
+        };
+
         return () => {
             supabase.removeChannel(buyinsChannel);
             es.close();
         };
-    }, [gameId, userId]);
+    }, [gameId, userId]); // Dependencies
 
     return { markPendingSubmitted };
 }

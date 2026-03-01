@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS games (
   min_buyin       INTEGER NOT NULL DEFAULT 100,
   max_buyin       INTEGER NOT NULL DEFAULT 400,
   insurance_mode  BOOLEAN NOT NULL DEFAULT FALSE,
+  lucky_hands_count INTEGER NOT NULL DEFAULT 0 CHECK (lucky_hands_count >= 0 AND lucky_hands_count <= 3),
   room_code       TEXT UNIQUE NOT NULL,
   status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'finished')),
   created_by      UUID NOT NULL REFERENCES users(id),
@@ -70,6 +71,32 @@ CREATE TABLE IF NOT EXISTS settlements (
 );
 
 -- ============================================
+-- 幸运手牌配置表
+-- ============================================
+CREATE TABLE IF NOT EXISTS lucky_hands (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hand_index  INTEGER NOT NULL CHECK (hand_index IN (1, 2, 3)),
+  card_1      TEXT NOT NULL,
+  card_2      TEXT NOT NULL,
+  hit_count   INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(game_id, user_id, hand_index)
+);
+
+-- ============================================
+-- 幸运手牌中奖待审核表
+-- ============================================
+CREATE TABLE IF NOT EXISTS pending_lucky_hits (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id        UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lucky_hand_id  UUID NOT NULL REFERENCES lucky_hands(id) ON DELETE CASCADE,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
 -- 索引优化
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_games_status        ON games(status);
@@ -96,3 +123,9 @@ CREATE POLICY "Allow all for anon" ON games        FOR ALL USING (true) WITH CHE
 CREATE POLICY "Allow all for anon" ON game_players FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON buy_ins      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON settlements  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON lucky_hands  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON pending_lucky_hits FOR ALL USING (true) WITH CHECK (true);
+
+-- 开启实时订阅
+ALTER PUBLICATION supabase_realtime ADD TABLE lucky_hands;
+ALTER PUBLICATION supabase_realtime ADD TABLE pending_lucky_hits;

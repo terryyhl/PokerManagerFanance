@@ -140,7 +140,7 @@ router.get('/:id', async (req, res) => {
  * 创建新游戏
  */
 router.post('/', async (req, res) => {
-    const { name, blindLevel, minBuyin, maxBuyin, insuranceMode, userId } = req.body;
+    const { name, blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount, userId } = req.body;
 
     if (!name || !userId) {
         return res.status(400).json({ error: '缺少必要参数' });
@@ -168,6 +168,7 @@ router.post('/', async (req, res) => {
             min_buyin: minBuyin || 100,
             max_buyin: maxBuyin || 400,
             insurance_mode: insuranceMode || false,
+            lucky_hands_count: luckyHandsCount || 0,
             room_code: roomCode,
             status: 'active',
             created_by: userId,
