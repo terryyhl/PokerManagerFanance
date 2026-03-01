@@ -102,12 +102,7 @@ export function useGameSSE(
             )
             .subscribe();
 
-        // ─── 2. Polling Fallback (针对 Vercel 极短连接和潜在的网络抖动) ──
-        const pollingInterval = setInterval(() => {
-            handlersRef.current.onGameRefresh?.({ type: 'polling', userId: userId! });
-        }, 5000); // 降低轮询频率至 5s，主要靠 Realtime
-
-        // ─── 3. 旧 SSE 通道 (可选保留) ────────────────────────────────────
+        // ─── 2. 旧 SSE 通道 ────────────────────────────────────────────────
         // 如果后端部署在支持长期连接的服务器上，SSE 仍然有用。但在 Vercel 下它会频繁重连。
         const url = `/api/events/${gameId}?userId=${encodeURIComponent(userId!)}`;
         const es = new EventSource(url);
@@ -127,7 +122,6 @@ export function useGameSSE(
 
         return () => {
             supabase.removeChannel(buyinsChannel);
-            clearInterval(pollingInterval);
             es.close();
         };
     }, [gameId, userId]);

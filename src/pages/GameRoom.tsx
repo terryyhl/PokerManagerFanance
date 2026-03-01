@@ -19,7 +19,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const listRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasScrolledRef = useRef(false);
-  const hasInitiallyAnimated = useRef(false); // 防止首次加载时动画双触发
+  const hasInitiallyAnimated = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0); // 防止短时间内重复 fetch
 
   const [game, setGame] = useState<Game | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
@@ -59,8 +60,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const fetchGame = async () => {
+  const fetchGame = async (force = false) => {
     if (!id || !user) return;
+    const now = Date.now();
+    // 初始加载完成后 1.5s 内由 SSE 触发的刷新忽略（防止动画双跳）
+    if (!force && lastFetchTimeRef.current && now - lastFetchTimeRef.current < 1500) return;
+    lastFetchTimeRef.current = now;
     try {
       const { game, buyIns, players } = await gamesApi.get(id);
       setGame(game);
@@ -139,7 +144,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     onPendingList: (list) => {
       setPendingRequests(list);
     },
-    // 所有用户：游戏数据刷新
+    // 所有用户：游戏数据刷新（忽略初始加载后 1.5s 内的重复刷新）
     onGameRefresh: (data) => {
       fetchGame();
     },
