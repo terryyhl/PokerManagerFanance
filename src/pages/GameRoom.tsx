@@ -405,6 +405,12 @@ export default function GameRoom() {
                     <div className="flex flex-col gap-1 items-start flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 ml-1">
                         <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{req.username}</span>
+                        {req.userId === game?.created_by && (
+                          <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
+                            <span className="material-symbols-outlined text-[10px]">grade</span>
+                            房主
+                          </span>
+                        )}
                         <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">• {new Date(req.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
                         <span className="ml-1 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-500 px-1.5 py-0.5 rounded font-bold">待审核</span>
                       </div>
@@ -445,6 +451,12 @@ export default function GameRoom() {
                     <div className="flex flex-col gap-1 items-start max-w-[80%]">
                       <div className="flex items-center gap-1.5 ml-1">
                         <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{b.users?.username || '玩家'}</span>
+                        {b.user_id === game?.created_by && (
+                          <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
+                            <span className="material-symbols-outlined text-[10px]">grade</span>
+                            房主
+                          </span>
+                        )}
                         <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">• {formatTime(b.created_at)}</span>
                       </div>
                       <div className="rounded-2xl rounded-bl-none bg-white dark:bg-[#1e2936] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
