@@ -10,6 +10,7 @@ import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
 import CardSelectorModal from '../components/CardSelectorModal';
 import PlayerStatsModal from '../components/PlayerStatsModal';
 import PokerCardDisp from '../components/PokerCardDisp';
+import LuckyHandsTVDashboard from '../components/LuckyHandsTVDashboard';
 
 interface GameRoomProps {
   forcedId?: string;
@@ -57,15 +58,15 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // Lucky Hands States
   const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
+  const [allLuckyHands, setAllLuckyHands] = useState<any[]>([]);
   const [pendingLuckyHits, setPendingLuckyHits] = useState<any[]>([]);
-
-  // Modals
   const [isCardSelectorOpen, setIsCardSelectorOpen] = useState(false);
   const [targetHandIndex, setTargetHandIndex] = useState(1);
-  const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
-
   const [isModifyingLuckyHand, setIsModifyingLuckyHand] = useState(false);
   const [directHitConfirmHand, setDirectHitConfirmHand] = useState<LuckyHandData | null>(null);
+  const [showTVDashboard, setShowTVDashboard] = useState(false);
+
+  const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
 
   // 买入成功状态
   const [buyinSuccess, setBuyinSuccess] = useState<{ amount: number; total: number } | null>(null);
@@ -89,6 +90,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       // 如果有幸运手牌功能开启，获取该功能的数据
       if (gameData.lucky_hands_count > 0 && user) {
         const { luckyHands: fetchedHands } = await luckyHandsApi.getAll(id);
+        setAllLuckyHands(fetchedHands);
         // 这里我们只在 FAB 中关心【自己的】手牌配置
         setLuckyHands(fetchedHands.filter((h: any) => h.user_id === user.id));
 
@@ -319,6 +321,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           if (isHost && user!.id === game?.created_by) {
             // 房主修改自己的直接确认过免审
             if (window.confirm("确定要修改此手牌吗？新的卡牌将即时生效，同时该组中奖次数将重置为 0。")) {
+              setLuckyHands(prev => prev.map(h => h.hand_index === targetHandIndex ? { ...h, card_1: card1, card_2: card2, hit_count: 0 } : h));
               await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
               showToast("您的手牌修改成功", 'success');
             }
@@ -328,6 +331,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           }
         }
       } else {
+        setLuckyHands(prev => {
+          const newHand = { id: `temp-${Date.now()}`, hand_index: targetHandIndex, card_1: card1, card_2: card2, hit_count: 0, user_id: user!.id, game_id: id! } as any;
+          return [...prev.filter(h => h.hand_index !== targetHandIndex), newHand];
+        });
         await luckyHandsApi.setup(id!, user!.id, targetHandIndex, card1, card2);
         showToast("手牌设置完毕", 'success');
       }
@@ -464,12 +471,6 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white">{game?.name || '牌局'}</h2>
-                {game?.users && (
-                  <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50 flex items-center gap-0.5">
-                    <span className="material-symbols-outlined text-[12px]">grade</span>
-                    房主: {game.users.username}
-                  </span>
-                )}
               </div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <span>{game?.room_code} • 盲注 {game?.blind_level}</span>
@@ -911,6 +912,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   onClick={async () => {
                     setSubmitting(true);
                     try {
+                      setLuckyHands(prev => prev.map(h => h.hand_index === directHitConfirmHand.hand_index ? { ...h, hit_count: h.hit_count + 1 } : h));
                       await luckyHandsApi.hostDirectHit(id!, user!.id, (directHitConfirmHand as any).id);
                       setDirectHitConfirmHand(null);
                     } catch (e) {
@@ -934,8 +936,17 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             maxHandsCount={game.lucky_hands_count}
             configuredHands={luckyHands}
             onSelectSlot={handleSelectSlot}
+            onLongPressMain={() => setShowTVDashboard(true)}
           />
         )}
+
+        <LuckyHandsTVDashboard
+          isOpen={showTVDashboard}
+          onClose={() => setShowTVDashboard(false)}
+          players={players}
+          allLuckyHands={allLuckyHands}
+          luckyHandsCount={game?.lucky_hands_count || 0}
+        />
 
         <CardSelectorModal
           isOpen={isCardSelectorOpen}

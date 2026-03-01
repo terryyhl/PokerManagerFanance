@@ -13,16 +13,20 @@ interface LuckyHandFABProps {
     maxHandsCount: number; // 0-3
     configuredHands: LuckyHandData[];
     onSelectSlot: (handIndex: number, action: 'setup' | 'hit') => void;
+    onLongPressMain?: () => void;
 }
 
 export default function LuckyHandFAB({
     maxHandsCount,
     configuredHands,
     onSelectSlot,
+    onLongPressMain
 }: LuckyHandFABProps) {
     if (maxHandsCount === 0) return null;
 
     const [isExpanded, setIsExpanded] = useState(false);
+    const [mainPressTimer, setMainPressTimer] = useState<NodeJS.Timeout | null>(null);
+    const [isMainLongPressing, setIsMainLongPressing] = useState(false);
 
     // 展开/收起动画
     useEffect(() => {
@@ -118,7 +122,33 @@ export default function LuckyHandFAB({
 
             {/* 主按钮 */}
             <div
-                onClick={() => setIsExpanded(!isExpanded)}
+                onPointerDown={() => {
+                    if (onLongPressMain) {
+                        setIsMainLongPressing(false);
+                        const timer = setTimeout(() => {
+                            setIsMainLongPressing(true);
+                            if (navigator.vibrate) navigator.vibrate(50);
+                            onLongPressMain();
+                        }, 500); // 500ms 判定为长按呼出电视墙
+                        setMainPressTimer(timer);
+                    }
+                }}
+                onPointerUp={() => {
+                    if (mainPressTimer) clearTimeout(mainPressTimer);
+                    if (!isMainLongPressing) {
+                        setIsExpanded(!isExpanded);
+                    }
+                    setIsMainLongPressing(false);
+                }}
+                onPointerLeave={() => {
+                    if (mainPressTimer) clearTimeout(mainPressTimer);
+                    setIsMainLongPressing(false);
+                }}
+                onPointerCancel={() => {
+                    if (mainPressTimer) clearTimeout(mainPressTimer);
+                    setIsMainLongPressing(false);
+                }}
+                onContextMenu={(e) => { e.preventDefault(); }}
                 className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-transform cursor-pointer relative z-10
                 ${isExpanded ? 'bg-indigo-600 scale-90' : 'bg-gradient-to-tr from-indigo-500 to-purple-500 hover:scale-105 active:scale-95'}`}
             >
