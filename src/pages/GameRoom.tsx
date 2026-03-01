@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
+
 import { gamesApi, buyInApi, pendingBuyInApi, BuyIn, Game, Player } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import { useGameSSE, PendingBuyinEvent } from '../hooks/useGameSSE';
@@ -16,11 +16,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const { id: paramId } = useParams<{ id: string }>();
   const id = forcedId ?? paramId;
   const { user } = useUser();
-  const listRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasScrolledRef = useRef(false);
-  const hasInitiallyAnimated = useRef(false);
-  const lastFetchTimeRef = useRef<number>(0); // 防止短时间内重复 fetch
+  const lastFetchTimeRef = useRef<number>(0);
 
   const [game, setGame] = useState<Game | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
@@ -82,57 +80,21 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   useEffect(() => { fetchGame(); }, [id, user]);
 
-  useEffect(() => {
-    if (!isLoading && listRef.current) {
-      hasInitiallyAnimated.current = true; // 标记初始动画已完成
-      anime({
-        targets: listRef.current.children,
-        translateY: [20, 0], opacity: [0, 1],
-        duration: 600, easing: 'easeOutExpo', delay: anime.stagger(150),
-      });
-    }
-  }, [isLoading]);
 
-  // 首次加载完成：滚动到底部
-  useEffect(() => {
-    if (!isLoading && scrollContainerRef.current && !hasScrolledRef.current) {
-      hasScrolledRef.current = true;
-      const el = scrollContainerRef.current;
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    // 初始加载时跳过（由 isLoading effect 处理），只处理后续新增的条目
-    if (!hasInitiallyAnimated.current) return;
-    if (!listRef.current) return;
-    const children = Array.from(listRef.current.children) as HTMLElement[];
-    const newItems = children.filter(el => {
-      const currentOpacity = el.style.opacity;
-      return !currentOpacity || currentOpacity === '0';
-    });
-    if (newItems.length > 0) {
-      anime({ targets: newItems, translateY: [20, 0], opacity: [0, 1], duration: 500, easing: 'easeOutExpo' });
-    }
-  }, [buyIns.length, pendingRequests.length]);
-
-  // 新买入/待审核出现：滚动到底部（让用户看到最新消息）
+  // 新买入/待审核出现：无条件平滑滚动到底部
   useEffect(() => {
     if (scrollContainerRef.current && hasScrolledRef.current) {
       const el = scrollContainerRef.current;
-      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      if (isNearBottom) {
-        el.scrollTop = el.scrollHeight;
-      }
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
   }, [buyIns.length, pendingRequests.length]);
 
   // ── SSE 长连接 ─────────────────────────────────────────────────────────────
-  useGameSSE(id, user?.id, {
+  const { markPendingSubmitted } = useGameSSE(id, user?.id, {
     onConnected: (isHost) => {
       console.log('[SSE] connected, isHost=', isHost);
     },
-    // 房主收到新的待审核申请
+    // 房主收到新的待审核申请（已在 Hook 内过滤掉自己的申请）
     onBuyinRequest: (req) => {
       setPendingRequests(prev => {
         if (prev.find(r => r.id === req.id)) return prev;
@@ -144,16 +106,17 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     onPendingList: (list) => {
       setPendingRequests(list);
     },
-    // 所有用户：游戏数据刷新（忽略初始加载后 1.5s 内的重复刷新）
-    onGameRefresh: (data) => {
+    // 所有用户：游戏数据刷新
+    onGameRefresh: () => {
       fetchGame();
     },
-    // 申请用户：审核通过通知
+    // 申请用户：审核通过通知（由 buy_ins INSERT 事件触发）
     onBuyinApproved: (data: any) => {
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
-      setBuyinSuccess({ amount: data.amount, total: data.totalAmount });
+      // totalAmount 先用 0 占位，fetchGame 完成后界面会自动更新
+      setBuyinSuccess({ amount: data.amount, total: data.totalAmount ?? 0 });
       setShowBuyIn(true);
-      fetchGame();
+      // buy_ins INSERT 已经触发了 onGameRefresh → fetchGame，无需重复调用
     },
     // 申请用户：审核拒绝通知
     onBuyinRejected: (data) => {
@@ -165,7 +128,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       showToast(data.message, 'success');
       setTimeout(() => {
         navigate(`/settlement/${id}`);
-      }, 1500); // 留出 1.5 秒时间让用户看到完整提示再跳转
+      }, 1500);
     }
   });
 
@@ -222,12 +185,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     const userBuyIns = buyIns.filter(b => b.user_id === user.id && (b.type === 'initial' || b.type === 'rebuy'));
     const type = userBuyIns.length === 0 ? 'initial' : 'rebuy';
 
-    // 带入审核模式 且 非房主 → 提交待审核申请（SSE 通知房主）
-    // 带入审核模式 且 非房主 → 提交待审核申请（SSE 通知房主）
+    // 带入审核模式 且 非房主 → 提交待审核申请（Supabase Realtime 通知房主）
     if (needsApproval && !isHost) {
       setSubmitting(true);
       try {
         await pendingBuyInApi.submit(id, user.id, user.username, amount, type);
+        // 标记「我已提交待审核申请」，供 SSE Hook 识别后续 buy_ins INSERT 为审批通过
+        markPendingSubmitted(amount, type);
         showToast('申请已提交，等待房主审核...', 'info');
         setBuyInAmount(''); setShowBuyIn(false);
       } catch (err: any) {
@@ -456,8 +420,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         )}
 
         <main ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
-          <div ref={listRef} className="flex flex-col gap-4">
-            <div className="flex items-center justify-center py-2 opacity-0">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-center py-2">
               <span className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
                 {game?.created_at ? `开始于 ${formatTime(game.created_at)}` : '游戏进行中'}
               </span>
@@ -473,7 +437,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 if (!isHost) return null;
                 const req = item as PendingBuyinEvent & { _pending: true };
                 return (
-                  <div key={`p-${req.id}`} className="flex items-end gap-3 opacity-0">
+                  <div key={`p-${req.id}`} className="flex items-end gap-3">
                     <div className="relative">
                       <div className="h-10 w-10 rounded-full border-2 border-amber-300 dark:border-amber-600 overflow-hidden">
                         <Avatar username={req.username || '?'} isAdmin={req.userId === game?.created_by} />
@@ -521,7 +485,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 // 已确认买入条目
                 const b = item as BuyIn & { _pending: false };
                 return (
-                  <div key={b.id} className="flex items-end gap-3 group opacity-0">
+                  <div key={b.id} className="flex items-end gap-3 group">
                     <div className="relative">
                       <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-background-light dark:border-background-dark ring-2 ring-primary/20">
                         <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
@@ -547,7 +511,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           <span className="text-2xl font-bold text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}</span>
                           <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
                             <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-[14px]">account_balance_wallet</span>
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">总买入: ${
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">当前总买入: ${
                               buyIns
                                 .filter(prev => prev.user_id === b.user_id &&
                                   (prev.type === 'initial' || prev.type === 'rebuy') &&
@@ -564,17 +528,17 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             })}
 
             {buyIns.length === 0 && pendingRequests.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-center opacity-0">
+              <div className="flex flex-col items-center justify-center py-8 text-center">
                 <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-3">casino</span>
                 <p className="text-slate-400 text-sm">游戏已开始，点击下方"买入"加入</p>
               </div>
             )}
 
             {myTotalBuyIn > 0 && (
-              <div className="flex justify-center w-full my-2 opacity-0">
+              <div className="flex justify-center w-full my-2">
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg py-3 px-4 w-full flex items-center gap-3">
                   <span className="material-symbols-outlined text-blue-500 text-sm">account_balance_wallet</span>
-                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">你的总买入: <strong>${myTotalBuyIn}</strong></p>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">你的当前总买入: <strong>${myTotalBuyIn}</strong></p>
                 </div>
               </div>
             )}
@@ -719,7 +683,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     inputMode="decimal" placeholder="0" type="number" value={checkoutChips} onChange={e => setCheckoutChips(e.target.value)} />
                 </div>
                 <div className="mt-4 flex justify-between text-xs font-medium text-slate-500 px-1">
-                  <span>总买入: ${myTotalBuyIn}</span>
+                  <span>当前总买入: ${myTotalBuyIn}</span>
                   <span>预计盈亏: <span className={parseInt(checkoutChips || '0') - myTotalBuyIn >= 0 ? 'text-green-400' : 'text-red-400'}>
                     {checkoutChips ? `${parseInt(checkoutChips) - myTotalBuyIn >= 0 ? '+' : ''}$${parseInt(checkoutChips) - myTotalBuyIn}` : '--'}
                   </span></span>

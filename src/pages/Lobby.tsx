@@ -16,7 +16,6 @@ export default function Lobby() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-
   const fetchGames = async (silent = false) => {
     if (!silent) {
       setIsLoading(true);
@@ -39,12 +38,16 @@ export default function Lobby() {
     fetchGames();
   }, []);
 
-  // 监听 games 表变化，有新房间创建/关闭时自动刷新（不重复触发初始加载）
+  // 监听 games 表变化，有新房间创建/关闭时自动刷新
+  // 同时监听 game_players INSERT，有新玩家加入时更新人数显示
   useEffect(() => {
     const channel = supabase
       .channel('lobby:games')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
         fetchGames(true); // 静默刷新，不显示 loading
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players' }, () => {
+        fetchGames(true); // 有新玩家加入时，更新大厅房间人数
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
