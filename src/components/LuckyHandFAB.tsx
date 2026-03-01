@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
+import PokerCardDisp from './PokerCardDisp';
 
 export interface LuckyHandData {
     hand_index: number;
@@ -61,11 +62,10 @@ export default function LuckyHandFAB({
     // 渲染单张扑克小图标（用来在已配置手牌槽位上显示）
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
         return (
-            <div className="flex flex-col items-center justify-center h-full w-full leading-tight">
-                <div className="flex text-[15px] space-x-0.5 font-bold tracking-tighter">
-                    <span>{c1}</span>
-                    <span className="text-slate-300">|</span>
-                    <span>{c2}</span>
+            <div className="flex flex-col items-center justify-center p-1 leading-tight h-full w-full relative">
+                <div className="flex gap-0.5 justify-center w-full">
+                    <PokerCardDisp card={c1} className="text-[14px] px-1 py-0 shadow-sm" />
+                    <PokerCardDisp card={c2} className="text-[14px] px-1 py-0 shadow-sm" />
                 </div>
                 {hitCount > 0 && (
                     <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 border-2 border-indigo-600 text-[10px] font-black w-5 h-5 rounded-full shadow-sm flex items-center justify-center">
@@ -102,8 +102,8 @@ export default function LuckyHandFAB({
                                 setIsExpanded(false);
                             }}
                             className={`lucky-hand-item absolute w-14 h-14 rounded-full shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
-                                    ? 'bg-indigo-600 text-white border-2 border-indigo-400'
-                                    : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500 hover:bg-slate-600'
+                                ? 'bg-indigo-600 text-white border-2 border-indigo-400'
+                                : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500 hover:bg-slate-600'
                                 }`}
                             style={{ opacity: 0, transform: 'scale(0.5)' }} // 初始隐藏
                         >

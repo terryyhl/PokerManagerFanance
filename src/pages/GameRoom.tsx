@@ -9,6 +9,7 @@ import Avatar from '../components/Avatar';
 import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
 import CardSelectorModal from '../components/CardSelectorModal';
 import PlayerStatsModal from '../components/PlayerStatsModal';
+import PokerCardDisp from '../components/PokerCardDisp';
 
 interface GameRoomProps {
   forcedId?: string;
@@ -307,6 +308,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const handleApproveLuckyHit = async (hitId: string) => {
     try {
       await luckyHandsApi.approveHit(id!, hitId);
+      setPendingLuckyHits(prev => prev.filter(h => h.id !== hitId));
     } catch (e) {
       console.error(e);
     }
@@ -315,6 +317,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const handleRejectLuckyHit = async (hitId: string) => {
     try {
       await luckyHandsApi.rejectHit(id!, hitId);
+      setPendingLuckyHits(prev => prev.filter(h => h.id !== hitId));
     } catch (e) {
       console.error(e);
     }
@@ -529,8 +532,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                         </div>
                         <div>
                           <div className="font-bold text-slate-800 dark:text-slate-200">{hit.users?.username}</div>
-                          <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                            申请中奖：{hit.lucky_hands.card_1} + {hit.lucky_hands.card_2}
+                          <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center mt-1">
+                            申请中奖：
+                            <div className="flex gap-1 ml-1">
+                              <PokerCardDisp card={hit.lucky_hands.card_1} className="text-xs px-1" />
+                              <PokerCardDisp card={hit.lucky_hands.card_2} className="text-xs px-1" />
+                            </div>
                           </div>
                         </div>
                       </div>

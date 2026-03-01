@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LuckyHandData } from './LuckyHandFAB';
+import Avatar from './Avatar';
+import PokerCardDisp from './PokerCardDisp';
 
 interface PlayerStatsModalProps {
     isOpen: boolean;
@@ -141,9 +143,9 @@ export default function PlayerStatsModal({
 
                                                     <div className="text-xs text-slate-400 font-bold mb-1">槽位 {handIndex}</div>
                                                     {data ? (
-                                                        <div className="flex text-sm space-x-1 font-bold text-slate-800 dark:text-slate-200">
-                                                            <span>{data.card_1}</span>
-                                                            <span>{data.card_2}</span>
+                                                        <div className="flex gap-1 justify-center mt-1">
+                                                            <PokerCardDisp card={data.card_1} className="text-[13px] px-1 shadow-sm" />
+                                                            <PokerCardDisp card={data.card_2} className="text-[13px] px-1 shadow-sm" />
                                                         </div>
                                                     ) : (
                                                         <div className="text-2xl text-slate-300 dark:text-slate-600 font-light">-</div>
