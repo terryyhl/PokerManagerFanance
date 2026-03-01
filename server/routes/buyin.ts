@@ -58,7 +58,7 @@ router.post('/pending', async (req, res) => {
         return res.status(400).json({ error: '缺少必要参数' });
     }
 
-    const pending = addPending({
+    const pending = await addPending({
         gameId,
         userId,
         username,
@@ -76,9 +76,10 @@ router.post('/pending', async (req, res) => {
  * GET /api/buyin/pending/:gameId
  * 获取当前游戏所有待审核申请（房主使用）
  */
-router.get('/pending/:gameId', (req, res) => {
+router.get('/pending/:gameId', async (req, res) => {
     const { gameId } = req.params;
-    return res.json({ requests: getPending(gameId) });
+    const requests = await getPending(gameId);
+    return res.json({ requests });
 });
 
 /**
@@ -88,7 +89,7 @@ router.get('/pending/:gameId', (req, res) => {
 router.post('/pending/:id/approve', async (req, res) => {
     const { id } = req.params;
 
-    const pending = removePending(id);
+    const pending = await removePending(id);
     if (!pending) {
         return res.status(404).json({ error: '申请不存在或已处理' });
     }
@@ -126,10 +127,10 @@ router.post('/pending/:id/approve', async (req, res) => {
  * DELETE /api/buyin/pending/:id
  * 房主拒绝买入申请
  */
-router.delete('/pending/:id', (req, res) => {
+router.delete('/pending/:id', async (req, res) => {
     const { id } = req.params;
 
-    const pending = removePending(id);
+    const pending = await removePending(id);
     if (!pending) {
         return res.status(404).json({ error: '申请不存在或已处理' });
     }

@@ -45,7 +45,7 @@ router.get('/:gameId', async (req, res) => {
 
     // 如果是房主，推送当前待审核队列
     if (isHost) {
-        const pending = getPending(gameId);
+        const pending = await getPending(gameId);
         if (pending.length > 0) {
             res.write(`event: pending_list\ndata: ${JSON.stringify(pending)}\n\n`);
         }

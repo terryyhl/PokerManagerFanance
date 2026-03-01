@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './supabase.js';
 
 export interface PendingBuyinRequest {
     id: string;
@@ -10,32 +10,72 @@ export interface PendingBuyinRequest {
     createdAt: string;
 }
 
-// gameId → PendingBuyinRequest[]
-const store = new Map<string, PendingBuyinRequest[]>();
+export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdAt'>): Promise<PendingBuyinRequest> {
+    const { data, error } = await supabase
+        .from('pending_buyins')
+        .insert({
+            game_id: req.gameId,
+            user_id: req.userId,
+            username: req.username,
+            amount: req.amount,
+            type: req.type
+        })
+        .select()
+        .single();
 
-export function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdAt'>): PendingBuyinRequest {
-    const item: PendingBuyinRequest = {
-        ...req,
-        id: uuidv4(),
-        createdAt: new Date().toISOString(),
-    };
-    if (!store.has(req.gameId)) store.set(req.gameId, []);
-    store.get(req.gameId)!.push(item);
-    return item;
-}
-
-export function getPending(gameId: string): PendingBuyinRequest[] {
-    return store.get(gameId) ?? [];
-}
-
-export function removePending(id: string): PendingBuyinRequest | null {
-    for (const [gameId, list] of store) {
-        const idx = list.findIndex(r => r.id === id);
-        if (idx >= 0) {
-            const [removed] = list.splice(idx, 1);
-            store.set(gameId, list);
-            return removed;
-        }
+    if (error) {
+        console.error('[pendingRequests] addPending error:', error);
+        throw new Error('无法保存申请');
     }
-    return null;
+
+    return {
+        id: data.id,
+        gameId: data.game_id,
+        userId: data.user_id,
+        username: data.username,
+        amount: data.amount,
+        type: data.type,
+        createdAt: data.created_at
+    };
+}
+
+export async function getPending(gameId: string): Promise<PendingBuyinRequest[]> {
+    const { data, error } = await supabase
+        .from('pending_buyins')
+        .select()
+        .eq('game_id', gameId)
+        .order('created_at', { ascending: true });
+
+    if (error) return [];
+
+    return data.map(item => ({
+        id: item.id,
+        gameId: item.game_id,
+        userId: item.user_id,
+        username: item.username,
+        amount: item.amount,
+        type: item.type,
+        createdAt: item.created_at
+    }));
+}
+
+export async function removePending(id: string): Promise<PendingBuyinRequest | null> {
+    const { data, error } = await supabase
+        .from('pending_buyins')
+        .delete()
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error || !data) return null;
+
+    return {
+        id: data.id,
+        gameId: data.game_id,
+        userId: data.user_id,
+        username: data.username,
+        amount: data.amount,
+        type: data.type,
+        createdAt: data.created_at
+    };
 }
