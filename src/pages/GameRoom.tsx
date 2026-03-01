@@ -446,7 +446,9 @@ export default function GameRoom() {
                       <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-background-light dark:border-background-dark ring-2 ring-primary/20">
                         <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
                       </div>
-                      <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark" />
+                      {b.user_id === game?.created_by && (
+                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 items-start max-w-[80%]">
                       <div className="flex items-center gap-1.5 ml-1">
