@@ -38,18 +38,13 @@ export default function LuckyHandsTVDashboard({
 
     return createPortal(
         <div className="fixed inset-0 z-[100000] bg-[#0a0f16] flex flex-col text-white animate-in fade-in zoom-in-95 duration-300">
-            <header className="flex items-center justify-between p-6 md:p-8 bg-gradient-to-b from-black/80 to-transparent">
-                <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-yellow-500 text-4xl">emoji_events</span>
-                    <h1 className="text-3xl md:text-4xl font-black tracking-wider bg-gradient-to-r from-yellow-400 to-amber-600 outline-text text-transparent bg-clip-text">幸运手牌龙虎榜</h1>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="size-14 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:scale-95"
-                >
-                    <span className="material-symbols-outlined text-4xl">close</span>
-                </button>
-            </header>
+            {/* 悬浮关闭按钮，不占据文档流高度 */}
+            <button
+                onClick={onClose}
+                className="absolute top-3 right-4 z-[200000] size-10 md:size-12 rounded-full bg-slate-800/80 border border-slate-600 shadow-xl hover:bg-slate-700 flex items-center justify-center transition-colors active:scale-95"
+            >
+                <span className="material-symbols-outlined text-2xl md:text-3xl text-slate-300">close</span>
+            </button>
 
             {isPortrait ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
@@ -64,10 +59,13 @@ export default function LuckyHandsTVDashboard({
 
                         {/* 表头 (Grid Row) */}
                         <div
-                            className="grid gap-4 p-5 md:p-8 bg-slate-800/95 border-b border-slate-700/80 text-slate-400 font-bold uppercase tracking-wider text-sm md:text-lg sticky top-0 z-20 shadow-md"
-                            style={{ gridTemplateColumns: `minmax(240px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(260px, 1fr))` }}
+                            className="grid gap-2 p-2 md:p-3 bg-slate-800/95 border-b border-slate-700/80 text-slate-400 font-bold uppercase tracking-wider text-xs md:text-sm sticky top-0 z-20 shadow-md"
+                            style={{ gridTemplateColumns: `minmax(140px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(140px, 1fr))` }}
                         >
-                            <div className="pl-4 md:pl-8">玩家列表</div>
+                            <div className="pl-2 md:pl-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-yellow-500 text-lg">emoji_events</span>
+                                龙虎榜
+                            </div>
                             {Array.from({ length: luckyHandsCount }).map((_, i) => (
                                 <div key={i} className="text-center">幸运牌型 {i + 1}</div>
                             ))}
@@ -81,16 +79,16 @@ export default function LuckyHandsTVDashboard({
                                 return (
                                     <div
                                         key={player.id}
-                                        className={`grid gap-4 p-5 md:p-8 items-center transition-colors hover:bg-slate-700/30 ${pIdx !== players.length - 1 ? 'border-b border-slate-700/30' : ''}`}
-                                        style={{ gridTemplateColumns: `minmax(240px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(260px, 1fr))` }}
+                                        className={`grid gap-2 p-2 md:p-3 items-center transition-colors hover:bg-slate-700/30 ${pIdx !== players.length - 1 ? 'border-b border-slate-700/30' : ''}`}
+                                        style={{ gridTemplateColumns: `minmax(140px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(140px, 1fr))` }}
                                     >
 
                                         {/* Column 1: 用户信息 */}
-                                        <div className="flex items-center gap-4 md:gap-6 pl-4 md:pl-8">
-                                            <div className="w-16 h-16 rounded-full lg:w-20 lg:h-20 xl:w-24 xl:h-24 shadow-lg ring-4 ring-slate-700/50 bg-slate-900 flex-shrink-0">
+                                        <div className="flex items-center gap-3 pl-2 md:pl-4">
+                                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full shadow-md ring-2 ring-slate-700/50 bg-slate-900 flex-shrink-0">
                                                 <Avatar username={player.users?.username || '?'} className="w-full h-full" />
                                             </div>
-                                            <h2 className="text-xl lg:text-3xl font-bold text-slate-100 truncate">
+                                            <h2 className="text-sm md:text-base lg:text-lg font-bold text-slate-100 truncate">
                                                 {player.users?.username}
                                             </h2>
                                         </div>
@@ -100,25 +98,25 @@ export default function LuckyHandsTVDashboard({
                                             const hand = userHands.find(h => h.hand_index === i + 1);
                                             return (
                                                 <div key={i} className="flex justify-center items-center">
-                                                    <div className={`flex flex-col items-center justify-center w-[100px] h-[120px] xl:w-[130px] xl:h-[150px] 2xl:w-[150px] 2xl:h-[180px] rounded-2xl border-2 relative transition-all
-                                                    ${hand ? (hand.hit_count > 0 ? 'border-yellow-500 bg-yellow-500/10 shadow-[0_0_20px_rgba(234,179,8,0.2)]' : 'border-indigo-500/30 bg-indigo-900/20') : 'border-slate-700/50 border-dashed bg-slate-800/10'}
+                                                    <div className={`flex flex-col items-center justify-center w-[54px] h-[60px] md:w-[64px] md:h-[70px] rounded-xl border-2 relative transition-all
+                                                    ${hand ? (hand.hit_count > 0 ? 'border-yellow-500 bg-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'border-indigo-500/30 bg-indigo-900/20') : 'border-slate-700/50 border-dashed bg-slate-800/10'}
                                                 `}>
                                                         {hand && hand.hit_count > 0 && (
-                                                            <div className="absolute -top-4 w-full flex justify-center z-10">
-                                                                <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-base md:text-lg font-black px-3 py-0.5 rounded-lg shadow-lg flex items-center gap-1 transform -skew-x-6">
-                                                                    <span className="material-symbols-outlined text-[16px] md:text-[20px]">star</span>
+                                                            <div className="absolute -top-3 w-full flex justify-center z-10">
+                                                                <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-[10px] md:text-xs font-black px-1.5 py-0.5 rounded shadow flex items-center gap-0.5 transform -skew-x-6">
+                                                                    <span className="material-symbols-outlined text-[10px] md:text-[12px]">star</span>
                                                                     ×{hand.hit_count}
                                                                 </span>
                                                             </div>
                                                         )}
 
                                                         {hand ? (
-                                                            <div className="flex -space-x-4 xl:-space-x-6">
-                                                                <PokerCardDisp card={hand.card_1} className="text-[18px] md:text-[22px] xl:text-[28px] px-1.5 xl:px-2 shadow-2xl transition-transform hover:-translate-y-2 hover:rotate-[-5deg]" />
-                                                                <PokerCardDisp card={hand.card_2} className="text-[18px] md:text-[22px] xl:text-[28px] px-1.5 xl:px-2 shadow-2xl transition-transform hover:-translate-y-2 hover:rotate-[5deg]" />
+                                                            <div className="flex -space-x-3 md:-space-x-4">
+                                                                <PokerCardDisp card={hand.card_1} className="text-[10px] md:text-[12px] px-1 shadow-md transition-transform hover:-translate-y-1 hover:rotate-[-5deg]" />
+                                                                <PokerCardDisp card={hand.card_2} className="text-[10px] md:text-[12px] px-1 shadow-md transition-transform hover:-translate-y-1 hover:rotate-[5deg]" />
                                                             </div>
                                                         ) : (
-                                                            <div className="text-slate-600 font-bold tracking-widest text-lg md:text-xl opacity-40">
+                                                            <div className="text-slate-600 font-bold tracking-widest text-xs opacity-40">
                                                                 未配置
                                                             </div>
                                                         )}
