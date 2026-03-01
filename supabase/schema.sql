@@ -1,0 +1,98 @@
+-- ============================================
+-- 扑克财务管理器 - Supabase 数据库 Schema
+-- 在 Supabase SQL Editor 中运行此脚本
+-- ============================================
+
+-- 启用 uuid 生成扩展
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ============================================
+-- 用户表
+-- ============================================
+CREATE TABLE IF NOT EXISTS users (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username    TEXT UNIQUE NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
+-- 游戏/房间表
+-- ============================================
+CREATE TABLE IF NOT EXISTS games (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT NOT NULL,
+  blind_level     TEXT NOT NULL DEFAULT '1/2',
+  min_buyin       INTEGER NOT NULL DEFAULT 100,
+  max_buyin       INTEGER NOT NULL DEFAULT 400,
+  insurance_mode  BOOLEAN NOT NULL DEFAULT FALSE,
+  room_code       TEXT UNIQUE NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'finished')),
+  created_by      UUID NOT NULL REFERENCES users(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at     TIMESTAMPTZ
+);
+
+-- ============================================
+-- 游戏玩家关联表
+-- ============================================
+CREATE TABLE IF NOT EXISTS game_players (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(game_id, user_id)
+);
+
+-- ============================================
+-- 买入记录表
+-- ============================================
+CREATE TABLE IF NOT EXISTS buy_ins (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount      INTEGER NOT NULL CHECK (amount > 0),
+  type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
+-- 结算记录表
+-- ============================================
+CREATE TABLE IF NOT EXISTS settlements (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id       UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  total_buyin   INTEGER NOT NULL DEFAULT 0,
+  final_chips   INTEGER NOT NULL DEFAULT 0,
+  net_profit    INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(game_id, user_id)
+);
+
+-- ============================================
+-- 索引优化
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_games_status        ON games(status);
+CREATE INDEX IF NOT EXISTS idx_games_room_code     ON games(room_code);
+CREATE INDEX IF NOT EXISTS idx_game_players_game   ON game_players(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_players_user   ON game_players(user_id);
+CREATE INDEX IF NOT EXISTS idx_buy_ins_game        ON buy_ins(game_id);
+CREATE INDEX IF NOT EXISTS idx_buy_ins_user        ON buy_ins(user_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_game    ON settlements(game_id);
+
+-- ============================================
+-- Row Level Security (RLS) - 基础配置
+-- 目前设为公开可读写（无认证），适合原型阶段
+-- ============================================
+ALTER TABLE users        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE games        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE game_players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE buy_ins      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settlements  ENABLE ROW LEVEL SECURITY;
+
+-- 允许匿名访问（使用 anon key 的客户端可以读写所有数据）
+CREATE POLICY "Allow all for anon" ON users        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON games        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON game_players FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON buy_ins      FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON settlements  FOR ALL USING (true) WITH CHECK (true);
