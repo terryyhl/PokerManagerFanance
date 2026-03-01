@@ -25,7 +25,7 @@ export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdA
 
     if (error) {
         console.error('[pendingRequests] addPending error:', error);
-        throw new Error('无法保存申请');
+        throw new Error(`数据库错误: ${error.message} (代码: ${error.code})`);
     }
 
     return {
