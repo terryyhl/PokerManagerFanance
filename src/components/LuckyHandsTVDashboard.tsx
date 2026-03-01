@@ -58,12 +58,15 @@ export default function LuckyHandsTVDashboard({
                     <p className="text-slate-500 max-w-sm">请将您的设备横向放置或全屏投射至横向电视面板，以展示最完整的玩家矩阵手牌数据极简列表。</p>
                 </div>
             ) : (
-                <main className="flex-1 overflow-y-auto px-6 pb-6 md:px-8 md:pb-8 no-scrollbar">
-                    {/* 类似 Excel 的紧凑表格视图 */}
-                    <div className="w-full h-full min-h-full border border-slate-700/50 rounded-2xl overflow-hidden bg-slate-800/40 shadow-2xl flex flex-col">
+                <main className="flex-1 overflow-auto no-scrollbar">
+                    {/* 无边界 全向滑动的表格视图 */}
+                    <div className="w-full h-full min-h-full min-w-max flex flex-col pb-16">
 
                         {/* 表头 (Grid Row) */}
-                        <div className="grid grid-cols-[minmax(240px,1.5fr)_repeat(auto-fit,minmax(200px,1fr))] gap-4 p-4 md:p-6 bg-slate-800/80 border-b border-slate-700/80 text-slate-400 font-bold uppercase tracking-wider text-sm md:text-lg">
+                        <div
+                            className="grid gap-4 p-5 md:p-8 bg-slate-800/95 border-b border-slate-700/80 text-slate-400 font-bold uppercase tracking-wider text-sm md:text-lg sticky top-0 z-20 shadow-md"
+                            style={{ gridTemplateColumns: `minmax(240px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(260px, 1fr))` }}
+                        >
                             <div className="pl-4 md:pl-8">玩家列表</div>
                             {Array.from({ length: luckyHandsCount }).map((_, i) => (
                                 <div key={i} className="text-center">幸运牌型 {i + 1}</div>
@@ -71,12 +74,16 @@ export default function LuckyHandsTVDashboard({
                         </div>
 
                         {/* 表身 */}
-                        <div className="flex flex-col flex-1 pb-16">
+                        <div className="flex flex-col flex-1">
                             {players.map((player, pIdx) => {
                                 const userHands = allLuckyHands.filter(h => h.user_id === player.user_id);
 
                                 return (
-                                    <div key={player.id} className={`grid grid-cols-[minmax(240px,1.5fr)_repeat(auto-fit,minmax(200px,1fr))] gap-4 p-4 md:p-6 items-center transition-colors hover:bg-slate-700/30 ${pIdx !== players.length - 1 ? 'border-b border-slate-700/30' : ''}`}>
+                                    <div
+                                        key={player.id}
+                                        className={`grid gap-4 p-5 md:p-8 items-center transition-colors hover:bg-slate-700/30 ${pIdx !== players.length - 1 ? 'border-b border-slate-700/30' : ''}`}
+                                        style={{ gridTemplateColumns: `minmax(240px, 1.5fr) repeat(${luckyHandsCount || 1}, minmax(260px, 1fr))` }}
+                                    >
 
                                         {/* Column 1: 用户信息 */}
                                         <div className="flex items-center gap-4 md:gap-6 pl-4 md:pl-8">
