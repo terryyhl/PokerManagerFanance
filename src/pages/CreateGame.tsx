@@ -18,9 +18,6 @@ export default function CreateGame() {
   const [maxBuyin, setMaxBuyin] = useState(400);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  // 创建成功后的房间信息
-  const [createdGame, setCreatedGame] = useState<{ id: string; roomCode: string; name: string } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     anime({
@@ -57,8 +54,8 @@ export default function CreateGame() {
         insuranceMode: insurance,
         userId: user.id,
       });
-      // 显示房间码弹窗而不是直接跳转
-      setCreatedGame({ id: game.id, roomCode: game.room_code, name: game.name });
+      // 直接进入牌局，并替换当前历史记录（关闭创建页面）
+      navigate(`/game/${game.id}`, { replace: true });
     } catch (err: any) {
       setError(err.message || '创建游戏失败，请重试');
     } finally {
@@ -66,60 +63,13 @@ export default function CreateGame() {
     }
   };
 
-  const handleCopyCode = () => {
-    if (!createdGame) return;
-    navigator.clipboard.writeText(createdGame.roomCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
+
 
   return (
     <AnimatedPage animationType="slide-up">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full flex flex-col">
 
-        {/* 创建成功弹窗 - 显示6位房间密码 */}
-        {createdGame && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-            <div className="relative w-full max-w-sm rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10 overflow-hidden">
-              <div className="px-6 pt-8 pb-6 flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
-                  <span className="material-symbols-outlined text-primary text-[32px]">lock</span>
-                </div>
-                <h3 className="text-white text-xl font-bold mb-1">{createdGame.name}</h3>
-                <p className="text-slate-400 text-sm mb-6">房间已创建，分享以下密码邀请玩家加入</p>
 
-                {/* 6位密码大字显示 */}
-                <div className="bg-slate-900 rounded-2xl px-6 py-5 mb-4 w-full">
-                  <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold mb-2">房间密码</p>
-                  <div className="flex justify-center gap-2">
-                    {createdGame.roomCode.split('').map((d, i) => (
-                      <span key={i} className="w-10 h-12 flex items-center justify-center bg-slate-800 rounded-lg text-2xl font-black text-white tracking-widest border border-slate-700">
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCopyCode}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-800 transition-colors text-sm font-medium mb-4"
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied ? 'check' : 'content_copy'}</span>
-                  {copied ? '已复制！' : '复制密码'}
-                </button>
-
-                <button
-                  onClick={() => navigate(`/game/${createdGame.id}`)}
-                  className="w-full py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white font-bold text-base transition-colors"
-                >
-                  进入房间
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
           <button
