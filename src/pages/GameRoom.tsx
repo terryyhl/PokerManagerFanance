@@ -19,6 +19,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const listRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasScrolledRef = useRef(false);
+  const hasInitiallyAnimated = useRef(false); // 防止首次加载时动画双触发
 
   const [game, setGame] = useState<Game | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
@@ -78,6 +79,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   useEffect(() => {
     if (!isLoading && listRef.current) {
+      hasInitiallyAnimated.current = true; // 标记初始动画已完成
       anime({
         targets: listRef.current.children,
         translateY: [20, 0], opacity: [0, 1],
@@ -96,16 +98,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   }, [isLoading]);
 
   useEffect(() => {
-    if (!isLoading && listRef.current) {
-      const children = Array.from(listRef.current.children) as HTMLElement[];
-      const newItems = children.filter(el => {
-        const currentOpacity = el.style.opacity;
-        // 如果还没有被 animejs 设置内联透明度为 1，说明是新加入的元素
-        return !currentOpacity || currentOpacity === '0';
-      });
-      if (newItems.length > 0) {
-        anime({ targets: newItems, translateY: [20, 0], opacity: [0, 1], duration: 500, easing: 'easeOutExpo' });
-      }
+    // 初始加载时跳过（由 isLoading effect 处理），只处理后续新增的条目
+    if (!hasInitiallyAnimated.current) return;
+    if (!listRef.current) return;
+    const children = Array.from(listRef.current.children) as HTMLElement[];
+    const newItems = children.filter(el => {
+      const currentOpacity = el.style.opacity;
+      return !currentOpacity || currentOpacity === '0';
+    });
+    if (newItems.length > 0) {
+      anime({ targets: newItems, translateY: [20, 0], opacity: [0, 1], duration: 500, easing: 'easeOutExpo' });
     }
   }, [buyIns.length, pendingRequests.length]);
 
