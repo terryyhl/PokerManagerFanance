@@ -13,18 +13,25 @@ export default function Lobby() {
   const listRef = useRef<HTMLDivElement>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchGames = async (silent = false) => {
-    if (!silent) setIsLoading(true);
+    if (!silent) {
+      setIsLoading(true);
+      setIsRefreshing(true);
+    }
     setError('');
     try {
       const { games } = await gamesApi.list();
       setGames(games);
+      setRefreshKey(k => k + 1); // 强制触发动画
     } catch (err: any) {
       if (!silent) setError(err.message || '加载游戏列表失败');
     } finally {
-      if (!silent) setIsLoading(false);
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -48,7 +55,7 @@ export default function Lobby() {
         delay: anime.stagger(100)
       });
     }
-  }, [isLoading, games.length]);
+  }, [refreshKey]);
 
   const getPlayerCount = (game: Game) => {
     if (game.game_players && Array.isArray(game.game_players)) {
@@ -66,9 +73,10 @@ export default function Lobby() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => fetchGames()}
-              className="flex items-center justify-center size-9 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+              disabled={isRefreshing}
+              className="flex items-center justify-center size-9 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[20px] text-slate-500 dark:text-slate-400">refresh</span>
+              <span className={`material-symbols-outlined text-[20px] text-slate-500 dark:text-slate-400 ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
             </button>
             <button
               onClick={() => navigate('/create')}
