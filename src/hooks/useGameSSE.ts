@@ -94,11 +94,19 @@ export function useGameSSE(
             };
         }
 
+        // Polling fallback for Vercel environments where SSE might be unstable
+        const pollingInterval = setInterval(() => {
+            if (active) {
+                handlersRef.current.onGameRefresh?.({ type: 'polling', userId: userId! });
+            }
+        }, 3000);
+
         connect();
 
         return () => {
             active = false;
             if (reconnectTimer) clearTimeout(reconnectTimer);
+            clearInterval(pollingInterval);
             es?.close();
         };
     }, [gameId, userId]);
