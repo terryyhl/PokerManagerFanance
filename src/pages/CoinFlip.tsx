@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 type CoinResult = 'heads' | 'tails' | null;
 
 export default function CoinFlip() {
     const navigate = useNavigate();
+    const fromGame = (useLocation().state as { fromGame?: boolean } | null)?.fromGame === true;
     const [result, setResult] = useState<CoinResult>(null);
     const [isFlipping, setIsFlipping] = useState(false);
     const [flipCount, setFlipCount] = useState(0);
@@ -55,7 +56,7 @@ export default function CoinFlip() {
 
             {/* Header */}
             <div className="flex-shrink-0 flex items-center px-4 h-14 border-b border-slate-200 dark:border-slate-800">
-                <button onClick={() => navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button onClick={() => fromGame ? navigate(-1) : navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                 </button>
                 <h1 className="text-lg font-bold flex-1">掷硬币</h1>

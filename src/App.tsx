@@ -31,24 +31,29 @@ function extractGameId(pathname: string): string | null {
   return m ? m[2] : null;
 }
 const isGameSubPage = (p: string) => /^\/(bill|settlement)\//.test(p);
+/** 工具页面也可以从房间内打开（keep-alive GameRoom） */
+const isToolsPage = (p: string) => p.startsWith('/tools/');
 
 /**
  * AppShell — 三层 Keep-Alive 架构
  *
  * Layer 0 (最底层): MainLayout (大厅/历史/个人) — 始终挂载
  * Layer 1 (中层):   GameRoom — 当处于游戏上下文时保持挂载
- * Layer 2 (顶层):   账单 / 结算报告 / 加入 / 创建 — 正常挂载/销毁
+ * Layer 2 (顶层):   账单 / 结算报告 / 加入 / 创建 / 工具 — 正常挂载/销毁
  */
 function AppShell() {
   const location = useLocation();
   const pathname = location.pathname;
+  const locState = location.state as { fromGame?: boolean } | null;
 
   const isPublic = isPublicPath(pathname);
   const isMain = isMainPath(pathname);
   const gameId = extractGameId(pathname);
   const isGamePage = pathname.startsWith('/game/');
   const isGameSub = isGameSubPage(pathname);
-  const isGameContext = isGamePage || isGameSub;
+  // 从房间进入工具页时，也属于游戏上下文（保持 GameRoom keep-alive）
+  const isToolFromGame = isToolsPage(pathname) && locState?.fromGame === true;
+  const isGameContext = isGamePage || isGameSub || isToolFromGame;
 
   const mainVisible = !isPublic && isMain;
   const mainMounted = !isPublic;

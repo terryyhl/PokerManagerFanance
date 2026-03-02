@@ -44,7 +44,7 @@ const TOOLS: Tool[] = [
         id: 'picker',
         path: '/tools/picker',
         icon: 'person_pin_circle',
-        label: '谁先行动',
+        label: '抽选庄家',
         desc: '随机选一人当庄家',
         color: 'from-purple-500 to-violet-500',
         iconBg: 'bg-purple-500/15 text-purple-500',

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface ChipDenom {
     label: string;
@@ -21,6 +21,7 @@ const CHIP_DENOMS: ChipDenom[] = [
 
 export default function ChipCalculator() {
     const navigate = useNavigate();
+    const fromGame = (useLocation().state as { fromGame?: boolean } | null)?.fromGame === true;
     const [counts, setCounts] = useState<Record<number, number>>({});
 
     const handleChange = (value: number, count: string) => {
@@ -52,7 +53,7 @@ export default function ChipCalculator() {
         <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="flex-shrink-0 flex items-center px-4 h-14 border-b border-slate-200 dark:border-slate-800">
-                <button onClick={() => navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button onClick={() => fromGame ? navigate(-1) : navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                 </button>
                 <h1 className="text-lg font-bold flex-1">筹码计算器</h1>

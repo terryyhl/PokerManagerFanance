@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import anime from 'animejs';
 
 /** 骰子面的Unicode点数表示 */
@@ -7,6 +7,7 @@ const DICE_FACES = ['', '\u2680', '\u2681', '\u2682', '\u2683', '\u2684', '\u268
 
 export default function DiceRoll() {
     const navigate = useNavigate();
+    const fromGame = (useLocation().state as { fromGame?: boolean } | null)?.fromGame === true;
     const [diceCount, setDiceCount] = useState(2);
     const [results, setResults] = useState<number[]>([]);
     const [isRolling, setIsRolling] = useState(false);
@@ -57,7 +58,7 @@ export default function DiceRoll() {
         <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="flex-shrink-0 flex items-center px-4 h-14 border-b border-slate-200 dark:border-slate-800">
-                <button onClick={() => navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button onClick={() => fromGame ? navigate(-1) : navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                 </button>
                 <h1 className="text-lg font-bold flex-1">掷骰子</h1>

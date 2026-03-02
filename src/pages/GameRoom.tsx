@@ -562,31 +562,31 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               })}
           </div>
 
-          {/* 房间快捷工具 */}
-          {players.length >= 2 && (
-            <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+          {/* 房间快捷工具栏 */}
+          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+            {[
+              { icon: 'event_seat', label: '座位', color: 'text-emerald-500 bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
+              { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500 bg-purple-500/10', path: '/tools/picker', withPlayers: true },
+              { icon: 'timer', label: '时钟', color: 'text-blue-500 bg-blue-500/10', path: '/tools/clock', withPlayers: false },
+              { icon: 'monetization_on', label: '硬币', color: 'text-amber-500 bg-amber-500/10', path: '/tools/coin', withPlayers: false },
+              { icon: 'calculate', label: '筹码', color: 'text-rose-500 bg-rose-500/10', path: '/tools/chips', withPlayers: false },
+              { icon: 'analytics', label: '概率', color: 'text-indigo-500 bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
+              { icon: 'casino', label: '骰子', color: 'text-orange-500 bg-orange-500/10', path: '/tools/dice', withPlayers: false },
+            ].map(tool => (
               <button
+                key={tool.path}
                 onClick={() => {
-                  const names = players.map(p => p.users?.username || '?');
-                  navigate('/tools/seat', { state: { players: names, fromGame: true } });
+                  const state: Record<string, unknown> = { fromGame: true };
+                  if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
+                  navigate(tool.path, { state });
                 }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-colors active:scale-[0.97] hover:bg-emerald-500/20"
+                className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl shrink-0 transition-all active:scale-95 ${tool.color}`}
               >
-                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>event_seat</span>
-                座位分配
+                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                <span className="text-[10px] font-bold">{tool.label}</span>
               </button>
-              <button
-                onClick={() => {
-                  const names = players.map(p => p.users?.username || '?');
-                  navigate('/tools/picker', { state: { players: names, fromGame: true } });
-                }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold transition-colors active:scale-[0.97] hover:bg-purple-500/20"
-              >
-                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>person_pin_circle</span>
-                谁先行动
-              </button>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
         {/* 房间码弹窗 */}

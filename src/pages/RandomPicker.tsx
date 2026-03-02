@@ -92,7 +92,7 @@ export default function RandomPicker() {
                 <button onClick={() => fromGame ? navigate(-1) : navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                 </button>
-                <h1 className="text-lg font-bold flex-1">谁先行动</h1>
+                <h1 className="text-lg font-bold flex-1">抽选庄家</h1>
                 <span className="material-symbols-outlined text-[24px] text-purple-500" style={{ fontVariationSettings: "'FILL' 1" }}>person_pin_circle</span>
             </div>
 
