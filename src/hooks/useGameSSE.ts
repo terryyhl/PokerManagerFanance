@@ -119,14 +119,21 @@ export function useGameSSE(
         if (!gameId || !userId) return;
 
         // ─── Supabase Broadcast 频道（用于催促计时器实时同步） ────────────────
-        const broadcastChannel = supabase.channel(`game-broadcast:${gameId}`)
+        // self: true 让发送者自己也能收到广播（用于互动动画同步）
+        const broadcastChannel = supabase.channel(`game-broadcast:${gameId}`, {
+            config: { broadcast: { self: true } },
+        })
             .on('broadcast', { event: 'timer_start' }, (payload) => {
                 const data = payload.payload as ActiveTimerEvent;
+                // 发起者已在 broadcastTimerStart 中设置了 activeTimerRef，跳过重复处理
+                if (data.startedBy === userId && activeTimerRef.current?.startedAt === data.startedAt) return;
                 activeTimerRef.current = data;
                 handlersRef.current.onTimerStart?.(data);
             })
             .on('broadcast', { event: 'timer_stop' }, (payload) => {
                 const data = payload.payload as { targetUserId: string };
+                // 发起者已在 broadcastTimerStop 中清除了 activeTimerRef，跳过重复处理
+                if (!activeTimerRef.current) return;
                 activeTimerRef.current = null;
                 handlersRef.current.onTimerStop?.(data);
             })
