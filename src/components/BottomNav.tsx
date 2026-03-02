@@ -8,6 +8,7 @@ export default function BottomNav() {
     const tabs = [
         { id: 'lobby', path: '/lobby', icon: 'playing_cards', label: '大厅' },
         { id: 'clock', path: '/clock', icon: 'timer', label: '时钟' },
+        { id: 'coin', path: '/coin', icon: 'monetization_on', label: '硬币' },
         { id: 'profile', path: '/profile', icon: 'person', label: '个人' }
     ];
 
