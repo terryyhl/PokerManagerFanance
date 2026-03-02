@@ -551,7 +551,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       // 未全部选好手牌组时，不允许中奖+1
       const totalSlots = game?.lucky_hands_count || 0;
       if (luckyHands.length < totalSlots) {
-        showToast(`请先全部选好 ${totalSlots} 组手牌再进行中奖+1`, 'info');
+        showToast('请先设置好全部幸运手牌', 'info');
         return;
       }
       const hand = luckyHands.find(h => h.hand_index === handIndex);
