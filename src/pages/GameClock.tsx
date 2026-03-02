@@ -1,10 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const PRESETS = [
     { label: '1', minutes: 1 },
     { label: '2', minutes: 2 },
     { label: '3', minutes: 3 },
+];
+
+/** 可用的 Lottie 动画列表，每次进入页面随机选一个 */
+const LOTTIE_ANIMATIONS = [
+    '/panda-sleeping.lottie',
+    '/cat-loading.lottie',
+    '/cat-love.lottie',
+    '/lovely-cats.lottie',
 ];
 
 export default function GameClock() {
@@ -14,6 +22,12 @@ export default function GameClock() {
     const [isFinished, setIsFinished] = useState(false);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 每次组件挂载时随机选一个动画（Keep-Alive 下只会选一次）
+    const lottieSrc = useMemo(
+        () => LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)],
+        []
+    );
 
     const cleanup = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -133,7 +147,7 @@ export default function GameClock() {
                         {/* 熊猫等待 Lottie 动画 */}
                         <div className={`w-28 h-28 transition-opacity ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}>
                             <DotLottieReact
-                                src="/panda-sleeping.lottie"
+                                src={lottieSrc}
                                 loop
                                 autoplay
                                 style={{ width: '100%', height: '100%' }}
