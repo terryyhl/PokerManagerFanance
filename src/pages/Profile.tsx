@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
-import { usersApi } from '../lib/api';
+import { usersApi, LuckyHandHistory } from '../lib/api';
 import Avatar from '../components/Avatar';
+import PokerCardDisp from '../components/PokerCardDisp';
 
 interface UserStats {
     totalGames: number;
@@ -27,6 +28,7 @@ export default function Profile() {
     const { user, logout } = useUser();
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
     const [history, setHistory] = useState<GameHistoryItem[]>([]);
+    const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -39,9 +41,13 @@ export default function Profile() {
 
         const fetchProfileData = async () => {
             try {
-                const { stats: userStats, history: userHistory } = await usersApi.getStats(user.id);
-                setStats(userStats);
-                setHistory(userHistory);
+                const [statsResult, luckyResult] = await Promise.all([
+                    usersApi.getStats(user.id),
+                    usersApi.getLuckyHandsHistory(user.id),
+                ]);
+                setStats(statsResult.stats);
+                setHistory(statsResult.history);
+                setLuckyHands(luckyResult.luckyHands);
             } catch (err) {
                 console.error('Failed to load profile data:', err);
                 setError(true);
@@ -52,6 +58,9 @@ export default function Profile() {
 
         fetchProfileData();
     }, [user, navigate]);
+
+    // Top 3 lucky hands by hit_count (already sorted from backend)
+    const topLuckyHands = luckyHands.slice(0, 3);
 
     if (!user) return null;
 
@@ -143,6 +152,56 @@ export default function Profile() {
                             </p>
                         </div>
                     </div>
+
+                    {/* Lucky Hands Top 3 */}
+                    {!isLoading && topLuckyHands.length > 0 && (
+                        <div className="mb-8">
+                            <div
+                                className="flex items-center justify-between mb-4 cursor-pointer group"
+                                onClick={() => navigate('/lucky-history')}
+                            >
+                                <h3 className="text-lg font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-amber-500">star</span>
+                                    历史幸运手牌
+                                </h3>
+                                <div className="flex items-center gap-1 text-sm font-medium text-slate-400 dark:text-slate-500 group-hover:text-primary transition-colors">
+                                    <span>全部记录</span>
+                                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                {topLuckyHands.map((lh, i) => (
+                                    <div
+                                        key={lh.id}
+                                        className="bg-white dark:bg-[#1a2632] p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center justify-center size-8 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 font-black text-sm">
+                                                {i + 1}
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <PokerCardDisp card={lh.card_1} />
+                                                <PokerCardDisp card={lh.card_2} />
+                                            </div>
+                                            <div className="ml-1">
+                                                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                                    {(lh.games as Record<string, unknown>)?.name as string || '未知房间'}
+                                                </p>
+                                                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                                                    {new Date(lh.created_at).toLocaleDateString('zh-CN')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full">
+                                            <span className="material-symbols-outlined text-amber-500 text-[16px]">local_fire_department</span>
+                                            <span className="text-sm font-black text-amber-600 dark:text-amber-400">{lh.hit_count}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Recent History */}
                     <div className="mb-6">

@@ -118,4 +118,47 @@ router.get('/:id/stats', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/users/:id/lucky-hands-history
+ * 获取指定用户的所有幸运手牌历史记录，按 hit_count 降序排列
+ */
+router.get('/:id/lucky-hands-history', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data, error } = await supabase
+            .from('lucky_hands')
+            .select(`
+                id,
+                game_id,
+                user_id,
+                hand_index,
+                card_1,
+                card_2,
+                hit_count,
+                created_at,
+                games (
+                    id,
+                    name,
+                    blind_level,
+                    status,
+                    created_at,
+                    finished_at
+                )
+            `)
+            .eq('user_id', id)
+            .order('hit_count', { ascending: false });
+
+        if (error) {
+            console.error('[users/lucky-hands-history]', error);
+            return res.status(500).json({ error: '获取幸运手牌历史失败' });
+        }
+
+        return res.json({ luckyHands: data || [] });
+    } catch (err) {
+        console.error('[users/lucky-hands-history] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
 export default router;

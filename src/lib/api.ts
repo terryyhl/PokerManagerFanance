@@ -31,6 +31,25 @@ async function request<T>(
 
 // ──────────────────────────── Users API ────────────────────────────────────
 
+export interface LuckyHandHistory {
+    id: string;
+    game_id: string;
+    user_id: string;
+    hand_index: number;
+    card_1: string;
+    card_2: string;
+    hit_count: number;
+    created_at: string;
+    games?: {
+        id: string;
+        name: string;
+        blind_level: string;
+        status: string;
+        created_at: string;
+        finished_at?: string;
+    };
+}
+
 export const usersApi = {
     login: (username: string) =>
         request<{ user: { id: string; username: string; created_at: string } }>(
@@ -43,6 +62,8 @@ export const usersApi = {
             stats: { totalGames: number; totalProfit: number; totalBuyIn: number; winRate: number };
             history: Array<{ gameId: string; gameName: string; blindLevel: string; finishedAt: string; profit: number; finalChips: number; totalBuyIn: number }>;
         }>('GET', `/users/${userId}/stats`),
+    getLuckyHandsHistory: (userId: string) =>
+        request<{ luckyHands: LuckyHandHistory[] }>('GET', `/users/${userId}/lucky-hands-history`),
 };
 
 // ──────────────────────────── Games API ────────────────────────────────────
