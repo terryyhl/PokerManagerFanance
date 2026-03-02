@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const PRESETS = [
@@ -7,7 +7,7 @@ const PRESETS = [
     { label: '3', minutes: 3 },
 ];
 
-/** 可用的 Lottie 动画列表，每次进入页面随机选一个 */
+/** 可用的 Lottie 动画列表，每次开启闹钟随机选一个 */
 const LOTTIE_ANIMATIONS = [
     '/panda-sleeping.lottie',
     '/cat-loading.lottie',
@@ -23,10 +23,9 @@ export default function GameClock() {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // 每次组件挂载时随机选一个动画（Keep-Alive 下只会选一次）
-    const lottieSrc = useMemo(
-        () => LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)],
-        []
+    // 每次开启闹钟随机换一个动画
+    const [lottieSrc, setLottieSrc] = useState(
+        () => LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]
     );
 
     const cleanup = useCallback(() => {
@@ -63,6 +62,7 @@ export default function GameClock() {
 
     const handleSelectPreset = (minutes: number) => {
         cleanup();
+        setLottieSrc(LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]);
         const secs = minutes * 60;
         setTotalSeconds(secs);
         setRemaining(secs);
