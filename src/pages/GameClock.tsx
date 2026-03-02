@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const PRESETS = [
@@ -17,6 +18,7 @@ const LOTTIE_ANIMATIONS = [
 ];
 
 export default function GameClock() {
+    const navigate = useNavigate();
     const [totalSeconds, setTotalSeconds] = useState(0);
     const [remaining, setRemaining] = useState(0);
     const [isRunning, setIsRunning] = useState(false);
@@ -110,8 +112,12 @@ export default function GameClock() {
             )}
 
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-center p-5 pt-8">
-                <h2 className="text-xl font-bold">牌局时钟</h2>
+            <div className="flex-shrink-0 flex items-center px-4 h-14 border-b border-slate-200 dark:border-slate-800">
+                <button onClick={() => navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+                </button>
+                <h1 className="text-lg font-bold flex-1">牌局时钟</h1>
+                <span className="material-symbols-outlined text-[24px] text-blue-500" style={{ fontVariationSettings: "'FILL' 1" }}>timer</span>
             </div>
 
             {/* 主内容 */}

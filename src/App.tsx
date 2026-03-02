@@ -11,11 +11,18 @@ import PersonalBill from './pages/PersonalBill';
 import SettlementReport from './pages/SettlementReport';
 import LuckyHandHistory from './pages/LuckyHandHistory';
 import Leaderboard from './pages/Leaderboard';
+import GameClock from './pages/GameClock';
+import CoinFlip from './pages/CoinFlip';
+import SeatDraw from './pages/SeatDraw';
+import RandomPicker from './pages/RandomPicker';
+import ChipCalculator from './pages/ChipCalculator';
+import OddsChart from './pages/OddsChart';
+import DiceRoll from './pages/DiceRoll';
 import MainLayout from './components/MainLayout';
 import { setupGlobalClickSound } from './lib/audio';
 
 // ─── 路径判断工具 ─────────────────────────────────────────────────────────────
-const MAIN_PATHS = ['/lobby', '/clock', '/coin', '/profile'];
+const MAIN_PATHS = ['/lobby', '/tools', '/profile'];
 const isMainPath = (p: string) => MAIN_PATHS.includes(p);
 const isPublicPath = (p: string) => p === '/' || p === '/login';
 
@@ -112,6 +119,13 @@ function AppShell() {
               <Route path="/settlement/:id" element={<SettlementReport />} />
               <Route path="/lucky-history" element={<LuckyHandHistory />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/tools/clock" element={<GameClock />} />
+              <Route path="/tools/coin" element={<CoinFlip />} />
+              <Route path="/tools/seat" element={<SeatDraw />} />
+              <Route path="/tools/picker" element={<RandomPicker />} />
+              <Route path="/tools/chips" element={<ChipCalculator />} />
+              <Route path="/tools/odds" element={<OddsChart />} />
+              <Route path="/tools/dice" element={<DiceRoll />} />
             </Routes>
           </ProtectedRoute>
         </div>

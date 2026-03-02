@@ -2,8 +2,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import Lobby from '../pages/Lobby';
 import Profile from '../pages/Profile';
-import GameClock from '../pages/GameClock';
-import CoinFlip from '../pages/CoinFlip';
+import Toolbox from '../pages/Toolbox';
 import BottomNav from './BottomNav';
 
 export default function MainLayout() {
@@ -11,8 +10,7 @@ export default function MainLayout() {
     const pathname = location.pathname;
 
     const isLobby = pathname === '/lobby';
-    const isClock = pathname === '/clock';
-    const isCoin = pathname === '/coin';
+    const isTools = pathname === '/tools';
     const isProfile = pathname === '/profile';
 
     return (
@@ -21,12 +19,8 @@ export default function MainLayout() {
                 <Lobby />
             </div>
 
-            <div className={`flex-1 min-h-0 ${!isClock ? 'hidden' : ''}`}>
-                <GameClock />
-            </div>
-
-            <div className={`flex-1 min-h-0 ${!isCoin ? 'hidden' : ''}`}>
-                <CoinFlip />
+            <div className={`flex-1 min-h-0 ${!isTools ? 'hidden' : ''}`}>
+                <Toolbox />
             </div>
 
             <div className={`flex-1 min-h-0 ${!isProfile ? 'hidden' : ''}`}>
