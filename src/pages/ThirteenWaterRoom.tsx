@@ -164,6 +164,146 @@ const CardBack: React.FC<{ small?: boolean }> = ({ small = false }) => {
   );
 };
 
+// ─── 公共牌选牌器 ──────────────────────────────────────────────
+
+const PublicCardPickerModal: React.FC<{
+  maxCards: number; maxGhosts: number; initialCards: string[];
+  onConfirm: (cards: string[]) => void; onClose: () => void;
+}> = ({ maxCards, maxGhosts, initialCards, onConfirm, onClose }) => {
+  const [selected, setSelected] = useState<string[]>(initialCards);
+  const selectedSet = new Set(selected);
+  const ghostsInSelected = selected.filter(c => c.startsWith('JK')).length;
+  const isFull = selected.length >= maxCards;
+  const ghostMultiplier = Math.pow(2, ghostsInSelected);
+
+  const toggle = (card: string) => {
+    if (selectedSet.has(card)) {
+      setSelected(prev => prev.filter(c => c !== card));
+    } else {
+      if (isFull) return;
+      // 检查鬼牌上限
+      if (card.startsWith('JK') && ghostsInSelected >= maxGhosts) return;
+      setSelected(prev => [...prev, card]);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col">
+      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pt-3 pb-3 px-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white">设置公共牌</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${selected.length > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-slate-400'}`}>
+              {selected.length}/{maxCards}
+            </span>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <span className="material-symbols-outlined text-white text-lg">close</span>
+          </button>
+        </div>
+
+        {/* 已选公共牌展示 */}
+        <div className="flex gap-1.5 justify-center min-h-[68px] items-center bg-white/[0.02] rounded-xl py-2 px-1 mb-3">
+          {Array(maxCards).fill(null).map((_, i) => {
+            const card = selected[i];
+            return card
+              ? <PokerCard key={card} card={card} faceUp onClick={() => toggle(card)} />
+              : <PokerCard key={`slot-${i}`} />;
+          })}
+        </div>
+
+        {/* 信息栏 */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-3 text-[10px]">
+            {ghostsInSelected > 0 ? (
+              <span className="text-purple-400 font-bold">鬼牌 {ghostsInSelected}张 · {ghostMultiplier}倍</span>
+            ) : (
+              <span className="text-slate-500">公共牌中的鬼牌会触发倍率加成</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {selected.length > 0 && (
+              <button onClick={() => setSelected([])} className="text-[10px] text-slate-400 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
+                清除
+              </button>
+            )}
+            <button onClick={() => onConfirm(selected)}
+              className="text-xs font-bold text-white bg-primary hover:bg-primary/80 px-4 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm shadow-primary/30">
+              确认
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 牌面网格 */}
+      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-8">
+        {SUITS.map(suit => (
+          <div key={suit} className="mb-2.5">
+            <div className="flex items-center gap-1.5 mb-1.5 px-1">
+              <span className={`text-base ${SUIT_COLOR[suit]}`}>{SUIT_SYMBOL[suit]}</span>
+              <span className={`text-[10px] ${SUIT_COLOR[suit] === 'text-red-500' ? 'text-red-400/60' : 'text-slate-500'}`}>
+                {suit === 'S' ? '黑桃' : suit === 'H' ? '红桃' : suit === 'C' ? '梅花' : '方片'}
+              </span>
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {RANKS.map(rank => {
+                const card = `${rank}${suit}`;
+                const isSelected = selectedSet.has(card);
+                const isDisabled = !isSelected && isFull;
+                const url = cardToUrl(card);
+                return (
+                  <button key={card} disabled={isDisabled}
+                    onClick={() => toggle(card)}
+                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all
+                      ${isSelected
+                        ? 'border-amber-400 ring-2 ring-amber-400/60 shadow-lg shadow-amber-500/20 scale-[0.92]'
+                        : isDisabled
+                          ? 'border-transparent opacity-30 cursor-not-allowed'
+                          : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
+                    {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {/* 鬼牌 */}
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-1.5 px-1">
+            <span className="text-base text-purple-400">★</span>
+            <span className="text-[10px] text-purple-400/60">大小王 (鬼牌 · 触发倍率)</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: 6 }, (_, i) => `JK${i + 1}`).map(card => {
+              const isSelected = selectedSet.has(card);
+              const ghostFull = ghostsInSelected >= maxGhosts;
+              const isDisabled = !isSelected && (isFull || (card.startsWith('JK') && ghostFull));
+              const num = parseInt(card.slice(2));
+              const isBlack = num <= 3;
+              const url = cardToUrl(card);
+              return (
+                <button key={card} disabled={isDisabled}
+                  onClick={() => toggle(card)}
+                  className={`aspect-[2/3] w-[calc((100%-6*6px)/7)] rounded-lg overflow-hidden border-2 transition-all relative
+                    ${isSelected
+                      ? 'border-purple-400 ring-2 ring-purple-400/60 shadow-lg shadow-purple-500/20 scale-[0.92]'
+                      : isDisabled
+                        ? 'border-transparent opacity-30 cursor-not-allowed'
+                        : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
+                  {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                  <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold ${isBlack ? 'text-slate-800' : 'text-red-500'} bg-white/80 px-0.5`}>
+                    {isBlack ? '大王' : '小王'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── 对手牌区 ──────────────────────────────────────────────────
 
 type Position = 'top' | 'left' | 'right';
@@ -209,101 +349,194 @@ const OpponentArea: React.FC<{
 const CardPickerModal: React.FC<{
   ghostCount: number; selectedCards: string[]; activeLane: 'head' | 'mid' | 'tail';
   headCards: string[]; midCards: string[]; tailCards: string[];
+  publicCards: string[];
   onSelectCard: (card: string) => void; onRemoveCard: (card: string) => void;
   onSwitchLane: (lane: 'head' | 'mid' | 'tail') => void; onClose: () => void;
-}> = ({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, onSelectCard, onRemoveCard, onSwitchLane, onClose }) => {
-  const selectedSet = new Set(selectedCards);
+}> = ({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, publicCards, onSelectCard, onRemoveCard, onSwitchLane, onClose }) => {
   const laneMax = { head: 3, mid: 5, tail: 5 };
   const laneCards = { head: headCards, mid: midCards, tail: tailCards };
-  const laneLabels = { head: '头道 (3)', mid: '中道 (5)', tail: '尾道 (5)' };
+  const laneLabels = { head: '头道', mid: '中道', tail: '尾道' };
+  const laneIcons = { head: 'looks_3', mid: 'looks_5', tail: 'looks_5' };
   const currentLaneCards = laneCards[activeLane];
   const currentLaneFull = currentLaneCards.length >= laneMax[activeLane];
   // 当前道已选的牌（可以点击取消）
   const currentLaneSet = new Set(currentLaneCards);
-  // 其他道已选的牌（禁用，不可选也不可取消）
+  // 其他道已选的牌（禁用）
   const otherLaneCards = new Set(
     (['head', 'mid', 'tail'] as const)
       .filter(l => l !== activeLane)
       .flatMap(l => laneCards[l])
   );
+  // 公共牌集合（禁用）
+  const publicSet = new Set(publicCards);
+
+  // 自动切换到下一个未满的道
+  const autoSwitchLane = () => {
+    const order: Array<'head' | 'mid' | 'tail'> = ['tail', 'mid', 'head'];
+    for (const l of order) {
+      if (l !== activeLane && laneCards[l].length < laneMax[l]) {
+        onSwitchLane(l);
+        return;
+      }
+    }
+  };
+
+  // 选牌后如果当前道满了，自动切换
+  const handleSelect = (card: string) => {
+    onSelectCard(card);
+    // 选完这张后当前道是否满了
+    if (currentLaneCards.length + 1 >= laneMax[activeLane]) {
+      setTimeout(autoSwitchLane, 100);
+    }
+  };
+
+  const totalSelected = selectedCards.length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col">
-      <div className="bg-background-dark border-b border-white/10 pt-3 pb-2 px-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-bold text-white">选牌摆牌</span>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col">
+      {/* 顶部：道切换 + 当前道牌槽 */}
+      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pt-3 pb-3 px-3">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">{selectedCards.length}/13</span>
-            <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10">
-              <span className="material-symbols-outlined text-white text-xl">close</span>
-            </button>
+            <span className="text-sm font-bold text-white">选牌摆牌</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalSelected >= 13 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-slate-400'}`}>
+              {totalSelected}/13
+            </span>
           </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <span className="material-symbols-outlined text-white text-lg">close</span>
+          </button>
         </div>
-        <div className="flex gap-2 mb-3">
-          {(['head', 'mid', 'tail'] as const).map(lane => (
-            <button key={lane} onClick={() => onSwitchLane(lane)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLane === lane ? 'bg-primary text-white shadow shadow-primary/30' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-              {laneLabels[lane]}<span className="ml-1 opacity-60">{laneCards[lane].length}/{laneMax[lane]}</span>
-            </button>
-          ))}
+
+        {/* 三道切换标签 */}
+        <div className="flex gap-1.5 mb-3">
+          {(['tail', 'mid', 'head'] as const).map(lane => {
+            const isFull = laneCards[lane].length >= laneMax[lane];
+            return (
+              <button key={lane} onClick={() => onSwitchLane(lane)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all relative
+                  ${activeLane === lane
+                    ? 'bg-primary text-white shadow-md shadow-primary/30'
+                    : isFull
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}>
+                <span>{laneLabels[lane]}</span>
+                <span className="ml-1 text-[10px] opacity-70">{laneCards[lane].length}/{laneMax[lane]}</span>
+                {isFull && activeLane !== lane && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-[10px]">check</span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex gap-1 justify-center min-h-[62px] items-center">
+
+        {/* 当前道牌槽 */}
+        <div className="flex gap-1.5 justify-center min-h-[68px] items-center bg-white/[0.02] rounded-xl py-2 px-1">
           {Array(laneMax[activeLane]).fill(null).map((_, i) => {
             const card = currentLaneCards[i];
-            return card ? <PokerCard key={card} card={card} faceUp onClick={() => onRemoveCard(card)} /> : <PokerCard key={`empty-${i}`} />;
+            return card
+              ? <PokerCard key={card} card={card} faceUp onClick={() => onRemoveCard(card)} />
+              : <PokerCard key={`empty-${i}`} />;
           })}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-6">
+
+      {/* 牌面网格 */}
+      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-8">
         {SUITS.map(suit => (
-          <div key={suit} className="mb-3">
-            <div className="flex items-center gap-1 mb-1.5 px-1"><span className={`text-sm ${SUIT_COLOR[suit]}`}>{SUIT_SYMBOL[suit]}</span></div>
-            <div className="grid grid-cols-7 gap-1.5">
+          <div key={suit} className="mb-2.5">
+            <div className="flex items-center gap-1.5 mb-1.5 px-1">
+              <span className={`text-base ${SUIT_COLOR[suit]}`}>{SUIT_SYMBOL[suit]}</span>
+              <span className={`text-[10px] ${SUIT_COLOR[suit] === 'text-red-500' ? 'text-red-400/60' : 'text-slate-500'}`}>
+                {suit === 'S' ? '黑桃' : suit === 'H' ? '红桃' : suit === 'C' ? '梅花' : '方片'}
+              </span>
+            </div>
+            <div className="grid grid-cols-7 gap-1">
               {RANKS.map(rank => {
                 const card = `${rank}${suit}`;
                 const inCurrentLane = currentLaneSet.has(card);
                 const inOtherLane = otherLaneCards.has(card);
-                const isSelected = inCurrentLane || inOtherLane;
-                // 其他道已选的牌：禁用（灰色且不可操作）
-                // 当前道已满或总数已达13：禁用新选
-                const isDisabled = inOtherLane || (!inCurrentLane && (selectedCards.length >= 13 || currentLaneFull));
+                const isPublic = publicSet.has(card);
+                // 公共牌或其他道已选的牌：禁用
+                const isDisabled = isPublic || inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
                 const url = cardToUrl(card);
                 return (
-                  <button key={card} disabled={isDisabled && !inCurrentLane} onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? onSelectCard(card) : undefined}
-                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all
-                      ${inCurrentLane ? 'border-primary ring-2 ring-primary shadow-lg scale-95' : inOtherLane ? 'border-transparent opacity-20 cursor-not-allowed grayscale' : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
+                  <button key={card} disabled={isDisabled && !inCurrentLane}
+                    onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? handleSelect(card) : undefined}
+                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative
+                      ${inCurrentLane
+                        ? 'border-primary ring-2 ring-primary/60 shadow-lg shadow-primary/20 scale-[0.92]'
+                        : isPublic
+                          ? 'border-amber-500/30 opacity-25 cursor-not-allowed'
+                          : inOtherLane
+                            ? 'border-transparent opacity-20 cursor-not-allowed grayscale'
+                            : isDisabled
+                              ? 'border-transparent opacity-30 cursor-not-allowed'
+                              : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
                     {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                    {isPublic && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <span className="text-[8px] text-amber-400 font-bold">公</span>
+                      </div>
+                    )}
+                    {inOtherLane && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <span className="material-symbols-outlined text-white/40 text-sm">check</span>
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
         ))}
-        {ghostCount > 0 && (
-          <div className="mb-3">
-            <div className="flex items-center gap-1 mb-1.5 px-1"><span className="text-sm text-purple-400">大小王</span></div>
-            <div className="flex flex-wrap gap-1">
-              {Array.from({ length: ghostCount }, (_, i) => `JK${i + 1}`).map(card => {
-                const inCurrentLane = currentLaneSet.has(card);
-                const inOtherLane = otherLaneCards.has(card);
-                const isDisabled = inOtherLane || (!inCurrentLane && (selectedCards.length >= 13 || currentLaneFull));
-                const num = parseInt(card.slice(2));
-                const isBlack = num <= 3;
-                const url = cardToUrl(card);
-                return (
-                  <button key={card} disabled={isDisabled && !inCurrentLane} onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? onSelectCard(card) : undefined}
-                    className={`w-[42px] h-[58px] rounded-lg overflow-hidden border transition-all relative
-                      ${inCurrentLane ? 'border-purple-400 ring-2 ring-purple-400 shadow-lg scale-95' : inOtherLane ? 'border-white/5 opacity-20 cursor-not-allowed grayscale' : isDisabled ? 'border-white/5 opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
-                    {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
-                    <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold ${isBlack ? 'text-slate-800' : 'text-red-500'} bg-white/80 px-1`}>
-                      {isBlack ? '大王' : '小王'}
-                    </span>
-                  </button>
-                );
-              })}
+        {/* 鬼牌区域：只展示不在公共牌中的鬼牌 */}
+        {ghostCount > 0 && (() => {
+          const allJokers = Array.from({ length: 6 }, (_, i) => `JK${i + 1}`);
+          const availableJokers = allJokers.filter(jk => !publicSet.has(jk));
+          return availableJokers.length > 0 ? (
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                <span className="text-base text-purple-400">★</span>
+                <span className="text-[10px] text-purple-400/60">大小王</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {availableJokers.map(card => {
+                  const inCurrentLane = currentLaneSet.has(card);
+                  const inOtherLane = otherLaneCards.has(card);
+                  const isDisabled = inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
+                  const num = parseInt(card.slice(2));
+                  const isBlack = num <= 3;
+                  const url = cardToUrl(card);
+                  return (
+                    <button key={card} disabled={isDisabled && !inCurrentLane}
+                      onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? handleSelect(card) : undefined}
+                      className={`aspect-[2/3] w-[calc((100%-6*6px)/7)] rounded-lg overflow-hidden border-2 transition-all relative
+                        ${inCurrentLane
+                          ? 'border-purple-400 ring-2 ring-purple-400/60 shadow-lg shadow-purple-500/20 scale-[0.92]'
+                          : inOtherLane
+                            ? 'border-transparent opacity-20 cursor-not-allowed grayscale'
+                            : isDisabled
+                              ? 'border-transparent opacity-30 cursor-not-allowed'
+                              : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
+                      {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                      <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold ${isBlack ? 'text-slate-800' : 'text-red-500'} bg-white/80 px-0.5`}>
+                        {isBlack ? '大王' : '小王'}
+                      </span>
+                      {inOtherLane && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <span className="material-symbols-outlined text-white/40 text-sm">check</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          ) : null;
+        })()}
       </div>
     </div>
   );
@@ -633,7 +866,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   // 对手确认状态
   const [confirmedUsers, setConfirmedUsers] = useState<Set<string>>(new Set());
 
-  // 鬼牌数量(公共区)
+  // 公共牌 & 鬼牌
+  const [publicCards, setPublicCards] = useState<string[]>([]);
   const [ghostCount, setGhostCount] = useState(0);
 
   // 累计总分
@@ -693,6 +927,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       if (state.activeRound) {
         const round = state.activeRound;
         setCurrentRoundId(round.id);
+        setPublicCards(round.public_cards || []);
         setGhostCount(round.ghost_count || 0);
 
         const confirmed = new Set<string>();
@@ -752,6 +987,15 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     return () => { cancelled = true; };
   }, [id, user]);
 
+  // 公共牌变更时，移除玩家手中与公共牌冲突的牌
+  useEffect(() => {
+    if (publicCards.length === 0) return;
+    const pubSet = new Set(publicCards);
+    setMyHeadCards(prev => prev.filter(c => !pubSet.has(c)));
+    setMyMidCards(prev => prev.filter(c => !pubSet.has(c)));
+    setMyTailCards(prev => prev.filter(c => !pubSet.has(c)));
+  }, [publicCards]);
+
   // ─── 结算函数（提取出来供多处调用） ─────────────────────────
   const doSettle = useCallback(async () => {
     if (!game || !user || !currentRoundId || settlingRef.current) return;
@@ -795,6 +1039,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         (payload) => {
           const round = payload.new as RoundState;
           setCurrentRoundId(round.id);
+          setPublicCards(round.public_cards || []);
           setGhostCount(round.ghost_count || 0);
           setGamePhase('arranging');
           setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
@@ -806,6 +1051,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'thirteen_rounds', filter: `game_id=eq.${id}` },
         (payload) => {
           const round = payload.new as RoundState;
+          setPublicCards(round.public_cards || []);
           setGhostCount(round.ghost_count || 0);
           if (round.status === 'finished') {
             // 非发起结算的客户端 → 也拉取结果显示比牌动画
@@ -902,18 +1148,25 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     finally { setIsStarting(false); }
   };
 
-  const handleSetGhostCount = async (count: number) => {
+  const handleSetPublicCards = async (cards: string[]) => {
     if (!game || !user || !currentRoundId) return;
     try {
-      const res = await fetch(`/api/thirteen/${game.id}/set-ghost-count`, {
+      const res = await fetch(`/api/thirteen/${game.id}/set-public-cards`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, roundId: currentRoundId, ghostCount: count }),
+        body: JSON.stringify({ userId: user.id, roundId: currentRoundId, publicCards: cards }),
       });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || '设置失败', 'error'); return; }
-      setGhostCount(count);
+      const round = data.round;
+      setPublicCards(round.public_cards || cards);
+      setGhostCount(round.ghost_count || 0);
       setShowGhostPicker(false);
-      showToast(`鬼牌已设置: ${count}张 (${Math.pow(2, count)}倍)`, 'success');
+      const gc = round.ghost_count || 0;
+      if (cards.length === 0) {
+        showToast('已清除公共牌', 'info');
+      } else {
+        showToast(`公共牌已设置: ${cards.length}张${gc > 0 ? `，含${gc}鬼(${Math.pow(2, gc)}倍)` : ''}`, 'success');
+      }
     } catch { showToast('网络错误', 'error'); }
   };
 
@@ -960,6 +1213,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
     setIsConfirmed(false);
     setConfirmedUsers(new Set());
+    setPublicCards([]);
     setGhostCount(0);
     settlingRef.current = false;
     syncGameState();
@@ -973,6 +1227,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     const laneCards = activeLane === 'head' ? myHeadCards : activeLane === 'mid' ? myMidCards : myTailCards;
     if (laneCards.length >= laneMax[activeLane]) return;
     if (allSelectedCards.includes(card)) return;
+    if (publicCards.includes(card)) return; // 排除公共牌
     if (activeLane === 'head') setMyHeadCards(prev => [...prev, card]);
     else if (activeLane === 'mid') setMyMidCards(prev => [...prev, card]);
     else setMyTailCards(prev => [...prev, card]);
@@ -1152,24 +1407,24 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         <button onClick={() => setGamePhase('waiting')} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
           <span className="material-symbols-outlined text-[20px] text-slate-400">arrow_back</span>
         </button>
-        {/* 鬼牌显示区 */}
-        <div className="flex items-center gap-2">
-          {ghostCount > 0 ? (
+        {/* 公共牌显示区 */}
+        <div className="flex items-center gap-1.5">
+          {publicCards.length > 0 ? (
             <div className="flex items-center gap-0.5">
-              {Array(ghostCount).fill(null).map((_, i) => (
-                <div key={i} className="w-6 h-9 rounded overflow-hidden shadow-sm">
-                  <img src={`${CARD_CDN}/${i < 3 ? 'black_joker' : 'red_joker'}.svg`} alt="joker" className="w-full h-full object-contain" />
+              {publicCards.map((card, i) => (
+                <div key={i} className="w-6 h-9 rounded overflow-hidden shadow-sm bg-white">
+                  {cardToUrl(card) && <img src={cardToUrl(card)!} alt={card} className="w-full h-full object-contain" />}
                 </div>
               ))}
-              <span className="text-[10px] text-purple-400 font-bold ml-1">{Math.pow(2, ghostCount)}x</span>
+              {ghostCount > 0 && <span className="text-[10px] text-purple-400 font-bold ml-1">{Math.pow(2, ghostCount)}x</span>}
             </div>
           ) : (
             isHost
-              ? <button onClick={() => setShowGhostPicker(true)} className="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-1 rounded-lg hover:bg-purple-500/20 transition-colors font-bold">+ 添加鬼牌</button>
-              : <span className="text-[10px] text-slate-500">无鬼牌</span>
+              ? <button onClick={() => setShowGhostPicker(true)} className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg hover:bg-amber-500/20 transition-colors font-bold">+ 设置公共牌</button>
+              : <span className="text-[10px] text-slate-500">无公共牌</span>
           )}
-          {ghostCount > 0 && isHost && (
-            <button onClick={() => setShowGhostPicker(true)} className="p-0.5 rounded hover:bg-white/10 transition-colors" title="修改鬼牌">
+          {publicCards.length > 0 && isHost && (
+            <button onClick={() => setShowGhostPicker(true)} className="p-0.5 rounded hover:bg-white/10 transition-colors" title="修改公共牌">
               <span className="material-symbols-outlined text-[14px] text-slate-500">edit</span>
             </button>
           )}
@@ -1270,6 +1525,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       {showPicker && (
         <CardPickerModal ghostCount={game.thirteen_ghost_count || 6} selectedCards={allSelectedCards}
           activeLane={activeLane} headCards={myHeadCards} midCards={myMidCards} tailCards={myTailCards}
+          publicCards={publicCards}
           onSelectCard={handleSelectCard} onRemoveCard={handleRemoveCard} onSwitchLane={setActiveLane} onClose={() => setShowPicker(false)} />
       )}
 
@@ -1278,25 +1534,14 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           isHost={isHost} userId={user?.id} onClose={() => setShowScoreBoard(false)} onCloseRoom={handleCloseRoom} />
       )}
 
-      {/* 鬼牌数量选择器 */}
-      {showGhostPicker && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowGhostPicker(false)}>
-          <div className="bg-surface-dark rounded-2xl p-6 w-full max-w-sm border border-white/10" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white text-center mb-2">公共区鬼牌</h3>
-            <p className="text-xs text-slate-400 text-center mb-6">选择本轮公共区域的鬼牌数量，影响倍率</p>
-            <div className="grid grid-cols-4 gap-3 mb-6">
-              {Array.from({ length: (game.thirteen_ghost_count || 6) + 1 }, (_, i) => i).map(n => (
-                <button key={n} onClick={() => handleSetGhostCount(n)}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all active:scale-95
-                    ${n === ghostCount ? 'bg-purple-500/20 border-purple-400' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
-                  <span className={`text-xl font-black ${n === ghostCount ? 'text-purple-400' : 'text-white'}`}>{n}</span>
-                  <span className="text-[10px] text-slate-400">{Math.pow(2, n)}x</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 公共牌选牌器 */}
+      {showGhostPicker && <PublicCardPickerModal
+        maxCards={6}
+        maxGhosts={game.thirteen_ghost_count || 6}
+        initialCards={publicCards}
+        onConfirm={handleSetPublicCards}
+        onClose={() => setShowGhostPicker(false)}
+      />}
 
       {/* 比牌动画 */}
       {showCompare && roundResult && (

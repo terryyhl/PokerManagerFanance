@@ -183,8 +183,9 @@ router.post('/:gameId/set-ghost-count', async (req, res) => {
 // ─── POST /set-public-cards ─────────────────────────────────────
 
 /**
- * 房主设置6张公共牌（保留兼容）
+ * 房主设置公共牌（0~6张）
  * Body: { userId, roundId, publicCards: string[] }
+ * 系统自动统计鬼牌数量并计算倍率 2^ghostCount
  */
 router.post('/:gameId/set-public-cards', async (req, res) => {
     try {
@@ -200,13 +201,9 @@ router.post('/:gameId/set-public-cards', async (req, res) => {
             return res.status(403).json({ error: '只有房主可以设置公共牌' });
         }
 
-        // 验证公共牌数量和合法性
-        const config = await getGameConfig(gameId);
-        if (!config) return res.status(404).json({ error: '房间不存在' });
-
-        const expectedCount = 6; // 公共牌固定6张
-        if (publicCards.length !== expectedCount) {
-            return res.status(400).json({ error: `公共牌数量必须为${expectedCount}张` });
+        // 验证公共牌数量（0~6张）和合法性
+        if (publicCards.length > 6) {
+            return res.status(400).json({ error: '公共牌最多6张' });
         }
 
         for (const card of publicCards) {
@@ -215,14 +212,18 @@ router.post('/:gameId/set-public-cards', async (req, res) => {
             }
         }
 
-        // 检查公共牌中鬼牌数量不超过配置
+        // 检查公共牌中鬼牌数量不超过游戏配置的最大鬼牌数
+        const config = await getGameConfig(gameId);
+        if (!config) return res.status(404).json({ error: '房间不存在' });
+
         const publicGhostCount = publicCards.filter((c: string) => isGhost(c)).length;
-        if (publicGhostCount > config.thirteen_ghost_count) {
-            return res.status(400).json({ error: `鬼牌数量(${publicGhostCount})超过配置(${config.thirteen_ghost_count})` });
+        const maxGhost = config.thirteen_ghost_count || 6;
+        if (publicGhostCount > maxGhost) {
+            return res.status(400).json({ error: `鬼牌数量(${publicGhostCount})超过配置(${maxGhost})` });
         }
 
         // 计算鬼牌倍率
-        const { multiplier } = calcGhostMultiplier(publicCards);
+        const multiplier = Math.pow(2, publicGhostCount);
 
         // 更新轮次
         const { data: round, error: updateError } = await supabase
