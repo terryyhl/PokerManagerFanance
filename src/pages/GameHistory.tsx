@@ -65,7 +65,7 @@ export default function GameHistory() {
 
     return (
         <AnimatedPage animationType="slide-left">
-            <div className="relative flex h-full min-h-full w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+            <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
 
                 {/* Header */}
                 <div className="flex items-center gap-3 px-5 pt-8 pb-4 bg-background-light dark:bg-background-dark sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
@@ -81,7 +81,7 @@ export default function GameHistory() {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="flex-1 overflow-y-auto px-5 py-4 pb-20">
                     {/* Loading skeletons */}
                     {isLoading && (
                         <div className="flex flex-col gap-3">
