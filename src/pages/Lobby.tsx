@@ -11,7 +11,6 @@ export default function Lobby() {
   const navigate = useNavigate();
   const { user } = useUser();
   const listRef = useRef<HTMLDivElement>(null);
-  const hasAnimated = useRef(false);
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -55,9 +54,7 @@ export default function Lobby() {
   }, [fetchGames]);
 
   useEffect(() => {
-    if (!isLoading && games.length > 0 && !hasAnimated.current) {
-      hasAnimated.current = true;
-      if (!listRef.current) return;
+    if (!isLoading && games.length > 0 && listRef.current) {
       anime({
         targets: listRef.current.children,
         translateY: [20, 0],
