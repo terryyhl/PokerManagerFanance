@@ -18,7 +18,7 @@ export default function BottomNav() {
                 return (
                     <button
                         key={tab.id}
-                        onClick={() => navigate(tab.path)}
+                        onClick={() => navigate(tab.path, { replace: true })}
                         className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive
                             ? 'text-primary'
                             : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'

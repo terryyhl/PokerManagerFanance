@@ -62,7 +62,7 @@ export default function JoinRoom() {
     if (roomCode.length !== 6) return;
 
     if (!user) {
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -71,7 +71,7 @@ export default function JoinRoom() {
 
     try {
       const { game } = await gamesApi.join(roomCode, user.id);
-      navigate(`/game/${game.id}`);
+      navigate(`/game/${game.id}`, { replace: true });
     } catch (err: any) {
       setError(err.message || '房间不存在或已结束');
     } finally {
@@ -85,7 +85,7 @@ export default function JoinRoom() {
         <div className="relative w-full h-full min-h-full flex flex-col">
           <div className="flex items-center px-4 py-4 justify-between bg-background-light dark:bg-background-dark sticky top-0 z-10">
             <button
-              onClick={() => navigate('/lobby')}
+              onClick={() => navigate(-1)}
               className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
             >
               <span className="material-symbols-outlined text-[24px]">arrow_back</span>

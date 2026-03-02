@@ -43,7 +43,7 @@ export default function CreateGame() {
 
   const handleCreate = async () => {
     if (!user) {
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
     if (!roomName.trim()) {

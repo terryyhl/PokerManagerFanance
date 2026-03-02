@@ -306,7 +306,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     onGameSettled: (data) => {
       showToast(data.message, 'success');
       setTimeout(() => {
-        navigate(`/settlement/${id}`);
+        navigate(`/settlement/${id}`, { replace: true });
       }, 1500);
     }
   });
@@ -540,7 +540,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       <AnimatedPage animationType="slide-left">
         <div className="relative flex h-full min-h-full w-full flex-col bg-[#0f1923] text-white">
           <div className="absolute top-6 left-4 z-50">
-            <button onClick={() => navigate('/lobby')} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
+            <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
               <span className="material-symbols-outlined text-[24px] text-white">close</span>
             </button>
           </div>

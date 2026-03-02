@@ -37,7 +37,7 @@ export default function Profile() {
 
     useEffect(() => {
         if (!user) {
-            navigate('/login');
+            navigate('/login', { replace: true });
             return;
         }
 
@@ -254,7 +254,7 @@ export default function Profile() {
                                 </button>
                                 <div className="w-px bg-slate-200 dark:bg-slate-700" />
                                 <button
-                                    onClick={() => { logout(); navigate('/login'); }}
+                                    onClick={() => { logout(); navigate('/login', { replace: true }); }}
                                     className="flex-1 py-3.5 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                                 >
                                     退出登录

@@ -37,7 +37,7 @@ export default function PersonalBill() {
   useGameSSE(id, user?.id, {
     onGameSettled: () => {
       // 当游戏结算时，自动跳转到结算报告页面
-      navigate(`/settlement/${id}`);
+      navigate(`/settlement/${id}`, { replace: true });
     }
   });
 

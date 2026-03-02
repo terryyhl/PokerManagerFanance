@@ -14,7 +14,7 @@ export default function LuckyHandHistory() {
 
     useEffect(() => {
         if (!user) {
-            navigate('/login');
+            navigate('/login', { replace: true });
             return;
         }
 

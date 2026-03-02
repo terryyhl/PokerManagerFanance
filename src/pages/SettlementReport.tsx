@@ -315,7 +315,7 @@ export default function SettlementReport() {
                   </div>
                 )}
                 <button
-                  onClick={() => navigate('/lobby')}
+                  onClick={() => navigate('/lobby', { replace: true })}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-base font-bold text-white transition-colors hover:bg-blue-600 active:scale-[0.98]"
                 >
                   <span className="material-symbols-outlined text-[20px]">home</span>
