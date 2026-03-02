@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import type { DotLottie } from '@lottiefiles/dotlottie-react';
 
 type CoinResult = 'heads' | 'tails' | null;
 
@@ -11,29 +10,20 @@ export default function CoinFlip() {
     const [stats, setStats] = useState({ heads: 0, tails: 0 });
     const [lottieKey, setLottieKey] = useState(0);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const dotLottieRef = useRef<DotLottie | null>(null);
 
     const handleFlip = useCallback(() => {
         if (isFlipping) return;
 
-        // 随机决定正反面
         const isHeads = Math.random() < 0.5;
         const newResult: CoinResult = isHeads ? 'heads' : 'tails';
 
         setIsFlipping(true);
         setResult(null);
-        // 重新挂载 Lottie 让它从头播放
         setLottieKey(prev => prev + 1);
 
-        // 震动反馈
         if (navigator.vibrate) navigator.vibrate(50);
 
-        // 动画播放约 2 秒后显示结果
         timerRef.current = setTimeout(() => {
-            // 停止 Lottie 动画
-            if (dotLottieRef.current) {
-                dotLottieRef.current.pause();
-            }
             setResult(newResult);
             setIsFlipping(false);
             setFlipCount(prev => prev + 1);
@@ -53,7 +43,6 @@ export default function CoinFlip() {
         setIsFlipping(false);
         setFlipCount(0);
         setStats({ heads: 0, tails: 0 });
-        setLottieKey(prev => prev + 1);
     };
 
     const resultText = result === 'heads' ? '正面' : result === 'tails' ? '反面' : null;
@@ -70,40 +59,49 @@ export default function CoinFlip() {
             {/* 主内容 */}
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-24">
 
-                {/* Lottie 硬币区域 */}
-                <div className="relative w-52 h-52 mb-4">
-                    <div className="w-full h-full overflow-hidden">
-                        <DotLottieReact
-                            key={lottieKey}
-                            src="/coin-3d.lottie"
-                            loop={isFlipping}
-                            autoplay={isFlipping}
-                            dotLottieRefCallback={(ref) => { dotLottieRef.current = ref; }}
-                            style={{ width: '208px', height: '208px' }}
-                        />
-                    </div>
+                {/* 硬币区域 */}
+                <div className="relative w-48 h-48 mb-6">
+                    {/* 翻转中 — Lottie 动画 */}
+                    {isFlipping && (
+                        <div className="w-full h-full overflow-hidden">
+                            <DotLottieReact
+                                key={lottieKey}
+                                src="/coin-flip.lottie"
+                                loop
+                                autoplay
+                                style={{ width: '192px', height: '192px' }}
+                            />
+                        </div>
+                    )}
 
-                    {/* 结果覆盖层 — 硬币停止后显示正/反 */}
-                    {result && !isFlipping && (
-                        <div className="absolute inset-0 flex items-center justify-center animate-bounce-in">
-                            <div
-                                className={`w-36 h-36 rounded-full flex items-center justify-center ${
-                                    result === 'heads'
-                                        ? 'bg-blue-500/90 shadow-lg shadow-blue-500/30'
-                                        : 'bg-red-500/90 shadow-lg shadow-red-500/30'
-                                }`}
-                            >
-                                <div className="flex flex-col items-center">
-                                    <span
-                                        className="text-white text-4xl font-black"
-                                        style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
-                                    >
-                                        {result === 'heads' ? '正' : '反'}
-                                    </span>
-                                    <span className="text-white/80 text-xs font-bold tracking-widest mt-1">
-                                        {result === 'heads' ? 'HEADS' : 'TAILS'}
-                                    </span>
-                                </div>
+                    {/* 待机 / 结果 — 静态硬币 */}
+                    {!isFlipping && (
+                        <div className={`w-full h-full rounded-full flex items-center justify-center ${
+                            result === 'heads'
+                                ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-xl shadow-blue-500/30'
+                                : result === 'tails'
+                                    ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-xl shadow-red-500/30'
+                                    : 'bg-gradient-to-br from-amber-300 to-yellow-500 shadow-xl shadow-amber-400/30'
+                        } ${result ? 'animate-bounce-in' : ''}`}
+                            style={{ border: '5px solid rgba(255,255,255,0.25)' }}
+                        >
+                            <div className="flex flex-col items-center">
+                                {result ? (
+                                    <>
+                                        <span className="text-white text-5xl font-black" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+                                            {result === 'heads' ? '正' : '反'}
+                                        </span>
+                                        <div className="w-14 h-0.5 bg-white/30 rounded my-1.5" />
+                                        <span className="text-white/80 text-xs font-bold tracking-widest">
+                                            {result === 'heads' ? 'HEADS' : 'TAILS'}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-white/90 text-4xl font-black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>$</span>
+                                        <span className="text-white/60 text-[10px] font-bold tracking-wider mt-1">FLIP ME</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
