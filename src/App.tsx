@@ -13,7 +13,7 @@ import MainLayout from './components/MainLayout';
 import { setupGlobalClickSound } from './lib/audio';
 
 // ─── 路径判断工具 ─────────────────────────────────────────────────────────────
-const MAIN_PATHS = ['/lobby', '/history', '/profile'];
+const MAIN_PATHS = ['/lobby', '/profile'];
 const isMainPath = (p: string) => MAIN_PATHS.includes(p);
 const isPublicPath = (p: string) => p === '/' || p === '/login';
 
