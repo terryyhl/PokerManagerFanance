@@ -629,11 +629,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         </header>
 
         {/* 房间参与者列表 */}
-        <div className="relative bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800">
-          {/* 头像滚动区 — 右侧留出工具按钮的空间 */}
-          <div className="overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-3 px-4 py-3 pr-16">
-              {/* 房主排第一 */}
+        <div className="flex items-center border-b border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark">
+          {/* 头像滚动区 — flex-1 占满剩余空间 */}
+          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-3 px-4 py-3">
               {[...players]
                 .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
                 .map(player => {
@@ -667,20 +666,17 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             </div>
           </div>
 
-          {/* 右侧渐变遮挡 + 固定工具按钮 */}
-          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pointer-events-none">
-            <div className="w-14 h-full bg-gradient-to-l from-background-light dark:from-background-dark to-transparent" />
-            <div className="pr-3 pointer-events-auto bg-background-light dark:bg-background-dark">
-              <button
-                ref={toolsBtnRef}
-                onClick={handleToggleToolsFan}
-                className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
-              >
-                <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  handyman
-                </span>
-              </button>
-            </div>
+          {/* 工具按钮 — 固定在右侧，不参与滚动 */}
+          <div className="shrink-0 flex items-center pr-3 pl-1">
+            <button
+              ref={toolsBtnRef}
+              onClick={handleToggleToolsFan}
+              className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
+            >
+              <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                handyman
+              </span>
+            </button>
           </div>
         </div>
 
