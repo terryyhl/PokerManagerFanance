@@ -249,7 +249,7 @@ export default function SettlementSharePoster({
                                             fontWeight: 600,
                                             color: profitColor,
                                         }}>
-                                            {profit >= 0 ? '+' : ''}¥{toReal(profit)}
+                                            {profit >= 0 ? '+' : ''}${toReal(profit)}
                                         </span>
                                     </div>
                                 );
@@ -270,7 +270,7 @@ export default function SettlementSharePoster({
                         }}>
                             <span style={{ fontSize: 11, color: '#64748b' }}>汇率</span>
                             <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>
-                                1 积分 = ¥{exchangeRate % 1 === 0 ? exchangeRate : exchangeRate.toFixed(2)}
+                                1 积分 = ${exchangeRate}
                             </span>
                         </div>
 

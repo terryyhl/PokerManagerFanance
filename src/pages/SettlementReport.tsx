@@ -21,7 +21,7 @@ export default function SettlementReport() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localChips, setLocalChips] = useState<Record<string, number>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // 汇率：每积分对应的真实货币金额（例如 1积分 = 0.1元）
+  // 汇率：每积分对应的真实货币金额（例如 1积分 = $0.1）
   const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [rateInput, setRateInput] = useState<string>('1');
   // 分享海报
@@ -219,7 +219,7 @@ export default function SettlementReport() {
                       }`}
                     placeholder="1.00"
                   />
-                  <span className="text-xs text-slate-500">元</span>
+                  <span className="text-xs text-slate-500">$</span>
                 </div>
               </div>
             </div>
@@ -261,7 +261,7 @@ export default function SettlementReport() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className={`font-bold text-sm ${profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-                              {profit >= 0 ? '+' : ''}¥{toReal(profit)}
+                              {profit >= 0 ? '+' : ''}${toReal(profit)}
                             </span>
                           </td>
                         </tr>
@@ -275,7 +275,7 @@ export default function SettlementReport() {
                         {totalProfit > 0 ? '+' : ''}{totalProfit}
                       </td>
                       <td className={`px-4 py-3 text-right font-bold ${totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
-                        {totalProfit >= 0 ? '+' : ''}¥{toReal(totalProfit)}
+                        {totalProfit >= 0 ? '+' : ''}${toReal(totalProfit)}
                       </td>
                     </tr>
                   </tfoot>
