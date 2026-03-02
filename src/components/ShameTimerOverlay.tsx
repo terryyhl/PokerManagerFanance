@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import anime from 'animejs';
 import Avatar from './Avatar';
 
+const PRESETS = [
+    { label: '30s', seconds: 30 },
+    { label: '1min', seconds: 60 },
+    { label: '2min', seconds: 120 },
+    { label: '3min', seconds: 180 },
+];
+
 interface ShameTimerOverlayProps {
     targetUsername: string;
     targetUserId: string;
@@ -11,60 +18,72 @@ interface ShameTimerOverlayProps {
 }
 
 /**
- * 思考计时器覆盖层
- * 正计时，显示被催促玩家头像 + 实时时钟
- * 可被所有人看到（通过 Realtime 同步）
+ * 催促倒计时器覆盖层
+ * 选择预设时长后开始倒计时，时间到震动提示
  */
 export default function ShameTimerOverlay({ targetUsername, targetUserId, startedByUsername, onStop, onCancel }: ShameTimerOverlayProps) {
-    const [elapsed, setElapsed] = useState(0);
-    const startTimeRef = useRef(Date.now());
+    const [totalSeconds, setTotalSeconds] = useState(0);
+    const [remaining, setRemaining] = useState(0);
+    const [isRunning, setIsRunning] = useState(false);
+    const [isFinished, setIsFinished] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const clockRef = useRef<HTMLDivElement>(null);
+    const cardRef = useRef<HTMLDivElement>(null);
     const pulseRef = useRef<HTMLDivElement>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // 进场动画
     useEffect(() => {
         if (containerRef.current) {
-            anime({
-                targets: containerRef.current,
-                opacity: [0, 1],
-                duration: 300,
-                easing: 'easeOutQuad',
-            });
+            anime({ targets: containerRef.current, opacity: [0, 1], duration: 200, easing: 'easeOutQuad' });
         }
-        if (clockRef.current) {
-            anime({
-                targets: clockRef.current,
-                scale: [0.5, 1],
-                opacity: [0, 1],
-                duration: 500,
-                easing: 'easeOutBack',
-                delay: 150,
-            });
+        if (cardRef.current) {
+            anime({ targets: cardRef.current, scale: [0.8, 1], opacity: [0, 1], duration: 300, easing: 'easeOutBack', delay: 100 });
         }
     }, []);
 
-    // 脉冲动画
+    // 脉冲动画（运行中）
     useEffect(() => {
-        if (pulseRef.current) {
-            anime({
-                targets: pulseRef.current,
-                scale: [1, 1.8],
-                opacity: [0.6, 0],
-                duration: 1500,
-                easing: 'easeOutQuad',
-                loop: true,
-            });
+        if (pulseRef.current && isRunning) {
+            anime({ targets: pulseRef.current, scale: [1, 1.6], opacity: [0.5, 0], duration: 1200, easing: 'easeOutQuad', loop: true });
         }
-    }, []);
+    }, [isRunning]);
 
-    // 正计时
+    // 倒计时
     useEffect(() => {
-        const interval = setInterval(() => {
-            setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-        }, 100);
-        return () => clearInterval(interval);
-    }, []);
+        if (!isRunning || remaining <= 0) return;
+        intervalRef.current = setInterval(() => {
+            setRemaining(prev => {
+                if (prev <= 1) {
+                    clearInterval(intervalRef.current!);
+                    intervalRef.current = null;
+                    setIsRunning(false);
+                    setIsFinished(true);
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
+    }, [isRunning, remaining]);
+
+    const handleSelectPreset = (secs: number) => {
+        setTotalSeconds(secs);
+        setRemaining(secs);
+        setIsRunning(true);
+        setIsFinished(false);
+    };
+
+    const handleDone = () => {
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+        const elapsed = totalSeconds - remaining;
+        onStop(elapsed > 0 ? elapsed : totalSeconds);
+    };
+
+    const handleCancelTimer = () => {
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+        onCancel();
+    };
 
     const formatTime = useCallback((seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -72,64 +91,86 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }, []);
 
-    const handleStop = () => {
-        onStop(elapsed);
-    };
+    const progress = totalSeconds > 0 ? remaining / totalSeconds : 1;
+    const urgencyColor = !isRunning && !isFinished ? 'text-slate-400'
+        : isFinished ? 'text-red-500'
+        : remaining <= 10 ? 'text-red-500'
+        : remaining <= 30 ? 'text-orange-500'
+        : 'text-amber-400';
+    const ringColor = isFinished ? 'stroke-red-500'
+        : remaining <= 10 ? 'stroke-red-500'
+        : remaining <= 30 ? 'stroke-orange-500'
+        : 'stroke-amber-400';
 
-    // 根据时长决定颜色强度
-    const urgencyColor = elapsed < 15 ? 'text-amber-400' : elapsed < 30 ? 'text-orange-500' : 'text-red-500';
-    const urgencyBg = elapsed < 15 ? 'from-amber-500/20' : elapsed < 30 ? 'from-orange-500/20' : 'from-red-500/20';
-    const urgencyRing = elapsed < 15 ? 'ring-amber-400/40' : elapsed < 30 ? 'ring-orange-500/40' : 'ring-red-500/40';
-    const urgencyLabel = elapsed < 15 ? '思考中...' : elapsed < 30 ? '有点慢了...' : elapsed < 60 ? '快点啊！' : '睡着了？！';
+    const R = 70;
+    const C = 2 * Math.PI * R;
 
     return (
         <div ref={containerRef} className="fixed inset-0 z-[150] flex items-center justify-center" style={{ opacity: 0 }}>
-            {/* 背景 */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCancelTimer} />
 
-            <div ref={clockRef} className="relative flex flex-col items-center gap-6 z-10" style={{ opacity: 0 }}>
-                {/* 被计时玩家头像 + 脉冲环 */}
+            <div ref={cardRef} className="relative z-10 flex flex-col items-center gap-5 bg-[#1a2632] rounded-3xl p-6 shadow-2xl ring-1 ring-white/10 w-[85vw] max-w-[320px]" style={{ opacity: 0 }} onClick={e => e.stopPropagation()}>
+                {/* 被催促玩家 */}
                 <div className="relative">
-                    <div ref={pulseRef} className={`absolute inset-0 rounded-full ${urgencyRing} ring-[3px]`} />
-                    <div className={`w-20 h-20 rounded-full overflow-hidden ring-4 ${urgencyRing} shadow-2xl`}>
+                    {isRunning && <div ref={pulseRef} className="absolute inset-0 rounded-full ring-[3px] ring-amber-400/40" />}
+                    <div className={`w-16 h-16 rounded-full overflow-hidden ring-4 ${isFinished ? 'ring-red-500/60' : isRunning ? 'ring-amber-400/40' : 'ring-slate-600'} shadow-xl`}>
                         <Avatar username={targetUsername} />
                     </div>
                 </div>
-
-                {/* 玩家名 */}
                 <div className="text-center">
-                    <p className="text-white text-lg font-bold">{targetUsername}</p>
-                    <p className="text-slate-400 text-xs mt-0.5">{urgencyLabel}</p>
-                </div>
-
-                {/* 大计时器数字 */}
-                <div className={`bg-gradient-to-b ${urgencyBg} to-transparent px-10 py-5 rounded-3xl`}>
-                    <p className={`text-6xl font-black tracking-wider font-mono ${urgencyColor} tabular-nums`}>
-                        {formatTime(elapsed)}
+                    <p className="text-white text-base font-bold">{targetUsername}</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">
+                        {isFinished ? '时间到！' : isRunning ? '倒计时中...' : '选择倒计时'}
                     </p>
                 </div>
 
-                {/* 发起者信息 */}
-                <p className="text-slate-500 text-xs">
-                    由 <span className="text-slate-300 font-bold">{startedByUsername}</span> 发起催促
-                </p>
+                {/* 倒计时圆环 */}
+                {totalSeconds > 0 && (
+                    <div className="relative w-40 h-40">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                            <circle cx="80" cy="80" r={R} fill="none" strokeWidth="5" className="stroke-slate-700" />
+                            <circle cx="80" cy="80" r={R} fill="none" strokeWidth="5" strokeLinecap="round"
+                                strokeDasharray={C} strokeDashoffset={C * (1 - progress)}
+                                className={`transition-all duration-1000 ease-linear ${ringColor}`}
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-4xl font-black font-mono tabular-nums ${urgencyColor} ${isFinished ? 'animate-pulse' : ''}`}>
+                                {formatTime(remaining)}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* 预设按钮（未开始时显示） */}
+                {!isRunning && !isFinished && (
+                    <div className="flex items-center gap-3">
+                        {PRESETS.map(p => (
+                            <button key={p.label} onClick={() => handleSelectPreset(p.seconds)}
+                                className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-0.5 bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 hover:border-amber-500/50 text-slate-200 font-bold transition-all active:scale-95"
+                            >
+                                <span className="text-lg font-black">{p.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* 操作按钮 */}
-                <div className="flex items-center gap-4 mt-2">
-                    <button
-                        onClick={onCancel}
-                        className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold transition-all active:scale-95"
-                    >
-                        取消
-                    </button>
-                    <button
-                        onClick={handleStop}
-                        className="px-8 py-3 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 transition-all active:scale-95 flex items-center gap-2"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">stop_circle</span>
-                        停止计时 ({elapsed}s)
-                    </button>
+                <div className="flex items-center gap-3 w-full">
+                    <button onClick={handleCancelTimer}
+                        className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-bold transition-all active:scale-95"
+                    >取消</button>
+                    {(isRunning || isFinished) && (
+                        <button onClick={handleDone}
+                            className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">check</span>
+                            {isFinished ? '完成' : '提前结束'}
+                        </button>
+                    )}
                 </div>
+
+                <p className="text-slate-600 text-[10px]">由 {startedByUsername} 发起</p>
             </div>
         </div>
     );

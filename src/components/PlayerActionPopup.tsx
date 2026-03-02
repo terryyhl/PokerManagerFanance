@@ -13,6 +13,7 @@ interface PlayerActionPopupProps {
     onClose: () => void;
     onStartTimer: () => void;
     onThrowEgg: () => void;
+    onCatchChicken: () => void;
     isSelf: boolean;
 }
 
@@ -20,25 +21,27 @@ interface PlayerActionPopupProps {
  * 长按头像弹出的趣味交互菜单
  * 以对话气泡形式显示在目标头像附近
  */
-export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, isSelf }: PlayerActionPopupProps) {
+export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, isSelf }: PlayerActionPopupProps) {
     const popupRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (popupRef.current) {
+            // 气泡整体弹入 — 极快
             anime({
                 targets: popupRef.current,
-                scale: [0.6, 1],
+                scale: [0.7, 1],
                 opacity: [0, 1],
-                duration: 250,
-                easing: 'easeOutBack',
+                duration: 150,
+                easing: 'easeOutCubic',
             });
+            // 按钮项同时出现，不再逐个 stagger
             anime({
                 targets: popupRef.current.querySelectorAll('.action-btn'),
-                scale: [0, 1],
+                scale: [0.5, 1],
                 opacity: [0, 1],
-                delay: anime.stagger(60, { start: 100 }),
-                duration: 300,
-                easing: 'spring(1, 80, 10, 0)',
+                duration: 150,
+                delay: 50,
+                easing: 'easeOutCubic',
             });
         }
     }, []);
@@ -54,6 +57,7 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
         : [
             { icon: 'timer', label: '催促计时', color: 'text-orange-500', bg: 'bg-orange-500/10', onClick: onStartTimer },
             { icon: 'egg_alt', label: '扔鸡蛋', color: 'text-red-500', bg: 'bg-red-500/10', onClick: onThrowEgg },
+            { icon: 'catching_pokemon', label: '抓鸡', color: 'text-yellow-600', bg: 'bg-yellow-500/10', onClick: onCatchChicken },
         ];
 
     return (

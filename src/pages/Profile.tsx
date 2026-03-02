@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
-import { usersApi, LuckyHandHistory, timerApi, ShameTimerUserStats } from '../lib/api';
+import { usersApi, LuckyHandHistory, timerApi } from '../lib/api';
 import Avatar from '../components/Avatar';
 import HandComboDisp from '../components/HandComboDisp';
 
@@ -30,7 +30,10 @@ export default function Profile() {
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
     const [history, setHistory] = useState<GameHistoryItem[]>([]);
     const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
-    const [timerStats, setTimerStats] = useState<ShameTimerUserStats | null>(null);
+    const [timerStats, setTimerStats] = useState<{
+        timerCount: number; timerTotalSec: number; timerAvgSec: number; timerMaxSec: number;
+        eggCount: number; chickenCount: number;
+    } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -149,32 +152,32 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* 思考计时生涯统计 */}
-                    {!isLoading && timerStats && timerStats.timedCount > 0 && (
+                    {/* 趣味互动生涯统计 */}
+                    {!isLoading && timerStats && (timerStats.timerCount > 0 || timerStats.eggCount > 0 || timerStats.chickenCount > 0) && (
                         <div className="mb-5">
                             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-orange-500">timer</span>
-                                思考计时
+                                <span className="material-symbols-outlined text-orange-500">sports_esports</span>
+                                趣味互动
                             </h3>
                             <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 dark:from-orange-900/20 dark:to-amber-900/10 p-4 rounded-2xl shadow-sm border border-orange-200/50 dark:border-orange-800/30">
-                                <div className="grid grid-cols-4 gap-2">
-                                    <div className="flex flex-col items-center py-2">
-                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.timedCount}</span>
-                                        <span className="text-[10px] text-slate-500 font-bold mt-1">被催次数</span>
+                                <div className="flex items-center justify-around">
+                                    <div className="flex flex-col items-center py-2 gap-1">
+                                        <span className="text-2xl">&#x23F1;&#xFE0F;</span>
+                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.timerCount}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">被催促</span>
+                                        {timerStats.timerAvgSec > 0 && (
+                                            <span className="text-[9px] text-slate-400">均{timerStats.timerAvgSec}s</span>
+                                        )}
                                     </div>
-                                    <div className="flex flex-col items-center py-2">
-                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.avgSeconds}s</span>
-                                        <span className="text-[10px] text-slate-500 font-bold mt-1">平均时长</span>
+                                    <div className="flex flex-col items-center py-2 gap-1">
+                                        <span className="text-2xl">&#x1F95A;</span>
+                                        <span className="text-xl font-black text-red-500">{timerStats.eggCount}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">被砸蛋</span>
                                     </div>
-                                    <div className="flex flex-col items-center py-2">
-                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.maxSeconds}s</span>
-                                        <span className="text-[10px] text-slate-500 font-bold mt-1">最长一次</span>
-                                    </div>
-                                    <div className="flex flex-col items-center py-2">
-                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">
-                                            {Math.floor(timerStats.totalSeconds / 60)}m
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-bold mt-1">累计时长</span>
+                                    <div className="flex flex-col items-center py-2 gap-1">
+                                        <span className="text-2xl">&#x1F414;</span>
+                                        <span className="text-xl font-black text-yellow-600 dark:text-yellow-400">{timerStats.chickenCount}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">被抓鸡</span>
                                     </div>
                                 </div>
                             </div>

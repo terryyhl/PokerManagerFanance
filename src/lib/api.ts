@@ -230,11 +230,14 @@ export const playerStatsApi = {
 
 // ──────────────────────────── Timer (Shame Timer) API ──────────────────────
 
+export type InteractionType = 'timer' | 'egg' | 'chicken';
+
 export interface ShameTimerRecord {
     id: string;
     game_id: string;
     target_user_id: string;
     started_by: string;
+    type: InteractionType;
     duration_seconds: number;
     created_at: string;
     target?: { id: string; username: string };
@@ -243,33 +246,37 @@ export interface ShameTimerRecord {
 
 export interface ShameTimerGameStats {
     userId: string;
-    count: number;
-    totalSeconds: number;
-    avgSeconds: number;
-    maxSeconds: number;
+    timerCount: number;
+    timerTotalSec: number;
+    timerAvgSec: number;
+    timerMaxSec: number;
+    eggCount: number;
+    chickenCount: number;
 }
 
 export interface ShameTimerUserStats {
-    timedCount: number;
-    totalSeconds: number;
-    avgSeconds: number;
-    maxSeconds: number;
+    timerCount: number;
+    timerTotalSec: number;
+    timerAvgSec: number;
+    timerMaxSec: number;
+    eggCount: number;
+    chickenCount: number;
 }
 
 export const timerApi = {
-    /** 记录一次思考计时 */
-    record: (gameId: string, targetUserId: string, startedBy: string, durationSeconds: number) =>
-        request<{ record: ShameTimerRecord }>('POST', '/timer/record', { gameId, targetUserId, startedBy, durationSeconds }),
+    /** 记录一次互动（计时/扔鸡蛋/抓鸡） */
+    record: (gameId: string, targetUserId: string, startedBy: string, type: InteractionType, durationSeconds?: number) =>
+        request<{ record: ShameTimerRecord }>('POST', '/timer/record', { gameId, targetUserId, startedBy, type, durationSeconds: durationSeconds || 0 }),
 
-    /** 获取某局所有计时记录 */
+    /** 获取某局所有互动记录 */
     getGameRecords: (gameId: string) =>
         request<{ records: ShameTimerRecord[] }>('GET', `/timer/game/${gameId}`),
 
-    /** 获取某局每人计时统计 */
+    /** 获取某局每人互动统计 */
     getGameStats: (gameId: string) =>
         request<{ stats: ShameTimerGameStats[] }>('GET', `/timer/game/${gameId}/stats`),
 
-    /** 获取某用户跨游戏的计时统计（个人中心用） */
+    /** 获取某用户跨游戏的互动统计（个人中心用） */
     getUserStats: (userId: string) =>
         request<{ stats: ShameTimerUserStats }>('GET', `/timer/user/${userId}/stats`),
 };

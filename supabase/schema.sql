@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS shame_timers (
   game_id         UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   target_user_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   started_by      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  duration_seconds INTEGER NOT NULL CHECK (duration_seconds >= 0),
+  type            TEXT NOT NULL DEFAULT 'timer' CHECK (type IN ('timer', 'egg', 'chicken')),
+  duration_seconds INTEGER NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

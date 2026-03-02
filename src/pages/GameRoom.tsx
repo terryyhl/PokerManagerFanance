@@ -18,6 +18,7 @@ import LuckyHandCelebration from '../components/LuckyHandCelebration';
 import PlayerActionPopup, { PlayerActionTarget } from '../components/PlayerActionPopup';
 import ShameTimerOverlay from '../components/ShameTimerOverlay';
 import EggThrowAnimation from '../components/EggThrowAnimation';
+import ChickenCatchAnimation from '../components/ChickenCatchAnimation';
 import { timerApi } from '../lib/api';
 
 interface GameRoomProps {
@@ -79,7 +80,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   // 长按交互
   const [actionPopupTarget, setActionPopupTarget] = useState<PlayerActionTarget | null>(null);
   const [shameTimerTarget, setShameTimerTarget] = useState<{ userId: string; username: string } | null>(null);
-  const [eggTarget, setEggTarget] = useState<string | null>(null); // username
+  const [eggTarget, setEggTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
+  const [chickenTarget, setChickenTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -396,7 +398,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const handleStopTimer = useCallback(async (durationSeconds: number) => {
     if (!shameTimerTarget || !user || !id) return;
     try {
-      await timerApi.record(id, shameTimerTarget.userId, user.id, durationSeconds);
+      await timerApi.record(id, shameTimerTarget.userId, user.id, 'timer', durationSeconds);
       showToast(`${shameTimerTarget.username} 思考了 ${durationSeconds} 秒`, 'info');
     } catch (err) {
       console.error('Record timer error:', err);
@@ -405,11 +407,22 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   }, [shameTimerTarget, user, id]);
 
   const handleThrowEgg = useCallback(() => {
-    if (!actionPopupTarget) return;
-    const name = actionPopupTarget.username;
+    if (!actionPopupTarget || !user || !id) return;
+    const { userId, username, rect } = actionPopupTarget;
     setActionPopupTarget(null);
-    setEggTarget(name);
-  }, [actionPopupTarget]);
+    setEggTarget({ username, rect });
+    // 记录扔鸡蛋
+    timerApi.record(id, userId, user.id, 'egg').catch(err => console.error('Record egg error:', err));
+  }, [actionPopupTarget, user, id]);
+
+  const handleCatchChicken = useCallback(() => {
+    if (!actionPopupTarget || !user || !id) return;
+    const { userId, username, rect } = actionPopupTarget;
+    setActionPopupTarget(null);
+    setChickenTarget({ username, rect });
+    // 记录抓鸡
+    timerApi.record(id, userId, user.id, 'chicken').catch(err => console.error('Record chicken error:', err));
+  }, [actionPopupTarget, user, id]);
 
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
@@ -1363,6 +1376,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             onClose={() => setActionPopupTarget(null)}
             onStartTimer={handleStartTimer}
             onThrowEgg={handleThrowEgg}
+            onCatchChicken={handleCatchChicken}
             isSelf={actionPopupTarget.userId === user?.id}
           />
         )}
@@ -1381,8 +1395,18 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         {/* 扔鸡蛋动画 */}
         {eggTarget && (
           <EggThrowAnimation
-            targetUsername={eggTarget}
+            targetUsername={eggTarget.username}
+            targetRect={eggTarget.rect}
             onComplete={() => setEggTarget(null)}
+          />
+        )}
+
+        {/* 抓鸡动画 */}
+        {chickenTarget && (
+          <ChickenCatchAnimation
+            targetUsername={chickenTarget.username}
+            targetRect={chickenTarget.rect}
+            onComplete={() => setChickenTarget(null)}
           />
         )}
       </div>
