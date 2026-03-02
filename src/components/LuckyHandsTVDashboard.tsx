@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import anime from 'animejs/lib/anime.es.js';
 import Avatar from './Avatar';
-import PokerCardDisp from './PokerCardDisp';
+import HandComboDisp from './HandComboDisp';
 import { Player, LuckyHand } from '../lib/api';
 
 interface LuckyHandsTVDashboardProps {
@@ -184,10 +184,7 @@ export default function LuckyHandsTVDashboard({
                                                         <div className="flex items-center gap-3">
                                                             {hand ? (
                                                                 <>
-                                                                    <div className="flex items-center gap-1.5 md:gap-2">
-                                                                        <PokerCardDisp card={hand.card_1} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
-                                                                        <PokerCardDisp card={hand.card_2} className="text-[12px] md:text-[14px] px-1 shadow-sm" />
-                                                                    </div>
+                                                                    <HandComboDisp combo={hand.card_1} card2={hand.card_2} compact />
                                                                     {hand.hit_count > 0 && (
                                                                         <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-xs md:text-sm font-black px-2 py-0.5 rounded shadow flex items-center gap-0.5">
                                                                             <span className="material-symbols-outlined text-[14px] md:text-[16px]">close</span>

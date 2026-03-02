@@ -1,72 +1,71 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const SUITS = [
-    { symbol: '♠', color: 'text-slate-900 dark:text-slate-100', name: 's' },
-    { symbol: '♥', color: 'text-red-500', name: 'h' },
-    { symbol: '♣', color: 'text-slate-900 dark:text-slate-100', name: 'c' },
-    { symbol: '♦', color: 'text-red-500', name: 'd' }
-];
-
 const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
 
 interface CardSelectorModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (card1: string, card2: string) => void;
-    targetHandIndex: number; // 当前正在给几号位选牌
+    /** 返回组合字符串，如 'AKs', 'AKo', 'AAo'。card2 始终为空字符串 */
+    onConfirm: (combo: string, card2: string) => void;
+    targetHandIndex: number;
 }
 
 export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHandIndex }: CardSelectorModalProps) {
-    const [selectedCards, setSelectedCards] = useState<string[]>([]);
+    const [selectedRanks, setSelectedRanks] = useState<string[]>([]);
+    const [suited, setSuited] = useState(true);
     const autoConfirmTimer = useRef<NodeJS.Timeout | null>(null);
 
-    // 选中 2 张后自动确认（短延迟让用户看到选中效果）
+    const isPair = selectedRanks.length === 2 && selectedRanks[0] === selectedRanks[1];
+    const isReady = selectedRanks.length === 2;
+
+    // 选中 2 个点数后自动确认
     useEffect(() => {
-        if (selectedCards.length === 2) {
+        if (isReady) {
             autoConfirmTimer.current = setTimeout(() => {
-                onConfirm(selectedCards[0], selectedCards[1]);
-                setSelectedCards([]);
-            }, 350);
+                const [r1, r2] = selectedRanks;
+                const sameRank = r1 === r2;
+                const suffix = sameRank ? 'o' : (suited ? 's' : 'o');
+                const combo = `${r1}${r2}${suffix}`;
+                onConfirm(combo, '');
+                setSelectedRanks([]);
+                setSuited(true);
+            }, 400);
         }
         return () => {
             if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current);
         };
-    }, [selectedCards, onConfirm]);
+    }, [selectedRanks, suited, isReady, onConfirm]);
 
     if (!isOpen) return null;
 
-    const handleCardClick = (card: string) => {
-        if (selectedCards.includes(card)) {
-            setSelectedCards(prev => prev.filter(c => c !== card));
-        } else {
-            if (selectedCards.length < 2) {
-                setSelectedCards(prev => [...prev, card]);
-            } else {
-                // 如果已经选了两张，替换最后一张
-                setSelectedCards(prev => [prev[0], card]);
-            }
-        }
-    };
+    const handleRankClick = (rank: string) => {
+        // 取消自动确认（如果用户点太快改选）
+        if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current);
 
-    const handleConfirm = () => {
-        if (selectedCards.length === 2) {
-            onConfirm(selectedCards[0], selectedCards[1]);
-            setSelectedCards([]); // reset
+        if (selectedRanks.length === 0) {
+            setSelectedRanks([rank]);
+        } else if (selectedRanks.length === 1) {
+            setSelectedRanks([selectedRanks[0], rank]);
+        } else {
+            // 已选2个，重新开始
+            setSelectedRanks([rank]);
         }
     };
 
     const handleClose = () => {
-        setSelectedCards([]);
+        setSelectedRanks([]);
+        setSuited(true);
         onClose();
-    }
+    };
 
     return (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-end sm:justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full sm:max-w-md bg-white dark:bg-[#192633] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white dark:bg-[#192633] z-10">
                     <div>
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">配置手牌 #{targetHandIndex}</h3>
-                        <p className="text-xs text-slate-500 mt-1">请选择刚好 2 张牌进行组合</p>
+                        <p className="text-xs text-slate-500 mt-1">选择两个点数组成起手牌组合</p>
                     </div>
                     <button
                         onClick={handleClose}
@@ -77,64 +76,105 @@ export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHa
                     </button>
                 </div>
 
-                {/* 已选展示区 */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex justify-center gap-4">
-                    {[0, 1].map(idx => {
-                        const card = selectedCards[idx];
-                        return (
-                            <div key={idx} className={`w-16 h-20 rounded-xl border-2 flex items-center justify-center text-xl font-bold bg-white dark:bg-slate-800 shadow-sm
-                    ${card ? 'border-primary ring-2 ring-primary/20' : 'border-dashed border-slate-300 dark:border-slate-600 text-slate-300 dark:text-slate-600'}
-                   `}>
-                                {card ? (
-                                    <span className={card.includes('♥') || card.includes('♦') ? 'text-red-500' : 'text-slate-900 dark:text-white'}>
-                                        {card}
-                                    </span>
-                                ) : '?'}
-                            </div>
-                        );
-                    })}
+                {/* 预览区 */}
+                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center gap-3">
+                    <div className="flex items-center gap-2">
+                        {[0, 1].map(idx => {
+                            const rank = selectedRanks[idx];
+                            return (
+                                <div
+                                    key={idx}
+                                    className={`w-14 h-18 rounded-xl border-2 flex items-center justify-center text-2xl font-black bg-white dark:bg-slate-800 shadow-sm transition-all
+                                        ${rank ? 'border-primary ring-2 ring-primary/20 text-slate-900 dark:text-white' : 'border-dashed border-slate-300 dark:border-slate-600 text-slate-300 dark:text-slate-600'}
+                                    `}
+                                    style={{ height: '4.5rem' }}
+                                >
+                                    {rank || '?'}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Suited / Offsuit 开关 */}
+                    {selectedRanks.length >= 1 && !isPair && (
+                        <div className="flex flex-col items-center gap-1.5 ml-2">
+                            <button
+                                onClick={() => {
+                                    if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current);
+                                    setSuited(true);
+                                    // 如果已经选了2个，重新触发自动确认
+                                    if (selectedRanks.length === 2) {
+                                        setSelectedRanks([...selectedRanks]);
+                                    }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${suited
+                                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    }`}
+                            >
+                                同花 s
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current);
+                                    setSuited(false);
+                                    if (selectedRanks.length === 2) {
+                                        setSelectedRanks([...selectedRanks]);
+                                    }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!suited
+                                    ? 'bg-slate-600 text-white shadow-md shadow-slate-600/30'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    }`}
+                            >
+                                杂色 o
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 对子提示 */}
+                    {isPair && (
+                        <div className="ml-2 px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold">
+                            口袋对
+                        </div>
+                    )}
                 </div>
 
-                {/* 选牌区 */}
+                {/* 点数选择区 */}
                 <div className="p-4 overflow-y-auto">
-                    <div className="flex flex-col gap-4 pb-4">
-                        {SUITS.map(suit => (
-                            <div key={suit.name} className="flex flex-nowrap overflow-x-auto gap-2 pb-2 no-scrollbar">
-                                <div className={`flex-shrink-0 w-8 flex items-center justify-center text-2xl ${suit.color}`}>
-                                    {suit.symbol}
-                                </div>
-                                {RANKS.map(rank => {
-                                    const cardValue = `${rank}${suit.symbol}`;
-                                    const isSelected = selectedCards.includes(cardValue);
-                                    return (
-                                        <button
-                                            key={rank}
-                                            onClick={() => handleCardClick(cardValue)}
-                                            className={`flex-shrink-0 w-12 h-16 rounded-lg text-lg font-bold flex flex-col items-center justify-center transition-all ${isSelected
-                                                ? 'bg-primary text-white scale-105 shadow-md shadow-primary/30'
-                                                : 'bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary/50'
-                                                }`}
-                                        >
-                                            <span className={isSelected ? 'text-white' : suit.color}>{suit.symbol}</span>
-                                            <span>{rank}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ))}
+                    <div className="grid grid-cols-5 gap-2 pb-2">
+                        {RANKS.map(rank => {
+                            const isFirst = selectedRanks[0] === rank && selectedRanks.length >= 1;
+                            const isSecond = selectedRanks[1] === rank && selectedRanks.length === 2;
+                            const isSelected = isFirst || isSecond;
+                            return (
+                                <button
+                                    key={rank}
+                                    onClick={() => handleRankClick(rank)}
+                                    className={`h-14 rounded-xl text-xl font-black flex items-center justify-center transition-all ${isSelected
+                                        ? 'bg-primary text-white scale-105 shadow-md shadow-primary/30 ring-2 ring-primary/50'
+                                        : 'bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary/50 active:scale-95'
+                                        }`}
+                                >
+                                    {rank}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* 底部提示 */}
+                {/* 底部状态 */}
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#192633] sticky bottom-0 z-10 w-full">
-                    <div className={`w-full h-12 rounded-xl flex items-center justify-center font-bold transition-all ${selectedCards.length === 2 ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>
-                        {selectedCards.length === 2 ? (
+                    <div className={`w-full h-12 rounded-xl flex items-center justify-center font-bold transition-all ${isReady ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>
+                        {isReady ? (
                             <span className="flex items-center gap-2">
                                 <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                                自动确认中...
+                                {selectedRanks[0]}{selectedRanks[1]}{isPair ? '' : (suited ? 's' : 'o')} 确认中...
                             </span>
                         ) : (
-                            <span>选择 2 张牌后自动确认（已选 {selectedCards.length}/2）</span>
+                            <span>
+                                {selectedRanks.length === 0 ? '请选择第一张牌的点数' : '请选择第二张牌的点数'}
+                            </span>
                         )}
                     </div>
                 </div>

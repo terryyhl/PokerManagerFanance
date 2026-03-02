@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
 import { usersApi, LuckyHandHistory as LuckyHandHistoryType } from '../lib/api';
-import PokerCardDisp from '../components/PokerCardDisp';
+import HandComboDisp from '../components/HandComboDisp';
 
 export default function LuckyHandHistory() {
     const navigate = useNavigate();
@@ -151,10 +151,7 @@ export default function LuckyHandHistory() {
                                                         <div className="flex items-center justify-center size-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-bold text-xs">
                                                             #{lh.hand_index}
                                                         </div>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <PokerCardDisp card={lh.card_1} />
-                                                            <PokerCardDisp card={lh.card_2} />
-                                                        </div>
+                                                        <HandComboDisp combo={lh.card_1} card2={lh.card_2} />
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="material-symbols-outlined text-amber-500 text-[16px]">local_fire_department</span>

@@ -4,7 +4,7 @@ import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
 import { usersApi, LuckyHandHistory } from '../lib/api';
 import Avatar from '../components/Avatar';
-import PokerCardDisp from '../components/PokerCardDisp';
+import HandComboDisp from '../components/HandComboDisp';
 
 interface UserStats {
     totalGames: number;
@@ -102,13 +102,15 @@ export default function Profile() {
 
                 <div className="flex-1 overflow-y-auto px-5 pb-6">
 
-                    {/* User Hero */}
-                    <div className="flex flex-col items-center mt-4 mb-8">
-                        <div className="size-24 rounded-full border-4 border-white dark:border-slate-800 shadow-xl overflow-hidden bg-slate-100 dark:bg-slate-800 relative ring-4 ring-primary/20 mb-4">
+                    {/* User Hero — 紧凑横向布局 */}
+                    <div className="flex items-center gap-4 mb-5">
+                        <div className="size-14 rounded-full border-2 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-100 dark:bg-slate-800 ring-2 ring-primary/20 flex-shrink-0">
                             <Avatar username={user.username} />
                         </div>
-                        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{user.username}</h1>
-                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">注册于 {new Date(user.created_at).toLocaleDateString('zh-CN')}</p>
+                        <div className="min-w-0">
+                            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">{user.username}</h1>
+                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">注册于 {new Date(user.created_at).toLocaleDateString('zh-CN')}</p>
+                        </div>
                     </div>
 
                     {/* Error Banner */}
@@ -120,7 +122,7 @@ export default function Profile() {
                     )}
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-3 mb-8">
+                    <div className="grid grid-cols-2 gap-3 mb-5">
                         <div className="bg-white dark:bg-[#1a2632] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
                             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-2">
                                 <span className="material-symbols-outlined text-[16px]">sports_esports</span>
@@ -155,7 +157,7 @@ export default function Profile() {
 
                     {/* Lucky Hands Top 3 */}
                     {!isLoading && topLuckyHands.length > 0 && (
-                        <div className="mb-8">
+                        <div className="mb-5">
                             <div
                                 className="flex items-center justify-between mb-4 cursor-pointer group"
                                 onClick={() => navigate('/lucky-history')}
@@ -180,10 +182,7 @@ export default function Profile() {
                                             <div className="flex items-center justify-center size-8 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 font-black text-sm">
                                                 {i + 1}
                                             </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <PokerCardDisp card={lh.card_1} />
-                                                <PokerCardDisp card={lh.card_2} />
-                                            </div>
+                                            <HandComboDisp combo={lh.card_1} card2={lh.card_2} compact />
                                             <div className="ml-1">
                                                 <p className="text-sm font-bold text-slate-900 dark:text-white">
                                                     {(lh.games as Record<string, unknown>)?.name as string || '未知房间'}

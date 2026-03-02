@@ -42,14 +42,16 @@ router.get('/:gameId', async (req, res) => {
 
 /**
  * POST /api/lucky-hands/:gameId/setup
- * 用户配置某个槽位 (1/2/3) 的手牌卡牌面
+ * 用户配置某个槽位 (1/2/3) 的手牌组合
+ * card1: 组合字符串如 'AKs', 'AKo', 'AAo'
+ * card2: 空字符串（兼容保留）
  */
 router.post('/:gameId/setup', async (req, res) => {
     try {
         const { gameId } = req.params;
         const { userId, handIndex, card1, card2 } = req.body;
 
-        if (!userId || !handIndex || !card1 || !card2) {
+        if (!userId || !handIndex || !card1) {
             return res.status(400).json({ error: '参数缺失' });
         }
 
@@ -58,8 +60,8 @@ router.post('/:gameId/setup', async (req, res) => {
             return res.status(400).json({ error: '无效的槽位编号' });
         }
 
-        if (typeof card1 !== 'string' || typeof card2 !== 'string' || !card1.trim() || !card2.trim()) {
-            return res.status(400).json({ error: '无效的卡牌' });
+        if (typeof card1 !== 'string' || !card1.trim()) {
+            return res.status(400).json({ error: '无效的手牌组合' });
         }
 
         const game = await getGameLuckyHandsConfig(gameId);
@@ -69,6 +71,7 @@ router.post('/:gameId/setup', async (req, res) => {
         }
 
         // Upsert 写入对应用户+槽位配置并重置中奖次数
+        // card_1 存组合字符串 (如 'AKs')，card_2 存空字符串兼容旧列
         const { data, error } = await supabase
             .from('lucky_hands')
             .upsert({
@@ -76,7 +79,7 @@ router.post('/:gameId/setup', async (req, res) => {
                 user_id: userId,
                 hand_index: parsedHandIndex,
                 card_1: card1.trim(),
-                card_2: card2.trim(),
+                card_2: typeof card2 === 'string' ? card2.trim() : '',
                 hit_count: 0,
             }, { onConflict: 'game_id,user_id,hand_index' })
             .select(`*, users(id, username)`)
@@ -154,13 +157,14 @@ router.post('/:gameId/hit-submit', async (req, res) => {
 /**
  * POST /api/lucky-hands/:gameId/update-submit
  * 玩家发起手牌修改的人工审核申请
+ * newCard1: 新组合字符串 (如 'AKs')，newCard2: 空字符串兼容
  */
 router.post('/:gameId/update-submit', async (req, res) => {
     try {
         const { gameId } = req.params;
         const { userId, luckyHandId, newCard1, newCard2 } = req.body;
 
-        if (!userId || !luckyHandId || !newCard1 || !newCard2) return res.status(400).json({ error: '参数缺失' });
+        if (!userId || !luckyHandId || !newCard1) return res.status(400).json({ error: '参数缺失' });
 
         const { data, error } = await supabase
             .from('pending_lucky_hits')
@@ -170,7 +174,7 @@ router.post('/:gameId/update-submit', async (req, res) => {
                 lucky_hand_id: luckyHandId,
                 request_type: 'update',
                 new_card_1: newCard1,
-                new_card_2: newCard2,
+                new_card_2: typeof newCard2 === 'string' ? newCard2 : '',
             })
             .select()
             .single();
@@ -254,7 +258,7 @@ router.post('/:gameId/hit-approve/:hitId', async (req, res) => {
                 .from('lucky_hands')
                 .update({
                     card_1: hit.new_card_1,
-                    card_2: hit.new_card_2,
+                    card_2: hit.new_card_2 || '',
                     hit_count: 0 // 改牌时重置计数
                 })
                 .eq('id', hit.lucky_hand_id);

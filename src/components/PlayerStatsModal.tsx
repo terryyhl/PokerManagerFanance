@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { playerStatsApi, PlayerBuyInRecord, luckyHandsApi, LuckyHand } from '../lib/api';
 import { LuckyHandData } from './LuckyHandFAB';
 import Avatar from './Avatar';
-import PokerCardDisp from './PokerCardDisp';
+import HandComboDisp from './HandComboDisp';
 
 interface PlayerStatsModalProps {
     isOpen: boolean;
@@ -228,10 +228,7 @@ export default function PlayerStatsModal({
                                                     <div className="text-xs text-slate-400 font-bold mb-1">槽位 {handIndex}</div>
                                                     {data ? (
                                                         <div className="flex flex-col items-center mt-1">
-                                                            <div className="flex gap-1 justify-center">
-                                                                <PokerCardDisp card={data.card_1} className="text-[13px] px-1 shadow-sm" />
-                                                                <PokerCardDisp card={data.card_2} className="text-[13px] px-1 shadow-sm" />
-                                                            </div>
+                                                            <HandComboDisp combo={data.card_1} card2={data.card_2} compact />
                                                             {currentUserId === userId && onModifyLuckyHand && data.hit_count === 0 && (
                                                                 <button
                                                                     onClick={() => onModifyLuckyHand(handIndex)}

@@ -10,6 +10,7 @@ import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
 import CardSelectorModal from '../components/CardSelectorModal';
 import PlayerStatsModal from '../components/PlayerStatsModal';
 import PokerCardDisp from '../components/PokerCardDisp';
+import HandComboDisp from '../components/HandComboDisp';
 import LuckyHandsTVDashboard from '../components/LuckyHandsTVDashboard';
 
 interface GameRoomProps {
@@ -583,15 +584,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                               <span className="mx-1">:</span>
                               <div className="flex gap-1">
                                 {isUpdate ? (
-                                  <>
-                                    <PokerCardDisp card={hit.new_card_1} className="text-xs px-1" />
-                                    <PokerCardDisp card={hit.new_card_2} className="text-xs px-1" />
-                                  </>
+                                  <HandComboDisp combo={hit.new_card_1 || ''} card2={hit.new_card_2} compact />
                                 ) : (
-                                  <>
-                                    <PokerCardDisp card={hit.lucky_hands.card_1} className="text-xs px-1" />
-                                    <PokerCardDisp card={hit.lucky_hands.card_2} className="text-xs px-1" />
-                                  </>
+                                  <HandComboDisp combo={hit.lucky_hands?.card_1 || ''} card2={hit.lucky_hands?.card_2} compact />
                                 )}
                               </div>
                             </div>
@@ -957,9 +952,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 text-center leading-relaxed">
                 新卡牌将即时生效，同时该组中奖次数将重置为 0。
               </p>
-              <div className="flex gap-1 justify-center mb-6">
-                <PokerCardDisp card={modifyConfirm.card1} className="px-2 py-1 text-lg shadow-sm" />
-                <PokerCardDisp card={modifyConfirm.card2} className="px-2 py-1 text-lg shadow-sm" />
+              <div className="flex justify-center mb-6">
+                <HandComboDisp combo={modifyConfirm.card1} card2={modifyConfirm.card2} />
               </div>
               <div className="flex gap-3">
                 <button
@@ -1001,9 +995,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 text-center leading-relaxed">
                 房主特权：无需审核，直接为您增加该手牌组的中奖次数。
               </p>
-              <div className="flex gap-1 justify-center mb-6">
-                <PokerCardDisp card={directHitConfirmHand.card_1} className="px-2 py-1 text-lg shadow-sm" />
-                <PokerCardDisp card={directHitConfirmHand.card_2} className="px-2 py-1 text-lg shadow-sm" />
+              <div className="flex justify-center mb-6">
+                <HandComboDisp combo={directHitConfirmHand.card_1} card2={directHitConfirmHand.card_2} />
               </div>
               <div className="flex gap-3 mt-2">
                 <button

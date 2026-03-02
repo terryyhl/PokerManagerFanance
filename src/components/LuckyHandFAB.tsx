@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
-import PokerCardDisp from './PokerCardDisp';
+import HandComboDisp from './HandComboDisp';
 
 export interface LuckyHandData {
     hand_index: number;
@@ -67,10 +67,7 @@ export default function LuckyHandFAB({
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
         return (
             <div className="flex flex-col items-center justify-center leading-tight h-full w-full relative">
-                <div className="flex gap-1 justify-center w-full">
-                    <PokerCardDisp card={c1} className="text-[11px] px-0.5 py-0 shadow-sm" />
-                    <PokerCardDisp card={c2} className="text-[11px] px-0.5 py-0 shadow-sm" />
-                </div>
+                <HandComboDisp combo={c1} card2={c2} compact className="[&_span]:text-[11px] [&_span]:px-0.5 [&_span]:py-0" />
                 {hitCount > 0 && (
                     <div className="absolute -top-2.5 -right-2.5 bg-yellow-400 text-yellow-900 border-2 border-indigo-600 text-[10px] font-black w-5 h-5 rounded-full shadow-md flex items-center justify-center">
                         {hitCount}
