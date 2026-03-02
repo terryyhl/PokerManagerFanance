@@ -12,6 +12,7 @@ import PlayerStatsModal from '../components/PlayerStatsModal';
 import PokerCardDisp from '../components/PokerCardDisp';
 import HandComboDisp from '../components/HandComboDisp';
 import LuckyHandsTVDashboard from '../components/LuckyHandsTVDashboard';
+import LuckyHandCelebration from '../components/LuckyHandCelebration';
 
 interface GameRoomProps {
   forcedId?: string;
@@ -68,6 +69,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [showTVDashboard, setShowTVDashboard] = useState(false);
 
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
+
+  // 幸运手牌命中庆祝动画
+  const [celebrationData, setCelebrationData] = useState<{ combo: string; username: string; hitCount: number } | null>(null);
+  const prevAllLuckyHandsRef = useRef<import('../lib/api').LuckyHand[]>([]);
 
   // #26 自定义确认修改手牌的 Modal 状态
   const [modifyConfirm, setModifyConfirm] = useState<{ card1: string; card2: string } | null>(null);
@@ -128,6 +133,27 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       el.scrollTop = el.scrollHeight;
     }
   }, [isLoading]);
+
+  // 检测幸运手牌命中 → 触发全屏庆祝动画
+  useEffect(() => {
+    const prev = prevAllLuckyHandsRef.current;
+    if (prev.length > 0 && allLuckyHands.length > 0) {
+      for (const curr of allLuckyHands) {
+        const prevHand = prev.find(p => p.id === curr.id);
+        if (prevHand && curr.hit_count > prevHand.hit_count) {
+          const owner = players.find(p => p.user_id === curr.user_id);
+          const name = owner?.users?.username || '某人';
+          setCelebrationData({
+            combo: curr.card_1,
+            username: name,
+            hitCount: curr.hit_count,
+          });
+          break; // 一次只显示一个庆祝动画
+        }
+      }
+    }
+    prevAllLuckyHandsRef.current = JSON.parse(JSON.stringify(allLuckyHands));
+  }, [allLuckyHands, players]);
 
   // 新买入/待审核出现：平滑滚动到底部
   useEffect(() => {
@@ -1071,6 +1097,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             luckyHandsCount={game.lucky_hands_count}
             onModifyLuckyHand={handleModifyLuckyHandFromStats}
             currentUserId={user?.id}
+          />
+        )}
+
+        {/* 幸运手牌命中 — 全屏庆祝动画 */}
+        {celebrationData && (
+          <LuckyHandCelebration
+            combo={celebrationData.combo}
+            username={celebrationData.username}
+            hitCount={celebrationData.hitCount}
+            onComplete={() => setCelebrationData(null)}
           />
         )}
       </div>

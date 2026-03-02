@@ -5,6 +5,7 @@ import AnimatedPage from '../components/AnimatedPage';
 import { settlementApi, PlayerStat, Game } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
+import SettlementSharePoster from '../components/SettlementSharePoster';
 
 export default function SettlementReport() {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export default function SettlementReport() {
   // 汇率：每积分对应的真实货币金额（例如 1积分 = 0.1元）
   const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [rateInput, setRateInput] = useState<string>('1');
+  // 分享海报
+  const [showSharePoster, setShowSharePoster] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -117,7 +120,14 @@ export default function SettlementReport() {
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
-            <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight flex-1 text-center pr-10">结算报告</h2>
+            <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight flex-1 text-center">结算报告</h2>
+            <button
+              onClick={() => setShowSharePoster(true)}
+              className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+              title="分享"
+            >
+              <span className="material-symbols-outlined text-[22px]">share</span>
+            </button>
           </div>
 
           {isFinished && (
@@ -315,6 +325,19 @@ export default function SettlementReport() {
             </div>
           </div>
         </div>
+
+        {/* 分享海报 */}
+        {game && (
+          <SettlementSharePoster
+            isOpen={showSharePoster}
+            onClose={() => setShowSharePoster(false)}
+            game={game}
+            stats={stats}
+            localChips={localChips}
+            exchangeRate={exchangeRate}
+            currentUserId={user?.id}
+          />
+        )}
       </div>
     </AnimatedPage>
   );
