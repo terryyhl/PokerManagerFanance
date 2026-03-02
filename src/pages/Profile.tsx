@@ -66,7 +66,7 @@ export default function Profile() {
 
     return (
         <AnimatedPage animationType="slide-left">
-            <div className="relative flex h-full min-h-full w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 pb-20">
+            <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark sticky top-0 z-10 transition-all">
@@ -100,7 +100,7 @@ export default function Profile() {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 pb-6">
+                <div className="flex-1 overflow-y-auto px-5 pb-20">
 
                     {/* User Hero — 紧凑横向布局 */}
                     <div className="flex items-center gap-4 mb-5">

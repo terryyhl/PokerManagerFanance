@@ -37,12 +37,12 @@ export default function LuckyHandFAB({
                     // 计算按扇形分散的角度 (从 180度[左] 到 270度[上])
                     const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
                     const rad = (angle * Math.PI) / 180;
-                    return Math.cos(rad) * 110; // 半径 110px (增大间距)
+                    return Math.cos(rad) * 120; // 半径 120px
                 },
                 translateY: (el: any, i: number, l: number) => {
                     const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
                     const rad = (angle * Math.PI) / 180;
-                    return Math.sin(rad) * 110;
+                    return Math.sin(rad) * 120;
                 },
                 opacity: [0, 1],
                 scale: [0.5, 1],
@@ -67,7 +67,7 @@ export default function LuckyHandFAB({
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
         return (
             <div className="flex flex-col items-center justify-center leading-tight h-full w-full relative">
-                <HandComboDisp combo={c1} card2={c2} compact className="[&_span]:text-[11px] [&_span]:px-0.5 [&_span]:py-0" />
+                <HandComboDisp combo={c1} card2={c2} compact className="[&_span]:text-sm [&_span]:px-1 [&_span]:py-0.5" />
                 {hitCount > 0 && (
                     <div className="absolute -top-2.5 -right-2.5 bg-yellow-400 text-yellow-900 border-2 border-indigo-600 text-[10px] font-black w-5 h-5 rounded-full shadow-md flex items-center justify-center">
                         {hitCount}
@@ -102,7 +102,7 @@ export default function LuckyHandFAB({
                                 onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
                                 setIsExpanded(false);
                             }}
-                            className={`lucky-hand-item absolute w-16 h-16 rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
+                            className={`lucky-hand-item absolute w-[4.5rem] h-[4.5rem] rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
                                 ? 'bg-indigo-600 text-white border-2 border-indigo-400'
                                 : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500 hover:bg-slate-600'
                                 }`}

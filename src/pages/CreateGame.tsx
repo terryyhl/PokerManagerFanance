@@ -19,6 +19,8 @@ export default function CreateGame() {
   const [luckyHandsCount, setLuckyHandsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [createdGame, setCreatedGame] = useState<{ id: string; roomCode: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // 设置默认名字并引入初始入场动画
   useEffect(() => {
@@ -61,8 +63,8 @@ export default function CreateGame() {
         insurance,
         luckyHandsCount
       );
-      // 直接进入牌局，并替换当前历史记录（关闭创建页面）
-      navigate(`/game/${game.id}`, { replace: true });
+      // 先显示房间密码，让房主分享给其他玩家
+      setCreatedGame({ id: game.id, roomCode: game.room_code });
     } catch (err: any) {
       setError(err.message || '创建游戏失败，请重试');
     } finally {
@@ -72,11 +74,58 @@ export default function CreateGame() {
 
 
 
+  const handleCopyCode = () => {
+    if (!createdGame) return;
+    navigator.clipboard.writeText(createdGame.roomCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // 创建成功 → 显示房间密码页
+  if (createdGame) {
+    return (
+      <AnimatedPage animationType="slide-up">
+        <div className="bg-[#0f1923] min-h-full h-full flex flex-col items-center justify-center text-white px-6">
+          <div className="w-full max-w-sm flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-6">
+              <span className="material-symbols-outlined text-emerald-400 text-[36px]">check_circle</span>
+            </div>
+            <h2 className="text-2xl font-bold mb-2">房间创建成功</h2>
+            <p className="text-slate-400 text-sm mb-8">将房间密码分享给其他玩家，即可加入牌局</p>
+
+            <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold mb-3">房间密码</p>
+            <div className="flex justify-center gap-2 mb-6">
+              {createdGame.roomCode.split('').map((d, i) => (
+                <span key={i} className="w-11 h-14 flex items-center justify-center bg-slate-800 rounded-xl text-2xl font-black text-white border border-slate-700">
+                  {d}
+                </span>
+              ))}
+            </div>
+
+            <button
+              onClick={handleCopyCode}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-sm font-medium mb-4"
+            >
+              <span className="material-symbols-outlined text-[18px]">{copied ? 'check' : 'content_copy'}</span>
+              {copied ? '已复制！' : '复制密码'}
+            </button>
+
+            <button
+              onClick={() => navigate(`/game/${createdGame.id}`, { replace: true })}
+              className="w-full py-4 rounded-2xl bg-primary hover:bg-blue-600 text-white font-bold text-base transition-all active:scale-[0.98] shadow-lg shadow-primary/25"
+            >
+              进入房间
+            </button>
+          </div>
+        </div>
+      </AnimatedPage>
+    );
+  }
+
   return (
     <AnimatedPage animationType="slide-up">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full flex flex-col">
-
-
 
         <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
           <button
