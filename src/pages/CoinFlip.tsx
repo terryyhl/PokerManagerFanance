@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import type { DotLottie } from '@lottiefiles/dotlottie-react';
 
 type CoinResult = 'heads' | 'tails' | null;
 
@@ -8,33 +9,31 @@ export default function CoinFlip() {
     const [isFlipping, setIsFlipping] = useState(false);
     const [flipCount, setFlipCount] = useState(0);
     const [stats, setStats] = useState({ heads: 0, tails: 0 });
-    const coinRef = useRef<HTMLDivElement>(null);
+    const [lottieKey, setLottieKey] = useState(0);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dotLottieRef = useRef<DotLottie | null>(null);
 
     const handleFlip = useCallback(() => {
         if (isFlipping) return;
-        setIsFlipping(true);
-        setResult(null);
 
         // 随机决定正反面
         const isHeads = Math.random() < 0.5;
         const newResult: CoinResult = isHeads ? 'heads' : 'tails';
 
-        // 触发翻转动画
-        if (coinRef.current) {
-            // 重置动画
-            coinRef.current.style.animation = 'none';
-            // 强制 reflow
-            void coinRef.current.offsetHeight;
-            // 正面多转半圈 = 奇数个180度, 反面 = 偶数个180度
-            coinRef.current.style.animation = isHeads
-                ? 'coin-flip-heads 1.2s ease-out forwards'
-                : 'coin-flip-tails 1.2s ease-out forwards';
-        }
+        setIsFlipping(true);
+        setResult(null);
+        // 重新挂载 Lottie 让它从头播放
+        setLottieKey(prev => prev + 1);
 
         // 震动反馈
         if (navigator.vibrate) navigator.vibrate(50);
 
-        setTimeout(() => {
+        // 动画播放约 2 秒后显示结果
+        timerRef.current = setTimeout(() => {
+            // 停止 Lottie 动画
+            if (dotLottieRef.current) {
+                dotLottieRef.current.pause();
+            }
             setResult(newResult);
             setIsFlipping(false);
             setFlipCount(prev => prev + 1);
@@ -42,16 +41,19 @@ export default function CoinFlip() {
                 ...prev,
                 [newResult]: prev[newResult] + 1,
             }));
-        }, 1200);
+        }, 2000);
     }, [isFlipping]);
 
     const handleReset = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
         setResult(null);
+        setIsFlipping(false);
         setFlipCount(0);
         setStats({ heads: 0, tails: 0 });
-        if (coinRef.current) {
-            coinRef.current.style.animation = 'none';
-        }
+        setLottieKey(prev => prev + 1);
     };
 
     const resultText = result === 'heads' ? '正面' : result === 'tails' ? '反面' : null;
@@ -68,67 +70,51 @@ export default function CoinFlip() {
             {/* 主内容 */}
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-24">
 
-                {/* 硬币区域 */}
-                <div className="relative w-48 h-48 mb-8" style={{ perspective: '800px' }}>
-                    <div
-                        ref={coinRef}
-                        className="w-full h-full relative"
-                        style={{ transformStyle: 'preserve-3d' }}
-                    >
-                        {/* 正面 — Google 蓝 */}
-                        <div
-                            className="absolute inset-0 rounded-full flex items-center justify-center"
-                            style={{
-                                backfaceVisibility: 'hidden',
-                                background: 'linear-gradient(135deg, #4285F4 0%, #356AC3 100%)',
-                                boxShadow: '0 8px 32px rgba(66, 133, 244, 0.3), inset 0 2px 4px rgba(255,255,255,0.3)',
-                                border: '4px solid rgba(255,255,255,0.2)',
-                            }}
-                        >
-                            <div className="flex flex-col items-center">
-                                <span className="text-white text-5xl font-black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>正</span>
-                                <div className="w-16 h-0.5 bg-white/30 rounded my-1" />
-                                <span className="text-white/80 text-xs font-bold tracking-widest">HEADS</span>
-                            </div>
-                        </div>
-
-                        {/* 反面 — Google 红 */}
-                        <div
-                            className="absolute inset-0 rounded-full flex items-center justify-center"
-                            style={{
-                                backfaceVisibility: 'hidden',
-                                transform: 'rotateX(180deg)',
-                                background: 'linear-gradient(135deg, #EA4335 0%, #C5221F 100%)',
-                                boxShadow: '0 8px 32px rgba(234, 67, 53, 0.3), inset 0 2px 4px rgba(255,255,255,0.3)',
-                                border: '4px solid rgba(255,255,255,0.2)',
-                            }}
-                        >
-                            <div className="flex flex-col items-center">
-                                <span className="text-white text-5xl font-black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>反</span>
-                                <div className="w-16 h-0.5 bg-white/30 rounded my-1" />
-                                <span className="text-white/80 text-xs font-bold tracking-widest">TAILS</span>
-                            </div>
-                        </div>
+                {/* Lottie 硬币区域 */}
+                <div className="relative w-52 h-52 mb-4">
+                    <div className="w-full h-full overflow-hidden">
+                        <DotLottieReact
+                            key={lottieKey}
+                            src="/coin-3d.lottie"
+                            loop={isFlipping}
+                            autoplay={isFlipping}
+                            dotLottieRefCallback={(ref) => { dotLottieRef.current = ref; }}
+                            style={{ width: '208px', height: '208px' }}
+                        />
                     </div>
+
+                    {/* 结果覆盖层 — 硬币停止后显示正/反 */}
+                    {result && !isFlipping && (
+                        <div className="absolute inset-0 flex items-center justify-center animate-bounce-in">
+                            <div
+                                className={`w-36 h-36 rounded-full flex items-center justify-center ${
+                                    result === 'heads'
+                                        ? 'bg-blue-500/90 shadow-lg shadow-blue-500/30'
+                                        : 'bg-red-500/90 shadow-lg shadow-red-500/30'
+                                }`}
+                            >
+                                <div className="flex flex-col items-center">
+                                    <span
+                                        className="text-white text-4xl font-black"
+                                        style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
+                                    >
+                                        {result === 'heads' ? '正' : '反'}
+                                    </span>
+                                    <span className="text-white/80 text-xs font-bold tracking-widest mt-1">
+                                        {result === 'heads' ? 'HEADS' : 'TAILS'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 结果文字 */}
                 <div className="h-12 flex items-center justify-center mb-6">
                     {isFlipping ? (
-                        <div className="flex items-center gap-2">
-                            <div className="w-48 h-12 overflow-hidden">
-                                <DotLottieReact
-                                    src="/coin-flip.lottie"
-                                    loop
-                                    autoplay
-                                    style={{ width: '192px', height: '48px' }}
-                                />
-                            </div>
-                        </div>
+                        <span className="text-sm font-bold text-slate-400 animate-pulse">硬币翻转中...</span>
                     ) : result ? (
-                        <div className="flex flex-col items-center animate-bounce-in">
-                            <span className={`text-3xl font-black ${resultColor}`}>{resultText}</span>
-                        </div>
+                        <span className={`text-3xl font-black animate-bounce-in ${resultColor}`}>{resultText}!</span>
                     ) : (
                         <span className="text-sm text-slate-400 dark:text-slate-500">点击下方按钮掷硬币</span>
                     )}
@@ -180,24 +166,6 @@ export default function CoinFlip() {
             </div>
 
             <style>{`
-                @keyframes coin-flip-heads {
-                    0% { transform: rotateX(0deg) translateY(0); }
-                    15% { transform: rotateX(360deg) translateY(-80px); }
-                    30% { transform: rotateX(720deg) translateY(-120px); }
-                    50% { transform: rotateX(1080deg) translateY(-60px); }
-                    70% { transform: rotateX(1440deg) translateY(-20px); }
-                    85% { transform: rotateX(1620deg) translateY(-5px); }
-                    100% { transform: rotateX(1800deg) translateY(0); }
-                }
-                @keyframes coin-flip-tails {
-                    0% { transform: rotateX(0deg) translateY(0); }
-                    15% { transform: rotateX(360deg) translateY(-80px); }
-                    30% { transform: rotateX(720deg) translateY(-120px); }
-                    50% { transform: rotateX(1080deg) translateY(-60px); }
-                    70% { transform: rotateX(1440deg) translateY(-20px); }
-                    85% { transform: rotateX(1620deg) translateY(-5px); }
-                    100% { transform: rotateX(1980deg) translateY(0); }
-                }
                 @keyframes bounce-in {
                     0% { opacity: 0; transform: scale(0.3); }
                     50% { opacity: 1; transform: scale(1.1); }
