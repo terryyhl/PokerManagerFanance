@@ -230,7 +230,7 @@ export const playerStatsApi = {
 
 // ──────────────────────────── Timer (Shame Timer) API ──────────────────────
 
-export type InteractionType = 'timer' | 'egg' | 'chicken';
+export type InteractionType = 'timer' | 'egg' | 'chicken' | 'flower';
 
 export interface ShameTimerRecord {
     id: string;
@@ -252,6 +252,7 @@ export interface ShameTimerGameStats {
     timerMaxSec: number;
     eggCount: number;
     chickenCount: number;
+    flowerCount: number;
 }
 
 export interface ShameTimerUserStats {
@@ -261,6 +262,17 @@ export interface ShameTimerUserStats {
     timerMaxSec: number;
     eggCount: number;
     chickenCount: number;
+    flowerCount: number;
+}
+
+export interface InteractionLeaderboardEntry {
+    userId: string;
+    username: string;
+    timerCount: number;
+    eggCount: number;
+    chickenCount: number;
+    flowerCount: number;
+    totalInteractions: number;
 }
 
 export const timerApi = {
@@ -279,6 +291,10 @@ export const timerApi = {
     /** 获取某用户跨游戏的互动统计（个人中心用） */
     getUserStats: (userId: string) =>
         request<{ stats: ShameTimerUserStats }>('GET', `/timer/user/${userId}/stats`),
+
+    /** 全局趣味互动排行榜 */
+    getLeaderboard: () =>
+        request<{ leaderboard: InteractionLeaderboardEntry[] }>('GET', '/timer/leaderboard'),
 };
 
 export const luckyHandsApi = {

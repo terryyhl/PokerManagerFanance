@@ -3,7 +3,7 @@ import { supabase } from '../supabase.js';
 
 const router = Router();
 
-const VALID_TYPES = ['timer', 'egg', 'chicken'];
+const VALID_TYPES = ['timer', 'egg', 'chicken', 'flower'];
 
 /**
  * POST /api/timer/record
@@ -107,6 +107,7 @@ router.get('/game/:gameId/stats', async (req, res) => {
             timerCount: number; timerTotalSec: number; timerMaxSec: number;
             eggCount: number;
             chickenCount: number;
+            flowerCount: number;
         }>();
 
         for (const r of (data || [])) {
@@ -114,7 +115,7 @@ router.get('/game/:gameId/stats', async (req, res) => {
             const t = (r.type || 'timer') as string;
             const dur = (r.duration_seconds || 0) as number;
             if (!statsMap.has(uid)) {
-                statsMap.set(uid, { timerCount: 0, timerTotalSec: 0, timerMaxSec: 0, eggCount: 0, chickenCount: 0 });
+                statsMap.set(uid, { timerCount: 0, timerTotalSec: 0, timerMaxSec: 0, eggCount: 0, chickenCount: 0, flowerCount: 0 });
             }
             const entry = statsMap.get(uid)!;
             if (t === 'timer') {
@@ -125,6 +126,8 @@ router.get('/game/:gameId/stats', async (req, res) => {
                 entry.eggCount += 1;
             } else if (t === 'chicken') {
                 entry.chickenCount += 1;
+            } else if (t === 'flower') {
+                entry.flowerCount += 1;
             }
         }
 
@@ -136,6 +139,7 @@ router.get('/game/:gameId/stats', async (req, res) => {
             timerMaxSec: s.timerMaxSec,
             eggCount: s.eggCount,
             chickenCount: s.chickenCount,
+            flowerCount: s.flowerCount,
         }));
 
         return res.json({ stats });
@@ -165,7 +169,7 @@ router.get('/user/:userId/stats', async (req, res) => {
 
         const records = data || [];
         let timerCount = 0, timerTotalSec = 0, timerMaxSec = 0;
-        let eggCount = 0, chickenCount = 0;
+        let eggCount = 0, chickenCount = 0, flowerCount = 0;
 
         for (const r of records) {
             const t = (r.type || 'timer') as string;
@@ -178,6 +182,8 @@ router.get('/user/:userId/stats', async (req, res) => {
                 eggCount += 1;
             } else if (t === 'chicken') {
                 chickenCount += 1;
+            } else if (t === 'flower') {
+                flowerCount += 1;
             }
         }
 
@@ -189,10 +195,83 @@ router.get('/user/:userId/stats', async (req, res) => {
                 timerMaxSec,
                 eggCount,
                 chickenCount,
+                flowerCount,
             }
         });
     } catch (err) {
         console.error('[timer/user/stats] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+/**
+ * GET /api/timer/leaderboard
+ * 全局趣味互动排行榜 — 按 target_user_id 聚合所有互动，带用户名
+ */
+router.get('/leaderboard', async (_req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('shame_timers')
+            .select('target_user_id, type');
+
+        if (error) {
+            console.error('[timer/leaderboard]', error);
+            return res.status(500).json({ error: '获取排行榜失败' });
+        }
+
+        // 按 target_user_id 聚合
+        const map = new Map<string, { timerCount: number; eggCount: number; chickenCount: number; flowerCount: number }>();
+
+        for (const r of (data || [])) {
+            const uid = r.target_user_id as string;
+            const t = (r.type || 'timer') as string;
+            if (!map.has(uid)) {
+                map.set(uid, { timerCount: 0, eggCount: 0, chickenCount: 0, flowerCount: 0 });
+            }
+            const entry = map.get(uid)!;
+            if (t === 'timer') entry.timerCount += 1;
+            else if (t === 'egg') entry.eggCount += 1;
+            else if (t === 'chicken') entry.chickenCount += 1;
+            else if (t === 'flower') entry.flowerCount += 1;
+        }
+
+        // 获取相关用户名
+        const userIds = Array.from(map.keys());
+        if (userIds.length === 0) {
+            return res.json({ leaderboard: [] });
+        }
+
+        const { data: users, error: userErr } = await supabase
+            .from('users')
+            .select('id, username')
+            .in('id', userIds);
+
+        if (userErr) {
+            console.error('[timer/leaderboard] users fetch', userErr);
+            return res.status(500).json({ error: '获取用户信息失败' });
+        }
+
+        const usernameMap = new Map<string, string>();
+        for (const u of (users || [])) {
+            usernameMap.set(u.id, u.username);
+        }
+
+        const leaderboard = Array.from(map.entries()).map(([userId, s]) => ({
+            userId,
+            username: usernameMap.get(userId) || '未知用户',
+            timerCount: s.timerCount,
+            eggCount: s.eggCount,
+            chickenCount: s.chickenCount,
+            flowerCount: s.flowerCount,
+            totalInteractions: s.timerCount + s.eggCount + s.chickenCount + s.flowerCount,
+        }));
+
+        // 默认按 totalInteractions 降序
+        leaderboard.sort((a, b) => b.totalInteractions - a.totalInteractions);
+
+        return res.json({ leaderboard });
+    } catch (err) {
+        console.error('[timer/leaderboard] Unhandled error:', err);
         return res.status(500).json({ error: '服务器内部错误' });
     }
 });

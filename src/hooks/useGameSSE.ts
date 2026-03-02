@@ -10,6 +10,14 @@ export interface ActiveTimerEvent {
     startedAt: number; // Date.now() 时间戳
 }
 
+export interface InteractionEvent {
+    type: 'egg' | 'chicken' | 'flower';
+    targetUserId: string;
+    targetUsername: string;
+    startedBy: string;
+    startedByUsername: string;
+}
+
 export interface SSEHandlers {
     onConnected?: (isHost: boolean) => void;
     onBuyinRequest?: (data: PendingBuyinEvent) => void;
@@ -22,6 +30,7 @@ export interface SSEHandlers {
     onShameTimer?: (data: { targetUserId: string; startedBy: string; durationSeconds: number }) => void;
     onTimerStart?: (data: ActiveTimerEvent) => void;
     onTimerStop?: (data: { targetUserId: string }) => void;
+    onInteraction?: (data: InteractionEvent) => void;
 }
 
 export interface PendingBuyinEvent {
@@ -72,6 +81,7 @@ export function useGameSSE(
     markPendingSubmitted: (amount: number, type: 'initial' | 'rebuy') => void;
     broadcastTimerStart: (data: ActiveTimerEvent) => void;
     broadcastTimerStop: (targetUserId: string) => void;
+    broadcastInteraction: (data: InteractionEvent) => void;
     setActiveTimerRef: (data: ActiveTimerEvent | null) => void;
 } {
     const handlersRef = useRef<SSEHandlers>(handlers);
@@ -101,6 +111,10 @@ export function useGameSSE(
         broadcastChannelRef.current?.send({ type: 'broadcast', event: 'timer_stop', payload: { targetUserId } });
     }, []);
 
+    const broadcastInteraction = useCallback((data: InteractionEvent) => {
+        broadcastChannelRef.current?.send({ type: 'broadcast', event: 'interaction', payload: data });
+    }, []);
+
     useEffect(() => {
         if (!gameId || !userId) return;
 
@@ -115,6 +129,10 @@ export function useGameSSE(
                 const data = payload.payload as { targetUserId: string };
                 activeTimerRef.current = null;
                 handlersRef.current.onTimerStop?.(data);
+            })
+            .on('broadcast', { event: 'interaction' }, (payload) => {
+                const data = payload.payload as InteractionEvent;
+                handlersRef.current.onInteraction?.(data);
             })
             .on('broadcast', { event: 'sync_request' }, () => {
                 // 只有计时器发起者回复，避免多人同时响应
@@ -283,5 +301,5 @@ export function useGameSSE(
         };
     }, [gameId, userId]);
 
-    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, setActiveTimerRef };
+    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, setActiveTimerRef };
 }

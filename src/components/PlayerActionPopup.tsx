@@ -13,90 +13,151 @@ interface PlayerActionPopupProps {
     onStartTimer: () => void;
     onThrowEgg: () => void;
     onCatchChicken: () => void;
+    onSendFlower: () => void;
     isSelf: boolean;
 }
 
 /**
  * 长按头像弹出的趣味交互菜单
- * 以对话气泡形式显示在目标头像附近
+ * 环形 emoji 气泡：围绕头像从中心向外弹射扩散
  */
-export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, isSelf }: PlayerActionPopupProps) {
-    const popupRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (popupRef.current) {
-            // 气泡整体弹入 — 极快
-            anime({
-                targets: popupRef.current,
-                scale: [0.7, 1],
-                opacity: [0, 1],
-                duration: 150,
-                easing: 'easeOutCubic',
-            });
-            // 按钮项同时出现，不再逐个 stagger
-            anime({
-                targets: popupRef.current.querySelectorAll('.action-btn'),
-                scale: [0.5, 1],
-                opacity: [0, 1],
-                duration: 150,
-                delay: 50,
-                easing: 'easeOutCubic',
-            });
-        }
-    }, []);
-
-    // 气泡位置：尽量在头像下方居中
-    const bubbleTop = target.rect.bottom + 8;
-    const bubbleLeft = Math.max(16, Math.min(target.rect.left + target.rect.width / 2 - 100, window.innerWidth - 216));
+export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, onSendFlower, isSelf }: PlayerActionPopupProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const actions = isSelf
         ? [
-            { icon: 'timer', label: '自我计时', color: 'text-orange-500', bg: 'bg-orange-500/10', onClick: onStartTimer },
+            { emoji: '\u23F1\uFE0F', label: '计时', onClick: onStartTimer },
         ]
         : [
-            { icon: 'timer', label: '催促计时', color: 'text-orange-500', bg: 'bg-orange-500/10', onClick: onStartTimer },
-            { icon: 'egg_alt', label: '扔鸡蛋', color: 'text-red-500', bg: 'bg-red-500/10', onClick: onThrowEgg },
-            { icon: 'pets', label: '抓鸡', color: 'text-yellow-600', bg: 'bg-yellow-500/10', onClick: onCatchChicken },
+            { emoji: '\u23F1\uFE0F', label: '催促', onClick: onStartTimer },
+            { emoji: '\uD83E\uDD5A', label: '砸蛋', onClick: onThrowEgg },
+            { emoji: '\uD83D\uDC14', label: '抓鸡', onClick: onCatchChicken },
+            { emoji: '\uD83C\uDF39', label: '鲜花', onClick: onSendFlower },
         ];
 
+    // 计算每个按钮的位置：以头像中心为原点，弧形排列在头像下方
+    const centerX = target.rect.left + target.rect.width / 2;
+    const centerY = target.rect.top + target.rect.height / 2;
+
+    // 按钮排列参数
+    const radius = 70; // 距离头像中心的半径
+    const btnSize = 52; // 按钮尺寸
+
+    // 计算弧度：在头像下方 180 度范围内均匀分布
+    const getPositions = () => {
+        const count = actions.length;
+        if (count === 1) {
+            // 单个按钮直接在正下方
+            return [{ x: centerX, y: centerY + radius }];
+        }
+        // 多个按钮：从左到右在下半弧均匀分布
+        // 起始角度 150°（左下），结束角度 30°（右下），顺时针
+        const startAngle = 210; // 度
+        const endAngle = 330;   // 度
+        const step = (endAngle - startAngle) / (count - 1);
+        return actions.map((_, i) => {
+            const angleDeg = startAngle + step * i;
+            const angleRad = (angleDeg * Math.PI) / 180;
+            return {
+                x: centerX + radius * Math.cos(angleRad),
+                y: centerY - radius * Math.sin(angleRad),
+            };
+        });
+    };
+
+    const positions = getPositions();
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        // 遮罩淡入
+        const backdrop = containerRef.current.querySelector('.popup-backdrop');
+        if (backdrop) {
+            anime({ targets: backdrop, opacity: [0, 1], duration: 200, easing: 'easeOutQuad' });
+        }
+
+        // 按钮从头像中心弹射出去
+        const btns = containerRef.current.querySelectorAll('.radial-btn');
+        btns.forEach((btn, i) => {
+            const pos = positions[i];
+            const dx = pos.x - centerX;
+            const dy = pos.y - centerY;
+            anime({
+                targets: btn,
+                translateX: [0, dx],
+                translateY: [0, dy],
+                scale: [0, 1],
+                opacity: [0, 1],
+                duration: 350,
+                delay: i * 40,
+                easing: 'spring(1, 80, 12, 0)',
+            });
+        });
+
+        // 标签延迟出现
+        const labels = containerRef.current.querySelectorAll('.radial-label');
+        anime({
+            targets: labels,
+            opacity: [0, 1],
+            translateY: [4, 0],
+            duration: 200,
+            delay: anime.stagger(40, { start: 250 }),
+            easing: 'easeOutQuad',
+        });
+    }, []);
+
+    const handleClose = () => {
+        if (!containerRef.current) { onClose(); return; }
+
+        // 按钮收回
+        const btns = containerRef.current.querySelectorAll('.radial-btn');
+        anime({
+            targets: btns,
+            translateX: 0,
+            translateY: 0,
+            scale: 0,
+            opacity: 0,
+            duration: 180,
+            easing: 'easeInCubic',
+        });
+
+        const backdrop = containerRef.current.querySelector('.popup-backdrop');
+        anime({
+            targets: backdrop,
+            opacity: 0,
+            duration: 180,
+            easing: 'easeInQuad',
+            complete: onClose,
+        });
+    };
+
     return (
-        <div className="fixed inset-0 z-[200]" onClick={onClose}>
-            {/* 半透明遮罩 */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+        <div ref={containerRef} className="fixed inset-0 z-[200]" onClick={handleClose}>
+            {/* 遮罩 */}
+            <div className="popup-backdrop absolute inset-0 bg-black/40 backdrop-blur-[3px]" style={{ opacity: 0 }} />
 
-            {/* 气泡弹窗 */}
-            <div
-                ref={popupRef}
-                className="absolute z-10"
-                style={{ top: bubbleTop, left: bubbleLeft, opacity: 0 }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* 小三角指示箭头 */}
+            {/* 环形按钮：以头像中心为 origin，绝对定位 */}
+            {actions.map((action, i) => (
                 <div
-                    className="absolute -top-2 w-4 h-4 bg-white dark:bg-[#1e2936] rotate-45 border-l border-t border-slate-200 dark:border-slate-700"
-                    style={{ left: Math.max(20, target.rect.left + target.rect.width / 2 - bubbleLeft - 8) }}
-                />
-
-                <div className="relative bg-white dark:bg-[#1e2936] rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden min-w-[180px]">
-                    <div className="p-2 flex flex-col gap-1">
-                        {actions.map((action) => (
-                            <button
-                                key={action.icon}
-                                onClick={action.onClick}
-                                className={`action-btn flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 active:scale-95 transition-all`}
-                                style={{ opacity: 0, transform: 'scale(0)' }}
-                            >
-                                <div className={`w-8 h-8 rounded-full ${action.bg} flex items-center justify-center`}>
-                                    <span className={`material-symbols-outlined text-[18px] ${action.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                                        {action.icon}
-                                    </span>
-                                </div>
-                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{action.label}</span>
-                            </button>
-                        ))}
+                    key={i}
+                    className="radial-btn absolute z-10 flex flex-col items-center"
+                    style={{
+                        left: centerX - btnSize / 2,
+                        top: centerY - btnSize / 2,
+                        width: btnSize,
+                        opacity: 0,
+                        transform: 'scale(0)',
+                    }}
+                    onClick={(e) => { e.stopPropagation(); action.onClick(); }}
+                >
+                    <div className="w-[52px] h-[52px] rounded-full bg-[#1a2632]/90 ring-1 ring-white/15 shadow-xl flex items-center justify-center active:scale-90 transition-transform cursor-pointer hover:bg-[#243445]">
+                        <span className="text-[26px] leading-none select-none">{action.emoji}</span>
                     </div>
+                    <span className="radial-label text-[10px] font-bold text-white/80 mt-1 whitespace-nowrap drop-shadow-md" style={{ opacity: 0 }}>
+                        {action.label}
+                    </span>
                 </div>
-            </div>
+            ))}
         </div>
     );
 }

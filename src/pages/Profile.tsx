@@ -32,7 +32,7 @@ export default function Profile() {
     const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
     const [timerStats, setTimerStats] = useState<{
         timerCount: number; timerTotalSec: number; timerAvgSec: number; timerMaxSec: number;
-        eggCount: number; chickenCount: number;
+        eggCount: number; chickenCount: number; flowerCount: number;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -153,7 +153,7 @@ export default function Profile() {
                     </div>
 
                     {/* 趣味互动生涯统计 */}
-                    {!isLoading && timerStats && (timerStats.timerCount > 0 || timerStats.eggCount > 0 || timerStats.chickenCount > 0) && (
+                    {!isLoading && timerStats && (timerStats.timerCount > 0 || timerStats.eggCount > 0 || timerStats.chickenCount > 0 || timerStats.flowerCount > 0) && (
                         <div className="mb-5">
                             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-orange-500">sports_esports</span>
@@ -178,6 +178,11 @@ export default function Profile() {
                                         <span className="text-2xl">&#x1F414;</span>
                                         <span className="text-xl font-black text-yellow-600 dark:text-yellow-400">{timerStats.chickenCount}</span>
                                         <span className="text-[10px] text-slate-500 font-bold">被抓鸡</span>
+                                    </div>
+                                    <div className="flex flex-col items-center py-2 gap-1">
+                                        <span className="text-2xl">&#x1F339;</span>
+                                        <span className="text-xl font-black text-pink-500">{timerStats.flowerCount}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">收鲜花</span>
                                     </div>
                                 </div>
                             </div>

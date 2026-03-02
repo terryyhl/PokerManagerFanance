@@ -30,7 +30,7 @@ export default function PlayerStatsModal({
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
     const [timerStats, setTimerStats] = useState<{
         timerCount: number; timerAvgSec: number; timerMaxSec: number;
-        eggCount: number; chickenCount: number;
+        eggCount: number; chickenCount: number; flowerCount: number;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(false);
@@ -210,7 +210,7 @@ export default function PlayerStatsModal({
                             </div>
 
                             {/* 趣味互动统计 */}
-                            {timerStats && (timerStats.timerCount > 0 || timerStats.eggCount > 0 || timerStats.chickenCount > 0) && (
+                            {timerStats && (timerStats.timerCount > 0 || timerStats.eggCount > 0 || timerStats.chickenCount > 0 || timerStats.flowerCount > 0) && (
                                 <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800/40">
                                     <div className="text-sm text-orange-600 dark:text-orange-400 font-bold mb-3 flex items-center gap-1.5">
                                         <span className="material-symbols-outlined text-[18px]">sports_esports</span>
@@ -239,6 +239,13 @@ export default function PlayerStatsModal({
                                                 <span className="text-2xl">&#x1F414;</span>
                                                 <span className="text-lg font-black text-yellow-600 dark:text-yellow-400">{timerStats.chickenCount}</span>
                                                 <span className="text-[10px] text-slate-500 font-bold">被抓鸡</span>
+                                            </div>
+                                        )}
+                                        {timerStats.flowerCount > 0 && (
+                                            <div className="flex flex-col items-center gap-1">
+                                                <span className="text-2xl">&#x1F339;</span>
+                                                <span className="text-lg font-black text-pink-500">{timerStats.flowerCount}</span>
+                                                <span className="text-[10px] text-slate-500 font-bold">收鲜花</span>
                                             </div>
                                         )}
                                     </div>

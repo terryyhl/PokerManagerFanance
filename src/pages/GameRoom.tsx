@@ -6,7 +6,7 @@ import AnimatedPage from '../components/AnimatedPage';
 
 import { gamesApi, buyInApi, pendingBuyInApi, luckyHandsApi, BuyIn, Game, Player } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
-import { useGameSSE, PendingBuyinEvent, ActiveTimerEvent } from '../hooks/useGameSSE';
+import { useGameSSE, PendingBuyinEvent, ActiveTimerEvent, InteractionEvent } from '../hooks/useGameSSE';
 import Avatar from '../components/Avatar';
 import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
 import CardSelectorModal from '../components/CardSelectorModal';
@@ -19,6 +19,7 @@ import PlayerActionPopup, { PlayerActionTarget } from '../components/PlayerActio
 import ShameTimerOverlay from '../components/ShameTimerOverlay';
 import EggThrowAnimation from '../components/EggThrowAnimation';
 import ChickenCatchAnimation from '../components/ChickenCatchAnimation';
+import FlowerAnimation from '../components/FlowerAnimation';
 import { timerApi } from '../lib/api';
 
 interface GameRoomProps {
@@ -82,6 +83,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [shameTimerTarget, setShameTimerTarget] = useState<{ userId: string; username: string } | null>(null);
   const [eggTarget, setEggTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
   const [chickenTarget, setChickenTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
+  const [flowerTarget, setFlowerTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -284,7 +286,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   }, [buyIns.length, pendingRequests.length]);
 
   // ── SSE 长连接 ─────────────────────────────────────────────────────────────
-  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, setActiveTimerRef } = useGameSSE(id, user?.id, {
+  // 根据 userId 查找头像栏中对应头像的 DOMRect
+  const getAvatarRect = useCallback((targetUserId: string): DOMRect | null => {
+    const el = document.querySelector(`[data-player-id="${targetUserId}"]`);
+    return el ? el.getBoundingClientRect() : null;
+  }, []);
+
+  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, setActiveTimerRef } = useGameSSE(id, user?.id, {
     onConnected: (isHost) => {
       console.log('[SSE] connected, isHost=', isHost);
     },
@@ -335,6 +343,18 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     onTimerStop: () => {
       setActiveTimer(null);
       setViewingTimer(false);
+    },
+    // 收到广播：趣味互动（扔蛋/抓鸡/送花），所有用户播放动画
+    onInteraction: (data: InteractionEvent) => {
+      const rect = getAvatarRect(data.targetUserId);
+      if (!rect) return;
+      if (data.type === 'egg') {
+        setEggTarget({ username: data.targetUsername, rect });
+      } else if (data.type === 'chicken') {
+        setChickenTarget({ username: data.targetUsername, rect });
+      } else if (data.type === 'flower') {
+        setFlowerTarget({ username: data.targetUsername, rect });
+      }
     },
   });
 
@@ -456,21 +476,33 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   const handleThrowEgg = useCallback(() => {
     if (!actionPopupTarget || !user || !id) return;
-    const { userId, username, rect } = actionPopupTarget;
+    const { userId, username } = actionPopupTarget;
     setActionPopupTarget(null);
-    setEggTarget({ username, rect });
+    // 广播给所有人播放动画
+    broadcastInteraction({ type: 'egg', targetUserId: userId, targetUsername: username, startedBy: user.id, startedByUsername: user.username });
     // 记录扔鸡蛋
     timerApi.record(id, userId, user.id, 'egg').catch(err => console.error('Record egg error:', err));
-  }, [actionPopupTarget, user, id]);
+  }, [actionPopupTarget, user, id, broadcastInteraction]);
 
   const handleCatchChicken = useCallback(() => {
     if (!actionPopupTarget || !user || !id) return;
-    const { userId, username, rect } = actionPopupTarget;
+    const { userId, username } = actionPopupTarget;
     setActionPopupTarget(null);
-    setChickenTarget({ username, rect });
+    // 广播给所有人播放动画
+    broadcastInteraction({ type: 'chicken', targetUserId: userId, targetUsername: username, startedBy: user.id, startedByUsername: user.username });
     // 记录抓鸡
     timerApi.record(id, userId, user.id, 'chicken').catch(err => console.error('Record chicken error:', err));
-  }, [actionPopupTarget, user, id]);
+  }, [actionPopupTarget, user, id, broadcastInteraction]);
+
+  const handleSendFlower = useCallback(() => {
+    if (!actionPopupTarget || !user || !id) return;
+    const { userId, username } = actionPopupTarget;
+    setActionPopupTarget(null);
+    // 广播给所有人播放动画
+    broadcastInteraction({ type: 'flower', targetUserId: userId, targetUsername: username, startedBy: user.id, startedByUsername: user.username });
+    // 记录送花
+    timerApi.record(id, userId, user.id, 'flower').catch(err => console.error('Record flower error:', err));
+  }, [actionPopupTarget, user, id, broadcastInteraction]);
 
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
@@ -772,7 +804,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
                   const isBeingTimed = activeTimer?.targetUserId === player.user_id;
                   return (
-                    <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                    <div key={player.id} data-player-id={player.user_id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                       onClick={() => handleAvatarClick(player.user_id, player.users?.username || '?')}
                       onTouchStart={(e) => handleAvatarTouchStart(player.user_id, player.users?.username || '?', e)}
                       onTouchEnd={handleAvatarTouchEnd}
@@ -1446,6 +1478,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             onStartTimer={handleStartTimer}
             onThrowEgg={handleThrowEgg}
             onCatchChicken={handleCatchChicken}
+            onSendFlower={handleSendFlower}
             isSelf={actionPopupTarget.userId === user?.id}
           />
         )}
@@ -1495,6 +1528,15 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             targetUsername={chickenTarget.username}
             targetRect={chickenTarget.rect}
             onComplete={() => setChickenTarget(null)}
+          />
+        )}
+
+        {/* 送鲜花动画 */}
+        {flowerTarget && (
+          <FlowerAnimation
+            targetUsername={flowerTarget.username}
+            targetRect={flowerTarget.rect}
+            onComplete={() => setFlowerTarget(null)}
           />
         )}
       </div>
