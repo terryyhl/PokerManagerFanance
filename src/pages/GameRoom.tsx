@@ -561,6 +561,32 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 );
               })}
           </div>
+
+          {/* 房间快捷工具 */}
+          {players.length >= 2 && (
+            <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  const names = players.map(p => p.users?.username || '?');
+                  navigate('/tools/seat', { state: { players: names, fromGame: true } });
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-colors active:scale-[0.97] hover:bg-emerald-500/20"
+              >
+                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>event_seat</span>
+                座位分配
+              </button>
+              <button
+                onClick={() => {
+                  const names = players.map(p => p.users?.username || '?');
+                  navigate('/tools/picker', { state: { players: names, fromGame: true } });
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold transition-colors active:scale-[0.97] hover:bg-purple-500/20"
+              >
+                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>person_pin_circle</span>
+                谁先行动
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 房间码弹窗 */}

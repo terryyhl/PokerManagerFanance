@@ -1,11 +1,20 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import anime from 'animejs';
+
+interface LocationState {
+    players?: string[];
+    fromGame?: boolean;
+}
 
 export default function SeatDraw() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const locState = location.state as LocationState | null;
+
     const [nameInput, setNameInput] = useState('');
-    const [players, setPlayers] = useState<string[]>([]);
+    const [players, setPlayers] = useState<string[]>(locState?.players || []);
+    const fromGame = locState?.fromGame === true;
     const [result, setResult] = useState<{ name: string; seat: number }[] | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     const resultRef = useRef<HTMLDivElement>(null);
@@ -70,7 +79,7 @@ export default function SeatDraw() {
         <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="flex-shrink-0 flex items-center px-4 h-14 border-b border-slate-200 dark:border-slate-800">
-                <button onClick={() => navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button onClick={() => fromGame ? navigate(-1) : navigate('/tools')} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                 </button>
                 <h1 className="text-lg font-bold flex-1">座位分配</h1>
