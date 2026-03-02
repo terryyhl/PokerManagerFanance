@@ -64,7 +64,22 @@ export const usersApi = {
         }>('GET', `/users/${userId}/stats`),
     getLuckyHandsHistory: (userId: string) =>
         request<{ luckyHands: LuckyHandHistory[] }>('GET', `/users/${userId}/lucky-hands-history`),
+    getLeaderboard: () =>
+        request<{ leaderboard: LeaderboardEntry[] }>('GET', '/users/leaderboard'),
 };
+
+export interface LeaderboardEntry {
+    userId: string;
+    username: string;
+    totalGames: number;
+    totalProfit: number;
+    totalBuyIn: number;
+    winCount: number;
+    winRate: number;
+    avgProfit: number;
+    biggestWin: number;
+    biggestLoss: number;
+}
 
 // ──────────────────────────── Games API ────────────────────────────────────
 

@@ -41,6 +41,88 @@ router.post('/login', async (req, res) => {
 });
 
 /**
+ * GET /api/users/leaderboard
+ * 获取全局排行榜 — 累计盈亏、场次、胜率、最大单场赢/亏
+ * 注意：此路由必须在 /:id/stats 之前定义，否则 "leaderboard" 会被当作 :id
+ */
+router.get('/leaderboard', async (_req, res) => {
+    try {
+        // 获取所有结算记录，join users 获取用户名
+        const { data: settlements, error } = await supabase
+            .from('settlements')
+            .select(`
+                user_id,
+                net_profit,
+                total_buyin,
+                users ( id, username )
+            `);
+
+        if (error) {
+            console.error('[users/leaderboard]', error);
+            return res.status(500).json({ error: '获取排行榜失败' });
+        }
+
+        if (!settlements || settlements.length === 0) {
+            return res.json({ leaderboard: [] });
+        }
+
+        // 按 user_id 聚合
+        const userMap = new Map<string, {
+            userId: string;
+            username: string;
+            totalGames: number;
+            totalProfit: number;
+            totalBuyIn: number;
+            winCount: number;
+            biggestWin: number;
+            biggestLoss: number;
+        }>();
+
+        for (const s of settlements) {
+            const uid = s.user_id as string;
+            const username = (s.users as unknown as Record<string, unknown>)?.username as string || '未知';
+            const profit = (s.net_profit || 0) as number;
+            const buyin = (s.total_buyin || 0) as number;
+
+            if (!userMap.has(uid)) {
+                userMap.set(uid, {
+                    userId: uid,
+                    username,
+                    totalGames: 0,
+                    totalProfit: 0,
+                    totalBuyIn: 0,
+                    winCount: 0,
+                    biggestWin: 0,
+                    biggestLoss: 0,
+                });
+            }
+
+            const entry = userMap.get(uid)!;
+            entry.totalGames += 1;
+            entry.totalProfit += profit;
+            entry.totalBuyIn += buyin;
+            if (profit > 0) entry.winCount += 1;
+            if (profit > entry.biggestWin) entry.biggestWin = profit;
+            if (profit < entry.biggestLoss) entry.biggestLoss = profit;
+        }
+
+        // 转换为数组，按 totalProfit 降序排列
+        const leaderboard = Array.from(userMap.values())
+            .map(e => ({
+                ...e,
+                winRate: e.totalGames > 0 ? Math.round((e.winCount / e.totalGames) * 100) : 0,
+                avgProfit: e.totalGames > 0 ? Math.round(e.totalProfit / e.totalGames) : 0,
+            }))
+            .sort((a, b) => b.totalProfit - a.totalProfit);
+
+        return res.json({ leaderboard });
+    } catch (err) {
+        console.error('[users/leaderboard] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+/**
  * GET /api/users/:id/stats
  * 获取指定用户的历史对局统计数据
  */

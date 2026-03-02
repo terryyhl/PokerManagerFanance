@@ -10,6 +10,7 @@ import GameRoom from './pages/GameRoom';
 import PersonalBill from './pages/PersonalBill';
 import SettlementReport from './pages/SettlementReport';
 import LuckyHandHistory from './pages/LuckyHandHistory';
+import Leaderboard from './pages/Leaderboard';
 import MainLayout from './components/MainLayout';
 import { setupGlobalClickSound } from './lib/audio';
 
@@ -110,6 +111,7 @@ function AppShell() {
               <Route path="/bill/:id" element={<PersonalBill />} />
               <Route path="/settlement/:id" element={<SettlementReport />} />
               <Route path="/lucky-history" element={<LuckyHandHistory />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
             </Routes>
           </ProtectedRoute>
         </div>
