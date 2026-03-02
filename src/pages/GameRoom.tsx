@@ -522,7 +522,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       )}
                     </div>
                     <span className={`text-[10px] font-bold truncate max-w-[50px] ${hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
-                      {player.users?.username}
+                      {player.user_id === user?.id ? '自己' : player.users?.username}
                     </span>
                   </div>
                 );
