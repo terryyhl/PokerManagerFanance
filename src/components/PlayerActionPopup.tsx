@@ -62,7 +62,7 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
     return (
         <div className="fixed inset-0 z-[200]" onClick={onClose}>
             {/* 半透明遮罩 */}
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
 
             {/* 气泡弹窗 */}
             <div
