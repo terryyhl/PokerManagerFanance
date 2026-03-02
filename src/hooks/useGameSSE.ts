@@ -173,6 +173,17 @@ export function useGameSSE(
                     handlersRef.current.onGameRefresh?.({ type: 'pending_lucky_hits_update', userId: userId });
                 }
             )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                (payload) => {
+                    const newPlayer = payload.new as { user_id: string };
+                    // 别人加入房间 → 刷新数据以同步玩家头像
+                    if (newPlayer.user_id !== userId) {
+                        handlersRef.current.onGameRefresh?.({ type: 'player_joined', userId: newPlayer.user_id });
+                    }
+                }
+            )
             .subscribe();
 
         return () => {
