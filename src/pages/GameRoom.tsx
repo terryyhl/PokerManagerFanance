@@ -777,7 +777,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               </div>
             )}
 
-            {myTotalBuyIn > 0 && (
+            {myTotalBuyIn > 0 && !buyIns.some(b => b.user_id === user?.id && b.type === 'checkout') && (
               <div className="flex justify-center w-full my-2">
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg py-3 px-4 w-full flex items-center gap-3">
                   <span className="material-symbols-outlined text-blue-500 text-sm">account_balance_wallet</span>

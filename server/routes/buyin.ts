@@ -269,6 +269,70 @@ router.post('/checkout', async (req, res) => {
             return res.status(500).json({ error: '结账记录提交失败' });
         }
 
+        // ── 检查是否所有有买入的玩家都已结账，若是则自动结算关闭房间 ──
+        try {
+            // 获取所有买入记录（含刚插入的这条 checkout）
+            const { data: allBuyIns } = await supabase
+                .from('buy_ins')
+                .select('user_id, type, amount')
+                .eq('game_id', gameId);
+
+            // 有买入记录的玩家
+            const playersWithBuyIn = new Set(
+                (allBuyIns || [])
+                    .filter(b => b.type === 'initial' || b.type === 'rebuy')
+                    .map(b => b.user_id)
+            );
+
+            // 已结账的玩家
+            const playersWithCheckout = new Set(
+                (allBuyIns || [])
+                    .filter(b => b.type === 'checkout')
+                    .map(b => b.user_id)
+            );
+
+            // 所有有买入的玩家都已结账 → 自动结算关闭房间
+            const allCheckedOut = playersWithBuyIn.size > 0 &&
+                [...playersWithBuyIn].every(uid => playersWithCheckout.has(uid));
+
+            if (allCheckedOut) {
+                // 计算每位玩家的总买入和最终筹码
+                const buyInByUser: Record<string, number> = {};
+                const chipsByUser: Record<string, number> = {};
+
+                (allBuyIns || []).forEach(b => {
+                    if (b.type === 'initial' || b.type === 'rebuy') {
+                        buyInByUser[b.user_id] = (buyInByUser[b.user_id] || 0) + b.amount;
+                    } else if (b.type === 'checkout') {
+                        chipsByUser[b.user_id] = b.amount; // 取最后一条（已防重复）
+                    }
+                });
+
+                const settlementsToInsert = [...playersWithBuyIn].map(uid => ({
+                    game_id: gameId,
+                    user_id: uid,
+                    final_chips: chipsByUser[uid] || 0,
+                    total_buyin: buyInByUser[uid] || 0,
+                    net_profit: (chipsByUser[uid] || 0) - (buyInByUser[uid] || 0),
+                }));
+
+                await supabase
+                    .from('settlements')
+                    .upsert(settlementsToInsert, { onConflict: 'game_id,user_id' });
+
+                await supabase
+                    .from('games')
+                    .update({ status: 'finished', finished_at: new Date().toISOString() })
+                    .eq('id', gameId);
+
+                console.log(`[buyin/checkout] 所有玩家已结账，自动关闭房间 ${gameId}`);
+                return res.status(201).json({ checkout: data, autoSettled: true });
+            }
+        } catch (autoErr) {
+            // 自动结算失败不影响结账本身的成功
+            console.error('[buyin/checkout] 自动结算检查失败:', autoErr);
+        }
+
         return res.status(201).json({ checkout: data });
     } catch (err: unknown) {
         console.error('[buyin/checkout] Unhandled error:', err);
