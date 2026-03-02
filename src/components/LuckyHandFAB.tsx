@@ -154,97 +154,99 @@ export default function LuckyHandFAB({
     const slots = Array.from({ length: maxHandsCount }, (_, i) => i + 1);
 
     return (
-        <div className="fixed bottom-24 right-6 z-50 flex items-center justify-center select-none">
-            {/* 半透明遮罩层 */}
+        <>
+            {/* 遮罩层 — 独立于 FAB 容器，确保覆盖整个屏幕可点击 */}
             <div
                 ref={backdropRef}
-                className="fixed inset-0 z-[-1] bg-black/25"
+                className="fixed inset-0 z-40 bg-black/25"
                 style={{ opacity: 0, pointerEvents: 'none' }}
                 onClick={() => setIsExpanded(false)}
             />
 
-            {/* 隐藏的子菜单，absolute 叠加在主按钮上，依靠动画四周上浮 */}
-            <div className="absolute flex items-center justify-center pointer-events-none">
-                {slots.map((slotIndex) => {
-                    const configured = configuredHands.find(h => h.hand_index === slotIndex);
+            <div className="fixed bottom-24 right-6 z-50 flex items-center justify-center select-none">
+                {/* 隐藏的子菜单，absolute 叠加在主按钮上，依靠动画四周上浮 */}
+                <div className="absolute flex items-center justify-center pointer-events-none">
+                    {slots.map((slotIndex) => {
+                        const configured = configuredHands.find(h => h.hand_index === slotIndex);
 
-                    return (
-                        <div
-                            key={slotIndex}
-                            onClick={() => {
-                                if (!isExpanded) return;
-                                onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
-                                setIsExpanded(false);
-                            }}
-                            className={`lucky-hand-item absolute w-[4.5rem] h-[4.5rem] rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto active:scale-95 ${configured
-                                ? 'bg-indigo-600 text-white border-2 border-indigo-400 shadow-indigo-500/30'
-                                : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500'
-                                }`}
-                            style={{ opacity: 0, transform: 'scale(0) rotate(-45deg)' }}
-                        >
-                            {configured
-                                ? renderCardSummary(configured.card_1, configured.card_2, configured.hit_count)
-                                : (
-                                    <div className="flex flex-col items-center gap-0.5">
-                                        <span className="material-symbols-outlined text-[20px]">add</span>
-                                        <span className="text-[9px] font-bold opacity-70">#{slotIndex}</span>
-                                    </div>
-                                )
-                            }
-                        </div>
-                    );
-                })}
-            </div>
+                        return (
+                            <div
+                                key={slotIndex}
+                                onClick={() => {
+                                    if (!isExpanded) return;
+                                    onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
+                                    setIsExpanded(false);
+                                }}
+                                className={`lucky-hand-item absolute w-[4.5rem] h-[4.5rem] rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto active:scale-95 ${configured
+                                    ? 'bg-indigo-600 text-white border-2 border-indigo-400 shadow-indigo-500/30'
+                                    : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500'
+                                    }`}
+                                style={{ opacity: 0, transform: 'scale(0) rotate(-45deg)' }}
+                            >
+                                {configured
+                                    ? renderCardSummary(configured.card_1, configured.card_2, configured.hit_count)
+                                    : (
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="material-symbols-outlined text-[20px]">add</span>
+                                            <span className="text-[9px] font-bold opacity-70">#{slotIndex}</span>
+                                        </div>
+                                    )
+                                }
+                            </div>
+                        );
+                    })}
+                </div>
 
-            {/* 主按钮 */}
-            <div
-                ref={mainBtnRef}
-                onPointerDown={() => {
-                    if (onLongPressMain) {
+                {/* 主按钮 */}
+                <div
+                    ref={mainBtnRef}
+                    onPointerDown={() => {
+                        if (onLongPressMain) {
+                            setIsMainLongPressing(false);
+                            const timer = setTimeout(() => {
+                                setIsMainLongPressing(true);
+                                if (navigator.vibrate) navigator.vibrate(50);
+                                onLongPressMain();
+                            }, 500);
+                            setMainPressTimer(timer);
+                        }
+                    }}
+                    onPointerUp={() => {
+                        if (mainPressTimer) clearTimeout(mainPressTimer);
+                        if (!isMainLongPressing) {
+                            setIsExpanded(!isExpanded);
+                        }
                         setIsMainLongPressing(false);
-                        const timer = setTimeout(() => {
-                            setIsMainLongPressing(true);
-                            if (navigator.vibrate) navigator.vibrate(50);
-                            onLongPressMain();
-                        }, 500);
-                        setMainPressTimer(timer);
-                    }
-                }}
-                onPointerUp={() => {
-                    if (mainPressTimer) clearTimeout(mainPressTimer);
-                    if (!isMainLongPressing) {
-                        setIsExpanded(!isExpanded);
-                    }
-                    setIsMainLongPressing(false);
-                }}
-                onPointerLeave={() => {
-                    if (mainPressTimer) clearTimeout(mainPressTimer);
-                    setIsMainLongPressing(false);
-                }}
-                onPointerCancel={() => {
-                    if (mainPressTimer) clearTimeout(mainPressTimer);
-                    setIsMainLongPressing(false);
-                }}
-                onContextMenu={(e) => { e.preventDefault(); }}
-                className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center cursor-pointer relative z-10 bg-gradient-to-tr from-indigo-500 to-purple-500"
-            >
-                {/* 脉冲光环 — 展开时播放一次 */}
-                <div className="fab-ring absolute inset-0 rounded-full bg-indigo-400 opacity-0 pointer-events-none" />
+                    }}
+                    onPointerLeave={() => {
+                        if (mainPressTimer) clearTimeout(mainPressTimer);
+                        setIsMainLongPressing(false);
+                    }}
+                    onPointerCancel={() => {
+                        if (mainPressTimer) clearTimeout(mainPressTimer);
+                        setIsMainLongPressing(false);
+                    }}
+                    onContextMenu={(e) => { e.preventDefault(); }}
+                    className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center cursor-pointer relative z-10 bg-gradient-to-tr from-indigo-500 to-purple-500"
+                >
+                    {/* 脉冲光环 — 展开时播放一次 */}
+                    <div className="fab-ring absolute inset-0 rounded-full bg-indigo-400 opacity-0 pointer-events-none" />
 
-                <span className="material-symbols-outlined text-white text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {isExpanded ? 'close' : 'playing_cards'}
-                </span>
+                    <span className="material-symbols-outlined text-white text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {isExpanded ? 'close' : 'playing_cards'}
+                    </span>
 
-                {/* 角标：有命中显示火焰+命中数，仅配置未命中显示配置数 */}
-                {!isExpanded && configuredHands.length > 0 && (() => {
-                    const totalHits = configuredHands.reduce((sum, h) => sum + h.hit_count, 0);
-                    return (
-                        <div className={`absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-2 ring-indigo-500 ${totalHits > 0 ? 'bg-amber-400 text-amber-900' : 'bg-indigo-400 text-white'}`}>
-                            {totalHits > 0 ? totalHits : configuredHands.length}
-                        </div>
-                    );
-                })()}
+                    {/* 角标：有命中显示火焰+命中数，仅配置未命中显示配置数 */}
+                    {!isExpanded && configuredHands.length > 0 && (() => {
+                        const totalHits = configuredHands.reduce((sum, h) => sum + h.hit_count, 0);
+                        return (
+                            <div className={`absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-2 ring-indigo-500 ${totalHits > 0 ? 'bg-amber-400 text-amber-900' : 'bg-indigo-400 text-white'}`}>
+                                {totalHits > 0 ? totalHits : configuredHands.length}
+                            </div>
+                        );
+                    })()}
+                </div>
             </div>
-        </div>
+        </>
     );
 }
