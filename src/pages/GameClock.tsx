@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const PRESETS = [
-    { label: '1', minutes: 1 },
-    { label: '2', minutes: 2 },
-    { label: '3', minutes: 3 },
+    { label: '30s', seconds: 30 },
+    { label: '1', seconds: 60 },
+    { label: '2', seconds: 120 },
+    { label: '3', seconds: 180 },
 ];
 
 /** 可用的 Lottie 动画列表，每次开启闹钟随机选一个 */
@@ -60,10 +61,9 @@ export default function GameClock() {
         return () => { if (flashTimerRef.current) { clearTimeout(flashTimerRef.current); flashTimerRef.current = null; } };
     }, [isFinished]);
 
-    const handleSelectPreset = (minutes: number) => {
+    const handleSelectPreset = (secs: number) => {
         cleanup();
         setLottieSrc(LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]);
-        const secs = minutes * 60;
         setTotalSeconds(secs);
         setRemaining(secs);
         setIsRunning(true);
@@ -174,18 +174,19 @@ export default function GameClock() {
                 {/* 档位选择 */}
                 <div className="flex items-center gap-4 mb-6">
                     {PRESETS.map(preset => {
-                        const isActive = isRunning && totalSeconds === preset.minutes * 60;
+                        const isActive = isRunning && totalSeconds === preset.seconds;
+                        const isSecondsOnly = preset.seconds < 60;
                         return (
                             <button
                                 key={preset.label}
-                                onClick={() => handleSelectPreset(preset.minutes)}
+                                onClick={() => handleSelectPreset(preset.seconds)}
                                 className={`w-20 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold transition-all active:scale-95 ${isActive
                                     ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105'
                                     : 'bg-white dark:bg-[#1a2632] border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary/50'
                                 }`}
                             >
                                 <span className="text-2xl font-black">{preset.label}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">分钟</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{isSecondsOnly ? '秒' : '分钟'}</span>
                             </button>
                         );
                     })}
