@@ -10,7 +10,7 @@ interface FlowerAnimationProps {
 
 /**
  * 送鲜花趣味动画
- * 一束玫瑰从屏幕底部飞向目标头像，花瓣散落
+ * 一束玫瑰从屏幕中心飞向目标头像，花瓣散落
  */
 export default function FlowerAnimation({ targetUsername, targetRect, onComplete }: FlowerAnimationProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -36,9 +36,9 @@ export default function FlowerAnimation({ targetUsername, targetRect, onComplete
         // 头像高亮
         anime({ targets: avatar, scale: [0, 1], opacity: [0, 1], duration: 200, easing: 'easeOutBack' });
 
-        // 鲜花从屏幕底部飞向目标
+        // 鲜花从屏幕中心飞向目标
         const startX = window.innerWidth / 2;
-        const startY = window.innerHeight + 50;
+        const startY = window.innerHeight / 2;
 
         flower.style.left = `${startX}px`;
         flower.style.top = `${startY}px`;

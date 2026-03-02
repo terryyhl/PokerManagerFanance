@@ -10,7 +10,7 @@ interface EggThrowAnimationProps {
 
 /**
  * 扔鸡蛋趣味动画
- * 鸡蛋从屏幕底部飞向目标头像，碎裂后消失
+ * 鸡蛋从屏幕中心飞向目标头像，碎裂后消失
  */
 export default function EggThrowAnimation({ targetUsername, targetRect, onComplete }: EggThrowAnimationProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -48,9 +48,9 @@ export default function EggThrowAnimation({ targetUsername, targetRect, onComple
             easing: 'easeOutBack',
         });
 
-        // 鸡蛋从屏幕底部中间飞向目标头像
+        // 鸡蛋从屏幕中心飞向目标头像
         const startX = window.innerWidth / 2;
-        const startY = window.innerHeight + 50;
+        const startY = window.innerHeight / 2;
 
         egg.style.left = `${startX}px`;
         egg.style.top = `${startY}px`;

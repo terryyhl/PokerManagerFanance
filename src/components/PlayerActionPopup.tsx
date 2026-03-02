@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import anime from 'animejs';
 
 export interface PlayerActionTarget {
@@ -17,148 +17,131 @@ interface PlayerActionPopupProps {
     isSelf: boolean;
 }
 
+// ─── 布局常量 ───────────────────────────────────────────────────────────────
+const BTN_SIZE = 48;          // 按钮直径
+const LABEL_H = 16;           // 标签高度
+const ITEM_H = BTN_SIZE + 4 + LABEL_H; // 单个 item 总高度（按钮+间距+标签）
+const GAP = 10;               // 按钮之间最小间距
+const RADIUS = 76;            // 弧形半径
+const EDGE_PAD = 6;           // 距屏幕边缘安全距离
+
 /**
  * 长按头像弹出的趣味交互菜单
- * 环形 emoji 气泡：围绕头像从中心向外弹射扩散
- * 自动适配屏幕边缘：检测头像位置，动态调整弧形展开方向
+ * 环形 emoji 气泡，从头像中心弹射扩散
+ * 自适应屏幕边缘：根据可用空间选择最优展开方向
  */
 export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, onSendFlower, isSelf }: PlayerActionPopupProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     const actions = isSelf
-        ? [
-            { emoji: '\u23F1\uFE0F', label: '计时', onClick: onStartTimer },
-        ]
+        ? [{ emoji: '⏱️', label: '计时', onClick: onStartTimer }]
         : [
-            { emoji: '\u23F1\uFE0F', label: '催促', onClick: onStartTimer },
-            { emoji: '\uD83E\uDD5A', label: '砸蛋', onClick: onThrowEgg },
-            { emoji: '\uD83D\uDC14', label: '抓鸡', onClick: onCatchChicken },
-            { emoji: '\uD83C\uDF39', label: '鲜花', onClick: onSendFlower },
+            { emoji: '⏱️', label: '催促', onClick: onStartTimer },
+            { emoji: '🥚', label: '砸蛋', onClick: onThrowEgg },
+            { emoji: '🐔', label: '抓鸡', onClick: onCatchChicken },
+            { emoji: '🌹', label: '鲜花', onClick: onSendFlower },
         ];
 
-    const centerX = target.rect.left + target.rect.width / 2;
-    const centerY = target.rect.top + target.rect.height / 2;
-
-    const radius = 70;
-    const btnSize = 52;
-    const labelHeight = 18; // 按钮下方标签的额外高度
-    const safeMargin = 8;   // 距离屏幕边缘的最小安全间距
+    const cx = target.rect.left + target.rect.width / 2;
+    const cy = target.rect.top + target.rect.height / 2;
 
     /**
-     * 根据头像中心在视口中的位置，计算弧形展开的角度范围。
-     * 角度采用标准数学角（0°=右，90°=上，180°=左，270°=下）。
-     * 默认向下展开 (210°~330°)，但如果空间不够则调整。
+     * 计算最终按钮位置。
+     * 策略：
+     *  1. 尝试多个候选弧心角方向（下、上、左、右、左下、右下…）
+     *  2. 对每个方向计算各按钮的理想坐标
+     *  3. 检查是否所有按钮都在屏幕内 & 互不重叠
+     *  4. 选择最优方向；若无完美方案则选溢出最少的方向
+     *  5. 最终 clamp 保证不超出屏幕
      */
-    const getPositions = () => {
-        const count = actions.length;
+    const positions = useMemo(() => {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
+        const count = actions.length;
+        const half = BTN_SIZE / 2;
 
-        // 按钮占据的半径范围（含按钮自身尺寸）
-        const effectiveR = radius + btnSize / 2 + labelHeight;
+        // 可用边界
+        const minX = EDGE_PAD + half;
+        const maxX = vw - EDGE_PAD - half;
+        const minY = EDGE_PAD + half;
+        const maxY = vh - EDGE_PAD - half - LABEL_H;
 
-        // 计算四个方向的可用空间
-        const spaceTop = centerY - safeMargin;
-        const spaceBottom = vh - centerY - safeMargin;
-        const spaceLeft = centerX - safeMargin;
-        const spaceRight = vw - centerX - safeMargin;
+        // 在某个中心角方向上，沿弧形均匀排列按钮
+        const layoutArc = (midAngleDeg: number, spreadDeg: number) => {
+            if (count === 1) {
+                const rad = (midAngleDeg * Math.PI) / 180;
+                return [{ x: cx + RADIUS * Math.cos(rad), y: cy - RADIUS * Math.sin(rad) }];
+            }
+            const totalSpread = spreadDeg;
+            const step = totalSpread / (count - 1);
+            const startDeg = midAngleDeg - totalSpread / 2;
+            return actions.map((_, i) => {
+                const deg = startDeg + step * i;
+                const rad = (deg * Math.PI) / 180;
+                return {
+                    x: cx + RADIUS * Math.cos(rad),
+                    y: cy - RADIUS * Math.sin(rad),
+                };
+            });
+        };
 
-        let startAngle: number;
-        let endAngle: number;
+        // 评估一组位置的质量：溢出像素总和 + 按钮重叠惩罚
+        const score = (pts: { x: number; y: number }[]) => {
+            let penalty = 0;
+            for (const p of pts) {
+                if (p.x < minX) penalty += minX - p.x;
+                if (p.x > maxX) penalty += p.x - maxX;
+                if (p.y < minY) penalty += minY - p.y;
+                if (p.y > maxY) penalty += p.y - maxY;
+            }
+            // 检查按钮之间距离
+            for (let i = 0; i < pts.length; i++) {
+                for (let j = i + 1; j < pts.length; j++) {
+                    const dx = pts[i].x - pts[j].x;
+                    const dy = pts[i].y - pts[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const minDist = BTN_SIZE + GAP;
+                    if (dist < minDist) {
+                        penalty += (minDist - dist) * 3; // 重叠惩罚权重高
+                    }
+                }
+            }
+            return penalty;
+        };
 
-        if (count === 1) {
-            // 单个按钮：选空间最大的方向
-            if (spaceBottom >= effectiveR) {
-                return [{ x: centerX, y: centerY + radius }];
-            } else if (spaceTop >= effectiveR) {
-                return [{ x: centerX, y: centerY - radius }];
-            } else if (spaceRight >= effectiveR) {
-                return [{ x: centerX + radius, y: centerY }];
-            } else {
-                return [{ x: centerX - radius, y: centerY }];
+        // 候选方向：midAngle（弧中心角）+ spread（扇形张角）
+        // 270=下, 90=上, 0=右, 180=左, 以及对角线
+        const candidates: { mid: number; spread: number }[] = [
+            { mid: 270, spread: 100 },  // 下方
+            { mid: 90, spread: 100 },   // 上方
+            { mid: 0, spread: 100 },    // 右方
+            { mid: 180, spread: 100 },  // 左方
+            { mid: 315, spread: 90 },   // 右下
+            { mid: 225, spread: 90 },   // 左下
+            { mid: 45, spread: 90 },    // 右上
+            { mid: 135, spread: 90 },   // 左上
+            { mid: 270, spread: 140 },  // 下方宽
+            { mid: 90, spread: 140 },   // 上方宽
+        ];
+
+        let bestPts = layoutArc(270, 100);
+        let bestScore = score(bestPts);
+
+        for (const c of candidates) {
+            const pts = layoutArc(c.mid, c.spread);
+            const s = score(pts);
+            if (s < bestScore) {
+                bestScore = s;
+                bestPts = pts;
             }
         }
 
-        // 判定主展开方向（哪边空间大就往哪边展开）
-        const canGoDown = spaceBottom >= effectiveR;
-        const canGoUp = spaceTop >= effectiveR;
-        const canGoLeft = spaceLeft >= effectiveR;
-        const canGoRight = spaceRight >= effectiveR;
-
-        if (canGoDown) {
-            // 默认向下展开
-            startAngle = 210;
-            endAngle = 330;
-        } else if (canGoUp) {
-            // 向上展开
-            startAngle = 30;
-            endAngle = 150;
-        } else if (canGoRight) {
-            // 向右展开
-            startAngle = 300;
-            endAngle = 60; // 跨越 0°
-        } else if (canGoLeft) {
-            // 向左展开
-            startAngle = 120;
-            endAngle = 240;
-        } else {
-            // 四面都挤：默认向下
-            startAngle = 210;
-            endAngle = 330;
-        }
-
-        // 如果是向下展开，再做左/右边缘微调
-        if (canGoDown) {
-            // 左边空间不够 → 把弧往右偏
-            if (spaceLeft < effectiveR) {
-                const shift = Math.min(40, (effectiveR - spaceLeft) * 0.8);
-                startAngle -= shift;
-                endAngle -= shift;
-            }
-            // 右边空间不够 → 把弧往左偏
-            if (spaceRight < effectiveR) {
-                const shift = Math.min(40, (effectiveR - spaceRight) * 0.8);
-                startAngle += shift;
-                endAngle += shift;
-            }
-        }
-        // 向上展开时也微调左右
-        if (!canGoDown && canGoUp) {
-            if (spaceLeft < effectiveR) {
-                const shift = Math.min(40, (effectiveR - spaceLeft) * 0.8);
-                startAngle -= shift;
-                endAngle -= shift;
-            }
-            if (spaceRight < effectiveR) {
-                const shift = Math.min(40, (effectiveR - spaceRight) * 0.8);
-                startAngle += shift;
-                endAngle += shift;
-            }
-        }
-
-        // 计算展开范围（处理跨 360° 的情况）
-        let sweep = endAngle - startAngle;
-        if (sweep < 0) sweep += 360;
-        const step = count > 1 ? sweep / (count - 1) : 0;
-
-        const raw = actions.map((_, i) => {
-            const angleDeg = startAngle + step * i;
-            const angleRad = (angleDeg * Math.PI) / 180;
-            return {
-                x: centerX + radius * Math.cos(angleRad),
-                y: centerY - radius * Math.sin(angleRad),
-            };
-        });
-
-        // 最终安全 clamp：确保按钮不超出屏幕
-        const halfBtn = btnSize / 2;
-        return raw.map(pos => ({
-            x: Math.max(halfBtn + safeMargin, Math.min(vw - halfBtn - safeMargin, pos.x)),
-            y: Math.max(halfBtn + safeMargin, Math.min(vh - halfBtn - labelHeight - safeMargin, pos.y)),
+        // clamp 到安全区域
+        return bestPts.map(p => ({
+            x: Math.max(minX, Math.min(maxX, p.x)),
+            y: Math.max(minY, Math.min(maxY, p.y)),
         }));
-    };
-
-    const positions = getPositions();
+    }, [cx, cy, actions.length]);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -170,9 +153,8 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
 
         const btns = containerRef.current.querySelectorAll('.radial-btn');
         btns.forEach((btn, i) => {
-            const pos = positions[i];
-            const dx = pos.x - centerX;
-            const dy = pos.y - centerY;
+            const dx = positions[i].x - cx;
+            const dy = positions[i].y - cy;
             anime({
                 targets: btn,
                 translateX: [0, dx],
@@ -222,25 +204,26 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
 
     return (
         <div ref={containerRef} className="fixed inset-0 z-[200]" onClick={handleClose}>
-            {/* 遮罩 */}
             <div className="popup-backdrop absolute inset-0 bg-black/40 backdrop-blur-[3px]" style={{ opacity: 0 }} />
 
-            {/* 环形按钮：以头像中心为 origin，绝对定位 */}
             {actions.map((action, i) => (
                 <div
                     key={i}
                     className="radial-btn absolute z-10 flex flex-col items-center"
                     style={{
-                        left: centerX - btnSize / 2,
-                        top: centerY - btnSize / 2,
-                        width: btnSize,
+                        left: cx - BTN_SIZE / 2,
+                        top: cy - BTN_SIZE / 2,
+                        width: BTN_SIZE,
                         opacity: 0,
                         transform: 'scale(0)',
                     }}
                     onClick={(e) => { e.stopPropagation(); action.onClick(); }}
                 >
-                    <div className="w-[52px] h-[52px] rounded-full bg-[#1a2632]/90 ring-1 ring-white/15 shadow-xl flex items-center justify-center active:scale-90 transition-transform cursor-pointer hover:bg-[#243445]">
-                        <span className="text-[26px] leading-none select-none">{action.emoji}</span>
+                    <div
+                        className="rounded-full bg-[#1a2632]/90 ring-1 ring-white/15 shadow-xl flex items-center justify-center active:scale-90 transition-transform cursor-pointer hover:bg-[#243445]"
+                        style={{ width: BTN_SIZE, height: BTN_SIZE }}
+                    >
+                        <span className="text-[24px] leading-none select-none">{action.emoji}</span>
                     </div>
                     <span className="radial-label text-[10px] font-bold text-white/80 mt-1 whitespace-nowrap drop-shadow-md" style={{ opacity: 0 }}>
                         {action.label}

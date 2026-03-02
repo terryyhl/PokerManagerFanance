@@ -10,7 +10,7 @@ interface ChickenCatchAnimationProps {
 
 /**
  * 抓鸡趣味动画
- * 一只鸡从目标头像处跑出来，被网兜捕获
+ * 一只鸡从屏幕中心飞向目标头像，被网兜捕获
  */
 export default function ChickenCatchAnimation({ targetUsername, targetRect, onComplete }: ChickenCatchAnimationProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -38,24 +38,21 @@ export default function ChickenCatchAnimation({ targetUsername, targetRect, onCo
         // 头像高亮
         anime({ targets: avatar, scale: [0, 1], opacity: [0, 1], duration: 200, easing: 'easeOutBack' });
 
-        // 鸡从头像位置跑出来，四处乱窜
-        chicken.style.left = `${targetX}px`;
-        chicken.style.top = `${targetY}px`;
-        chicken.style.display = 'block';
+        // 鸡从屏幕中心飞向目标头像
+        const startX = window.innerWidth / 2;
+        const startY = window.innerHeight / 2;
 
-        const runX1 = targetX + anime.random(-100, 100);
-        const runY1 = targetY + anime.random(40, 100);
-        const runX2 = targetX + anime.random(-80, 80);
-        const runY2 = targetY + anime.random(-30, 60);
+        chicken.style.left = `${startX}px`;
+        chicken.style.top = `${startY}px`;
+        chicken.style.display = 'block';
 
         anime({
             targets: chicken,
-            keyframes: [
-                { left: runX1, top: runY1, rotate: anime.random(-20, 20), duration: 250 },
-                { left: runX2, top: runY2, rotate: anime.random(-30, 30), duration: 250 },
-                { left: targetX, top: targetY + 20, rotate: 0, duration: 200 },
-            ],
-            scale: [0.5, 1.3, 1.2, 1],
+            left: [startX, targetX],
+            top: [startY, targetY],
+            rotate: [0, anime.random(-360, 360)],
+            scale: [0.6, 1.3],
+            duration: 450,
             easing: 'easeInOutQuad',
             complete: () => {
                 // 网兜落下
