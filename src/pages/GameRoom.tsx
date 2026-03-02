@@ -70,6 +70,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
 
+  // 工具按钮展开面板
+  const [showToolsFan, setShowToolsFan] = useState(false);
+
   // 幸运手牌命中庆祝动画
   const [celebrationData, setCelebrationData] = useState<{ combo: string; username: string; hitCount: number } | null>(null);
   const prevAllLuckyHandsRef = useRef<import('../lib/api').LuckyHand[]>([]);
@@ -527,8 +530,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         </header>
 
         {/* 房间参与者列表 */}
-        <div className="bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1">
+        <div className="relative bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1 pr-12">
             {/* 房主排第一 */}
             {[...players]
               .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
@@ -562,32 +565,51 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               })}
           </div>
 
-          {/* 房间快捷工具栏 */}
-          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
-            {[
-              { icon: 'event_seat', label: '座位', color: 'text-emerald-500 bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
-              { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500 bg-purple-500/10', path: '/tools/picker', withPlayers: true },
-              { icon: 'timer', label: '时钟', color: 'text-blue-500 bg-blue-500/10', path: '/tools/clock', withPlayers: false },
-              { icon: 'monetization_on', label: '硬币', color: 'text-amber-500 bg-amber-500/10', path: '/tools/coin', withPlayers: false },
-              { icon: 'calculate', label: '筹码', color: 'text-rose-500 bg-rose-500/10', path: '/tools/chips', withPlayers: false },
-              { icon: 'analytics', label: '概率', color: 'text-indigo-500 bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
-              { icon: 'casino', label: '骰子', color: 'text-orange-500 bg-orange-500/10', path: '/tools/dice', withPlayers: false },
-            ].map(tool => (
-              <button
-                key={tool.path}
-                onClick={() => {
-                  const state: Record<string, unknown> = { fromGame: true };
-                  if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
-                  navigate(tool.path, { state });
-                }}
-                className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl shrink-0 transition-all active:scale-95 ${tool.color}`}
-              >
-                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
-                <span className="text-[10px] font-bold">{tool.label}</span>
-              </button>
-            ))}
+          {/* 右侧固定工具按钮 */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+            <button
+              onClick={() => setShowToolsFan(prev => !prev)}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${showToolsFan ? 'bg-primary rotate-45' : 'bg-slate-700 hover:bg-slate-600'}`}
+            >
+              <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {showToolsFan ? 'close' : 'handyman'}
+              </span>
+            </button>
           </div>
         </div>
+
+        {/* 工具扇形展开菜单 */}
+        {showToolsFan && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setShowToolsFan(false)} />
+            <div className="relative z-40 bg-white dark:bg-[#1a2632] border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+              <div className="grid grid-cols-6 gap-2">
+                {[
+                  { icon: 'event_seat', label: '座位', color: 'text-emerald-500 bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
+                  { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500 bg-purple-500/10', path: '/tools/picker', withPlayers: true },
+                  { icon: 'timer', label: '时钟', color: 'text-blue-500 bg-blue-500/10', path: '/tools/clock', withPlayers: false },
+                  { icon: 'monetization_on', label: '硬币', color: 'text-amber-500 bg-amber-500/10', path: '/tools/coin', withPlayers: false },
+                  { icon: 'analytics', label: '概率', color: 'text-indigo-500 bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
+                  { icon: 'casino', label: '骰子', color: 'text-orange-500 bg-orange-500/10', path: '/tools/dice', withPlayers: false },
+                ].map(tool => (
+                  <button
+                    key={tool.path}
+                    onClick={() => {
+                      setShowToolsFan(false);
+                      const state: Record<string, unknown> = { fromGame: true };
+                      if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
+                      navigate(tool.path, { state });
+                    }}
+                    className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-all active:scale-90 ${tool.color}`}
+                  >
+                    <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                    <span className="text-[10px] font-bold">{tool.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* 房间码弹窗 */}
         {showRoomCode && (

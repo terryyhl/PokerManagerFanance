@@ -15,7 +15,6 @@ import GameClock from './pages/GameClock';
 import CoinFlip from './pages/CoinFlip';
 import SeatDraw from './pages/SeatDraw';
 import RandomPicker from './pages/RandomPicker';
-import ChipCalculator from './pages/ChipCalculator';
 import OddsChart from './pages/OddsChart';
 import DiceRoll from './pages/DiceRoll';
 import MainLayout from './components/MainLayout';
@@ -128,7 +127,6 @@ function AppShell() {
               <Route path="/tools/coin" element={<CoinFlip />} />
               <Route path="/tools/seat" element={<SeatDraw />} />
               <Route path="/tools/picker" element={<RandomPicker />} />
-              <Route path="/tools/chips" element={<ChipCalculator />} />
               <Route path="/tools/odds" element={<OddsChart />} />
               <Route path="/tools/dice" element={<DiceRoll />} />
             </Routes>

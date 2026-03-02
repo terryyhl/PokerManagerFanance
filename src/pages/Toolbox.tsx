@@ -50,15 +50,6 @@ const TOOLS: Tool[] = [
         iconBg: 'bg-purple-500/15 text-purple-500',
     },
     {
-        id: 'chips',
-        path: '/tools/chips',
-        icon: 'calculate',
-        label: '筹码计算器',
-        desc: '快速换算筹码总额',
-        color: 'from-rose-500 to-pink-500',
-        iconBg: 'bg-rose-500/15 text-rose-500',
-    },
-    {
         id: 'odds',
         path: '/tools/odds',
         icon: 'analytics',
