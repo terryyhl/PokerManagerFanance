@@ -13,16 +13,38 @@ interface ShameTimerOverlayProps {
     targetUsername: string;
     targetUserId: string;
     startedByUsername: string;
+    /** 当前登录用户的 userId，用于判断文案视角 */
+    currentUserId?: string;
+    /** 发起者的 userId */
+    startedByUserId?: string;
     onStop: (durationSeconds: number) => void;
     onCancel: () => void;
+    /** 主持模式：用户选择预设后回调（用于广播 timer_start） */
+    onTimerStarted?: (totalSeconds: number, startedAt: number) => void;
+    /** 观看模式：只读显示倒计时，不可操作 */
+    viewerMode?: boolean;
+    /** viewer 模式下：计时器开始的时间戳 (Date.now()) */
+    viewerStartedAt?: number;
+    /** viewer 模式下：总计时秒数 */
+    viewerTotalSeconds?: number;
 }
 
 /**
  * 催促倒计时器覆盖层
- * 选择预设时长后开始倒计时，时间到震动提示
+ * - 主持模式（默认）：选择预设时长后开始倒计时
+ * - 观看模式（viewerMode）：只读显示从广播同步来的倒计时
+ * 
+ * 文案视角：
+ * - 发起者自己看到: "我对 XX 的定时催促"
+ * - 其他人看到: "XX 对 XX 的定时催促"
  */
-export default function ShameTimerOverlay({ targetUsername, targetUserId, startedByUsername, onStop, onCancel }: ShameTimerOverlayProps) {
-    const [totalSeconds, setTotalSeconds] = useState(0);
+export default function ShameTimerOverlay({
+    targetUsername, targetUserId, startedByUsername,
+    currentUserId, startedByUserId,
+    onStop, onCancel, onTimerStarted,
+    viewerMode = false, viewerStartedAt, viewerTotalSeconds,
+}: ShameTimerOverlayProps) {
+    const [totalSeconds, setTotalSeconds] = useState(viewerMode ? (viewerTotalSeconds || 0) : 0);
     const [remaining, setRemaining] = useState(0);
     const [isRunning, setIsRunning] = useState(false);
     const [isFinished, setIsFinished] = useState(false);
@@ -30,6 +52,40 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
     const cardRef = useRef<HTMLDivElement>(null);
     const pulseRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // viewer 模式：根据 startedAt 计算剩余时间
+    useEffect(() => {
+        if (!viewerMode || !viewerStartedAt || !viewerTotalSeconds) return;
+        const total = viewerTotalSeconds;
+        setTotalSeconds(total);
+
+        const tick = () => {
+            const elapsed = Math.floor((Date.now() - viewerStartedAt) / 1000);
+            const left = Math.max(0, total - elapsed);
+            setRemaining(left);
+            if (left <= 0) {
+                setIsRunning(false);
+                setIsFinished(true);
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+            return left;
+        };
+
+        const left = tick();
+        if (left > 0) {
+            setIsRunning(true);
+            setIsFinished(false);
+            const iv = setInterval(() => {
+                const r = tick();
+                if (r <= 0) clearInterval(iv);
+            }, 1000);
+            intervalRef.current = iv;
+        } else {
+            setIsFinished(true);
+        }
+
+        return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
+    }, [viewerMode, viewerStartedAt, viewerTotalSeconds]);
 
     // 进场动画
     useEffect(() => {
@@ -48,8 +104,9 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
         }
     }, [isRunning]);
 
-    // 倒计时
+    // 主持模式：倒计时
     useEffect(() => {
+        if (viewerMode) return; // viewer 模式用自己的计时逻辑
         if (!isRunning || remaining <= 0) return;
         intervalRef.current = setInterval(() => {
             setRemaining(prev => {
@@ -65,13 +122,15 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
             });
         }, 1000);
         return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
-    }, [isRunning, remaining]);
+    }, [isRunning, remaining, viewerMode]);
 
     const handleSelectPreset = (secs: number) => {
+        const now = Date.now();
         setTotalSeconds(secs);
         setRemaining(secs);
         setIsRunning(true);
         setIsFinished(false);
+        onTimerStarted?.(secs, now);
     };
 
     const handleDone = () => {
@@ -105,6 +164,12 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
     const R = 70;
     const C = 2 * Math.PI * R;
 
+    // 视角文案
+    const isInitiator = currentUserId && startedByUserId && currentUserId === startedByUserId;
+    const titleText = isInitiator
+        ? `我对 ${targetUsername} 的定时催促`
+        : `${startedByUsername} 对 ${targetUsername} 的定时催促`;
+
     return (
         <div ref={containerRef} className="fixed inset-0 z-[150] flex items-center justify-center" style={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCancelTimer} />
@@ -118,14 +183,14 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
                     </div>
                 </div>
                 <div className="text-center">
-                    <p className="text-white text-base font-bold">{targetUsername}</p>
+                    <p className="text-white text-sm font-bold leading-snug">{titleText}</p>
                     <p className="text-slate-500 text-[11px] mt-0.5">
-                        {isFinished ? '时间到！' : isRunning ? '倒计时中...' : '选择倒计时'}
+                        {isFinished ? '时间到！' : isRunning ? '倒计时中...' : viewerMode ? '等待中...' : '选择倒计时'}
                     </p>
                 </div>
 
                 {/* 倒计时圆环 */}
-                {totalSeconds > 0 && (
+                {(totalSeconds > 0 || viewerMode) && totalSeconds > 0 && (
                     <div className="relative w-40 h-40">
                         <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
                             <circle cx="80" cy="80" r={R} fill="none" strokeWidth="5" className="stroke-slate-700" />
@@ -142,8 +207,8 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
                     </div>
                 )}
 
-                {/* 预设按钮（未开始时显示） */}
-                {!isRunning && !isFinished && (
+                {/* 预设按钮（主持模式 + 未开始时显示） */}
+                {!viewerMode && !isRunning && !isFinished && (
                     <div className="flex items-center gap-3">
                         {PRESETS.map(p => (
                             <button key={p.label} onClick={() => handleSelectPreset(p.seconds)}
@@ -157,20 +222,28 @@ export default function ShameTimerOverlay({ targetUsername, targetUserId, starte
 
                 {/* 操作按钮 */}
                 <div className="flex items-center gap-3 w-full">
-                    <button onClick={handleCancelTimer}
-                        className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-bold transition-all active:scale-95"
-                    >取消</button>
-                    {(isRunning || isFinished) && (
-                        <button onClick={handleDone}
-                            className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                        >
-                            <span className="material-symbols-outlined text-[16px]">check</span>
-                            {isFinished ? '完成' : '提前结束'}
-                        </button>
+                    {viewerMode ? (
+                        /* viewer 模式：只有关闭按钮 */
+                        <button onClick={handleCancelTimer}
+                            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-bold transition-all active:scale-95"
+                        >关闭</button>
+                    ) : (
+                        /* 主持模式：取消 + 提前结束/完成 */
+                        <>
+                            <button onClick={handleCancelTimer}
+                                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-bold transition-all active:scale-95"
+                            >取消</button>
+                            {(isRunning || isFinished) && (
+                                <button onClick={handleDone}
+                                    className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">check</span>
+                                    {isFinished ? '完成' : '提前结束'}
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
-
-                <p className="text-slate-600 text-[10px]">由 {startedByUsername} 发起</p>
             </div>
         </div>
     );

@@ -1,6 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
+export interface ActiveTimerEvent {
+    targetUserId: string;
+    targetUsername: string;
+    startedBy: string;
+    startedByUsername: string;
+    totalSeconds: number;
+    startedAt: number; // Date.now() 时间戳
+}
+
 export interface SSEHandlers {
     onConnected?: (isHost: boolean) => void;
     onBuyinRequest?: (data: PendingBuyinEvent) => void;
@@ -11,6 +20,8 @@ export interface SSEHandlers {
     onGameSettled?: (data: { message: string }) => void;
     onLobbyRefresh?: (data: { gameId: string }) => void;
     onShameTimer?: (data: { targetUserId: string; startedBy: string; durationSeconds: number }) => void;
+    onTimerStart?: (data: ActiveTimerEvent) => void;
+    onTimerStop?: (data: { targetUserId: string }) => void;
 }
 
 export interface PendingBuyinEvent {
@@ -57,19 +68,45 @@ export function useGameSSE(
     gameId: string | undefined,
     userId: string | undefined,
     handlers: SSEHandlers,
-): { markPendingSubmitted: (amount: number, type: 'initial' | 'rebuy') => void } {
+): {
+    markPendingSubmitted: (amount: number, type: 'initial' | 'rebuy') => void;
+    broadcastTimerStart: (data: ActiveTimerEvent) => void;
+    broadcastTimerStop: (targetUserId: string) => void;
+} {
     const handlersRef = useRef<SSEHandlers>(handlers);
     handlersRef.current = handlers;
 
     // 记录「我已提交待审核申请」的信息
     const pendingSubmittedRef = useRef<{ amount: number; type: 'initial' | 'rebuy' } | null>(null);
+    const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
     const markPendingSubmitted = useCallback((amount: number, type: 'initial' | 'rebuy') => {
         pendingSubmittedRef.current = { amount, type };
     }, []);
 
+    const broadcastTimerStart = useCallback((data: ActiveTimerEvent) => {
+        broadcastChannelRef.current?.send({ type: 'broadcast', event: 'timer_start', payload: data });
+    }, []);
+
+    const broadcastTimerStop = useCallback((targetUserId: string) => {
+        broadcastChannelRef.current?.send({ type: 'broadcast', event: 'timer_stop', payload: { targetUserId } });
+    }, []);
+
     useEffect(() => {
         if (!gameId || !userId) return;
+
+        // ─── Supabase Broadcast 频道（用于催促计时器实时同步） ────────────────
+        const broadcastChannel = supabase.channel(`game-broadcast:${gameId}`)
+            .on('broadcast', { event: 'timer_start' }, (payload) => {
+                const data = payload.payload as ActiveTimerEvent;
+                handlersRef.current.onTimerStart?.(data);
+            })
+            .on('broadcast', { event: 'timer_stop' }, (payload) => {
+                const data = payload.payload as { targetUserId: string };
+                handlersRef.current.onTimerStop?.(data);
+            })
+            .subscribe();
+        broadcastChannelRef.current = broadcastChannel;
 
         // ─── Supabase Realtime 订阅 ──────────────────────────────────────────
         const channel = supabase.channel(`game:${gameId}:${userId}`)
@@ -201,8 +238,10 @@ export function useGameSSE(
 
         return () => {
             supabase.removeChannel(channel);
+            supabase.removeChannel(broadcastChannel);
+            broadcastChannelRef.current = null;
         };
     }, [gameId, userId]);
 
-    return { markPendingSubmitted };
+    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop };
 }

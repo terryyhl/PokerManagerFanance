@@ -6,7 +6,7 @@ import AnimatedPage from '../components/AnimatedPage';
 
 import { gamesApi, buyInApi, pendingBuyInApi, luckyHandsApi, BuyIn, Game, Player } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
-import { useGameSSE, PendingBuyinEvent } from '../hooks/useGameSSE';
+import { useGameSSE, PendingBuyinEvent, ActiveTimerEvent } from '../hooks/useGameSSE';
 import Avatar from '../components/Avatar';
 import LuckyHandFAB, { LuckyHandData } from '../components/LuckyHandFAB';
 import CardSelectorModal from '../components/CardSelectorModal';
@@ -84,6 +84,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [chickenTarget, setChickenTarget] = useState<{ username: string; rect: DOMRect } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
+
+  // 实时广播催促计时器
+  const [activeTimer, setActiveTimer] = useState<ActiveTimerEvent | null>(null);
+  const [viewingTimer, setViewingTimer] = useState(false); // 是否正在查看广播来的计时器
 
   // 工具按钮展开面板
   const [showToolsFan, setShowToolsFan] = useState(false);
@@ -280,7 +284,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   }, [buyIns.length, pendingRequests.length]);
 
   // ── SSE 长连接 ─────────────────────────────────────────────────────────────
-  const { markPendingSubmitted } = useGameSSE(id, user?.id, {
+  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop } = useGameSSE(id, user?.id, {
     onConnected: (isHost) => {
       console.log('[SSE] connected, isHost=', isHost);
     },
@@ -322,7 +326,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       setTimeout(() => {
         navigate(`/settlement/${id}`, { replace: true });
       }, 1500);
-    }
+    },
+    // 收到广播：有人对某玩家开启了催促计时
+    onTimerStart: (data) => {
+      setActiveTimer(data);
+    },
+    // 收到广播：催促计时结束
+    onTimerStop: () => {
+      setActiveTimer(null);
+      setViewingTimer(false);
+    },
   });
 
   const isHost = user?.id === game?.created_by;
@@ -362,6 +375,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // ── 长按头像交互 ────────────────────────────────────────────────────────────
   const handleAvatarTouchStart = useCallback((playerId: string, playerName: string, e: React.TouchEvent | React.MouseEvent) => {
+    // 长按自己不弹出操作菜单
+    if (playerId === user?.id) return;
     longPressFiredRef.current = false;
     const target = (e.currentTarget as HTMLElement).getBoundingClientRect();
     longPressTimerRef.current = setTimeout(() => {
@@ -370,7 +385,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       if ('vibrate' in navigator) navigator.vibrate(30);
       setActionPopupTarget({ userId: playerId, username: playerName, rect: target });
     }, 500);
-  }, []);
+  }, [user?.id]);
 
   const handleAvatarTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -395,8 +410,27 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     setShameTimerTarget(target);
   }, [actionPopupTarget]);
 
+  // 用户在 ShameTimerOverlay 中选择了预设 → 广播给所有人
+  const handleTimerStarted = useCallback((totalSeconds: number, startedAt: number) => {
+    if (!shameTimerTarget || !user) return;
+    const event: ActiveTimerEvent = {
+      targetUserId: shameTimerTarget.userId,
+      targetUsername: shameTimerTarget.username,
+      startedBy: user.id,
+      startedByUsername: user.username,
+      totalSeconds,
+      startedAt,
+    };
+    // 自己也设置 activeTimer（发起者本身也能看到头像发光）
+    setActiveTimer(event);
+    broadcastTimerStart(event);
+  }, [shameTimerTarget, user, broadcastTimerStart]);
+
   const handleStopTimer = useCallback(async (durationSeconds: number) => {
     if (!shameTimerTarget || !user || !id) return;
+    // 广播停止
+    broadcastTimerStop(shameTimerTarget.userId);
+    setActiveTimer(null);
     try {
       await timerApi.record(id, shameTimerTarget.userId, user.id, 'timer', durationSeconds);
       showToast(`${shameTimerTarget.username} 思考了 ${durationSeconds} 秒`, 'info');
@@ -404,7 +438,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       console.error('Record timer error:', err);
     }
     setShameTimerTarget(null);
-  }, [shameTimerTarget, user, id]);
+  }, [shameTimerTarget, user, id, broadcastTimerStop]);
+
+  const handleCancelTimer = useCallback(() => {
+    if (shameTimerTarget) {
+      // 广播停止
+      broadcastTimerStop(shameTimerTarget.userId);
+      setActiveTimer(null);
+    }
+    setShameTimerTarget(null);
+  }, [shameTimerTarget, broadcastTimerStop]);
 
   const handleThrowEgg = useCallback(() => {
     if (!actionPopupTarget || !user || !id) return;
@@ -668,7 +711,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   // ── 主游戏界面 ──────────────────────────────────────────────────────────────
   return (
     <AnimatedPage animationType="slide-left">
-      <div className="bg-background-light dark:bg-background-dark min-h-full h-full text-slate-900 dark:text-slate-100 font-display antialiased overflow-hidden flex flex-col">
+      <div className="bg-background-light dark:bg-background-dark min-h-full h-full text-slate-900 dark:text-slate-100 font-display antialiased overflow-hidden flex flex-col" onContextMenu={(e) => e.preventDefault()}>
 
         {/* Toast 通知 */}
         {toast && (
@@ -716,6 +759,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 .map(player => {
                   const isPlayerHost = player.user_id === game?.created_by;
                   const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
+                  const isBeingTimed = activeTimer?.targetUserId === player.user_id;
                   return (
                     <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                       onClick={() => handleAvatarClick(player.user_id, player.users?.username || '?')}
@@ -725,15 +769,21 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       onMouseDown={(e) => handleAvatarTouchStart(player.user_id, player.users?.username || '?', e)}
                       onMouseUp={handleAvatarTouchEnd}
                       onMouseLeave={handleAvatarTouchEnd}
-                      onContextMenu={(e) => e.preventDefault()}
                     >
                       <div className="relative">
+                        {/* 被催促时：脉冲发光环 */}
+                        {isBeingTimed && (
+                          <div className="absolute -inset-1 rounded-full animate-ping bg-amber-400/30" />
+                        )}
+                        {isBeingTimed && (
+                          <div className="absolute -inset-1 rounded-full bg-amber-400/20 animate-pulse" />
+                        )}
                         <Avatar
                           username={player.users?.username || '?'}
                           isAdmin={isPlayerHost}
-                          className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''}`}
+                          className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''} ${isBeingTimed ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]' : ''}`}
                         />
-                        {isPlayerHost && !hasCheckedOut && (
+                        {isPlayerHost && !hasCheckedOut && !isBeingTimed && (
                           <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
                         )}
                         {hasCheckedOut && (
@@ -741,8 +791,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                             <span className="material-symbols-outlined text-white text-[10px]">check</span>
                           </div>
                         )}
+                        {isBeingTimed && (
+                          <div
+                            className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background-dark cursor-pointer z-10"
+                            onClick={(e) => { e.stopPropagation(); setViewingTimer(true); }}
+                          >
+                            <span className="material-symbols-outlined text-white text-[10px]">timer</span>
+                          </div>
+                        )}
                       </div>
-                      <span className={`text-[10px] font-bold truncate max-w-[50px] ${hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
+                      <span className={`text-[10px] font-bold truncate max-w-[50px] ${isBeingTimed ? 'text-amber-400' : hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
                         {player.user_id === user?.id ? '自己' : player.users?.username}
                       </span>
                     </div>
@@ -1381,14 +1439,33 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           />
         )}
 
-        {/* 思考计时器覆盖层 */}
+        {/* 思考计时器覆盖层 — 主持模式（发起者） */}
         {shameTimerTarget && user && (
           <ShameTimerOverlay
             targetUsername={shameTimerTarget.username}
             targetUserId={shameTimerTarget.userId}
             startedByUsername={user.username}
+            currentUserId={user.id}
+            startedByUserId={user.id}
             onStop={handleStopTimer}
-            onCancel={() => setShameTimerTarget(null)}
+            onCancel={handleCancelTimer}
+            onTimerStarted={handleTimerStarted}
+          />
+        )}
+
+        {/* 思考计时器覆盖层 — 观看模式（广播来的） */}
+        {viewingTimer && activeTimer && user && (
+          <ShameTimerOverlay
+            targetUsername={activeTimer.targetUsername}
+            targetUserId={activeTimer.targetUserId}
+            startedByUsername={activeTimer.startedByUsername}
+            currentUserId={user.id}
+            startedByUserId={activeTimer.startedBy}
+            onStop={() => {}}
+            onCancel={() => setViewingTimer(false)}
+            viewerMode
+            viewerStartedAt={activeTimer.startedAt}
+            viewerTotalSeconds={activeTimer.totalSeconds}
           />
         )}
 
