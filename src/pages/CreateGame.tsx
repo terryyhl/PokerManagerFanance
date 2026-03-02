@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import anime from 'animejs';
+import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 import { gamesApi } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
@@ -105,11 +106,25 @@ export default function CreateGame() {
 
             <button
               onClick={handleCopyCode}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-sm font-medium mb-4"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-sm font-medium mb-5"
             >
               <span className="material-symbols-outlined text-[18px]">{copied ? 'check' : 'content_copy'}</span>
               {copied ? '已复制！' : '复制密码'}
             </button>
+
+            {/* 扫码加入二维码 */}
+            <div className="w-full flex flex-col items-center mb-6">
+              <div className="bg-white p-3.5 rounded-xl shadow-inner mb-3">
+                <QRCodeSVG
+                  value={`${window.location.origin}/game/${createdGame.id}`}
+                  size={160}
+                  level="M"
+                  bgColor="#ffffff"
+                  fgColor="#0f1923"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">扫码直接加入房间</p>
+            </div>
 
             <button
               onClick={() => navigate(`/game/${createdGame.id}`, { replace: true })}

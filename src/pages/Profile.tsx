@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
 import { usersApi, LuckyHandHistory } from '../lib/api';
@@ -32,6 +33,7 @@ export default function Profile() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showQrShare, setShowQrShare] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -70,26 +72,15 @@ export default function Profile() {
 
                 {/* Header — 固定在顶部，不参与滚动 */}
                 <div className="flex-shrink-0 flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark z-10">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-bold">个人中心</h2>
-                    </div>
-                    {showLogoutConfirm ? (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 dark:text-slate-400">确定退出？</span>
-                            <button
-                                onClick={() => setShowLogoutConfirm(false)}
-                                className="text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                取消
-                            </button>
-                            <button
-                                onClick={() => { logout(); navigate('/login'); }}
-                                className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-                            >
-                                退出
-                            </button>
-                        </div>
-                    ) : (
+                    <h2 className="text-xl font-bold">个人中心</h2>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setShowQrShare(true)}
+                            className="flex items-center justify-center size-9 rounded-full text-primary hover:bg-primary/10 transition-colors"
+                            aria-label="分享应用"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">qr_code_2</span>
+                        </button>
                         <button
                             onClick={() => setShowLogoutConfirm(true)}
                             className="flex items-center justify-center size-9 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
@@ -97,7 +88,7 @@ export default function Profile() {
                         >
                             <span className="material-symbols-outlined text-[20px]">logout</span>
                         </button>
-                    )}
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 pb-20">
@@ -241,6 +232,71 @@ export default function Profile() {
                     </div>
 
                 </div>
+
+                {/* 退出登录确认对话框 */}
+                {showLogoutConfirm && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setShowLogoutConfirm(false)}>
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <div className="relative w-full max-w-[280px] rounded-2xl bg-white dark:bg-[#1e2936] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
+                                <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                                    <span className="material-symbols-outlined text-red-500 text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>logout</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">确认退出</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">退出后需要重新登录才能使用</p>
+                            </div>
+                            <div className="flex border-t border-slate-200 dark:border-slate-700">
+                                <button
+                                    onClick={() => setShowLogoutConfirm(false)}
+                                    className="flex-1 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    取消
+                                </button>
+                                <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                                <button
+                                    onClick={() => { logout(); navigate('/login'); }}
+                                    className="flex-1 py-3.5 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                >
+                                    退出登录
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 二维码分享对话框 */}
+                {showQrShare && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setShowQrShare(false)}>
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <div className="relative w-full max-w-[300px] rounded-2xl bg-white dark:bg-[#1e2936] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex flex-col items-center text-center px-6 pt-7 pb-6">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                    <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>share</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">分享应用</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">扫描二维码即可打开应用</p>
+                                <div className="bg-white p-4 rounded-xl shadow-inner">
+                                    <QRCodeSVG
+                                        value={window.location.origin}
+                                        size={180}
+                                        level="M"
+                                        bgColor="#ffffff"
+                                        fgColor="#0f1923"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-4 break-all">{window.location.origin}</p>
+                            </div>
+                            <div className="border-t border-slate-200 dark:border-slate-700">
+                                <button
+                                    onClick={() => setShowQrShare(false)}
+                                    className="w-full py-3.5 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                                >
+                                    关闭
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </AnimatedPage>
