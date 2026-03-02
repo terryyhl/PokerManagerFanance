@@ -256,10 +256,28 @@ export default function SettlementSharePoster({
                             })}
                         </div>
 
+                        {/* 汇率信息 */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            marginTop: 16,
+                            padding: '8px 16px',
+                            background: 'rgba(59,130,246,0.08)',
+                            borderRadius: 10,
+                            border: '1px solid rgba(59,130,246,0.2)',
+                        }}>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>汇率</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>
+                                1 积分 = ¥{exchangeRate % 1 === 0 ? exchangeRate : exchangeRate.toFixed(2)}
+                            </span>
+                        </div>
+
                         {/* 底部水印 */}
                         <div style={{
                             textAlign: 'center' as const,
-                            marginTop: 20,
+                            marginTop: 16,
                             paddingTop: 16,
                             borderTop: '1px solid rgba(51,65,85,0.3)',
                         }}>
