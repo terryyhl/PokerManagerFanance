@@ -66,10 +66,10 @@ export default function Profile() {
 
     return (
         <AnimatedPage animationType="slide-left">
-            <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+            <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
 
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark sticky top-0 z-10 transition-all">
+                {/* Header — 固定在顶部，不参与滚动 */}
+                <div className="flex-shrink-0 flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark z-10">
                     <div className="flex items-center gap-3">
                         <h2 className="text-xl font-bold">个人中心</h2>
                     </div>

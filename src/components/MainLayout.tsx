@@ -12,12 +12,12 @@ export default function MainLayout() {
     const isProfile = pathname === '/profile';
 
     return (
-        <div className="relative h-full w-full flex flex-col overflow-hidden">
-            <div className={`flex-1 overflow-hidden ${!isLobby ? 'hidden' : ''}`}>
+        <div className="relative h-full w-full flex flex-col">
+            <div className={`flex-1 min-h-0 ${!isLobby ? 'hidden' : ''}`}>
                 <Lobby />
             </div>
 
-            <div className={`flex-1 overflow-hidden ${!isProfile ? 'hidden' : ''}`}>
+            <div className={`flex-1 min-h-0 ${!isProfile ? 'hidden' : ''}`}>
                 <Profile />
             </div>
 
