@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import anime from 'animejs';
+import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 
 import { gamesApi, buyInApi, pendingBuyInApi, luckyHandsApi, BuyIn, Game, Player } from '../lib/api';
@@ -724,22 +725,35 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         </div>
 
-        {/* 房间码弹窗 */}
+        {/* 房间码 + 二维码弹窗 */}
         {showRoomCode && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowRoomCode(false)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative w-full max-w-xs rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="px-6 pt-6 pb-6 flex flex-col items-center text-center">
                 <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold mb-3">房间密码</p>
-                <div className="flex justify-center gap-2 mb-5">
+                <div className="flex justify-center gap-2 mb-4">
                   {(game?.room_code || '------').split('').map((d, i) => (
                     <span key={i} className="w-10 h-12 flex items-center justify-center bg-slate-800 rounded-lg text-2xl font-black text-white border border-slate-700">{d}</span>
                   ))}
                 </div>
-                <button onClick={handleCopyCode} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-sm font-medium mb-3">
+                <button onClick={handleCopyCode} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors text-sm font-medium mb-4">
                   <span className="material-symbols-outlined text-[18px]">{copied ? 'check' : 'content_copy'}</span>
                   {copied ? '已复制！' : '复制密码'}
                 </button>
+                {/* 扫码加入二维码 */}
+                <div className="w-full flex flex-col items-center mb-4">
+                  <div className="bg-white p-3 rounded-xl shadow-inner mb-2">
+                    <QRCodeSVG
+                      value={`${window.location.origin}/join/${game?.room_code || ''}`}
+                      size={140}
+                      level="M"
+                      bgColor="#ffffff"
+                      fgColor="#0f1923"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500">扫码直接加入房间</p>
+                </div>
                 <button onClick={() => setShowRoomCode(false)} className="text-slate-500 text-sm hover:text-slate-300 transition-colors">关闭</button>
               </div>
             </div>

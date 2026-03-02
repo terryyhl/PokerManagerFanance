@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
 import { gamesApi } from '../lib/api';
@@ -7,6 +7,7 @@ import { useUser } from '../contexts/UserContext';
 
 export default function JoinRoom() {
   const navigate = useNavigate();
+  const { roomCode: urlRoomCode } = useParams<{ roomCode?: string }>();
   const { user } = useUser();
   const [pin, setPin] = useState(['', '', '', '', '', '']);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -14,6 +15,7 @@ export default function JoinRoom() {
   const keypadRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const autoJoinTriedRef = useRef(false);
 
   useEffect(() => {
     anime({
@@ -34,6 +36,21 @@ export default function JoinRoom() {
       delay: 300
     });
   }, []);
+
+  // URL 含房间码时自动填充并自动加入
+  useEffect(() => {
+    if (urlRoomCode && urlRoomCode.length === 6 && /^\d{6}$/.test(urlRoomCode) && !autoJoinTriedRef.current) {
+      autoJoinTriedRef.current = true;
+      setPin(urlRoomCode.split(''));
+    }
+  }, [urlRoomCode]);
+
+  // pin 填满 6 位且来自 URL 自动填充时，自动提交
+  useEffect(() => {
+    if (autoJoinTriedRef.current && pin.join('').length === 6 && user && !isLoading) {
+      handleSubmit();
+    }
+  }, [pin, user]);
 
   const handleKeypadClick = (value: string) => {
     if (value === 'backspace') {

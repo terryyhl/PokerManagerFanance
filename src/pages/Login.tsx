@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
 import { usersApi } from '../lib/api';
@@ -7,7 +7,10 @@ import { useUser } from '../contexts/UserContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setUser } = useUser();
+  // ProtectedRoute 重定向时会传 state.from，登录后跳回原页面
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname || '/lobby';
   const formRef = useRef<HTMLFormElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [username, setUsername] = useState('');
@@ -44,7 +47,7 @@ export default function Login() {
     try {
       const { user } = await usersApi.login(username.trim());
       setUser(user);
-      navigate('/lobby', { replace: true });
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || '登录失败，请重试');
     } finally {

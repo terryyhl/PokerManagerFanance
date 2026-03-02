@@ -118,6 +118,7 @@ function AppShell() {
           <ProtectedRoute>
             <Routes>
               <Route path="/join" element={<JoinRoom />} />
+              <Route path="/join/:roomCode" element={<JoinRoom />} />
               <Route path="/create" element={<CreateGame />} />
               <Route path="/bill/:id" element={<PersonalBill />} />
               <Route path="/settlement/:id" element={<SettlementReport />} />

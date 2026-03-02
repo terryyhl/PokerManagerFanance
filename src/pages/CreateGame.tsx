@@ -116,7 +116,7 @@ export default function CreateGame() {
             <div className="w-full flex flex-col items-center mb-6">
               <div className="bg-white p-3.5 rounded-xl shadow-inner mb-3">
                 <QRCodeSVG
-                  value={`${window.location.origin}/game/${createdGame.id}`}
+                  value={`${window.location.origin}/join/${createdGame.roomCode}`}
                   size={160}
                   level="M"
                   bgColor="#ffffff"
