@@ -56,7 +56,7 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
         : [
             { icon: 'timer', label: '催促计时', color: 'text-orange-500', bg: 'bg-orange-500/10', onClick: onStartTimer },
             { icon: 'egg_alt', label: '扔鸡蛋', color: 'text-red-500', bg: 'bg-red-500/10', onClick: onThrowEgg },
-            { icon: 'catching_pokemon', label: '抓鸡', color: 'text-yellow-600', bg: 'bg-yellow-500/10', onClick: onCatchChicken },
+            { icon: 'pets', label: '抓鸡', color: 'text-yellow-600', bg: 'bg-yellow-500/10', onClick: onCatchChicken },
         ];
 
     return (
