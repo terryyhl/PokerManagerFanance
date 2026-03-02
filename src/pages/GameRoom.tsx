@@ -633,52 +633,58 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         </header>
 
         {/* 房间参与者列表 */}
-        <div className="relative bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1 pr-12">
-            {/* 房主排第一 */}
-            {[...players]
-              .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
-              .map(player => {
-                const isPlayerHost = player.user_id === game?.created_by;
-                const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
-                return (
-                  <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                    onClick={() => setSelectedPlayerStats({ id: player.user_id, username: player.users?.username || '?' })}
-                  >
-                    <div className="relative">
-                      <Avatar
-                        username={player.users?.username || '?'}
-                        isAdmin={isPlayerHost}
-                        className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''}`}
-                      />
-                      {isPlayerHost && !hasCheckedOut && (
-                        <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
-                      )}
-                      {hasCheckedOut && (
-                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
-                          <span className="material-symbols-outlined text-white text-[10px]">check</span>
-                        </div>
-                      )}
+        <div className="relative bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-slate-800">
+          {/* 头像滚动区 — 右侧留出工具按钮的空间 */}
+          <div className="overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-3 px-4 py-3 pr-16">
+              {/* 房主排第一 */}
+              {[...players]
+                .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
+                .map(player => {
+                  const isPlayerHost = player.user_id === game?.created_by;
+                  const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
+                  return (
+                    <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                      onClick={() => setSelectedPlayerStats({ id: player.user_id, username: player.users?.username || '?' })}
+                    >
+                      <div className="relative">
+                        <Avatar
+                          username={player.users?.username || '?'}
+                          isAdmin={isPlayerHost}
+                          className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''}`}
+                        />
+                        {isPlayerHost && !hasCheckedOut && (
+                          <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
+                        )}
+                        {hasCheckedOut && (
+                          <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
+                            <span className="material-symbols-outlined text-white text-[10px]">check</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold truncate max-w-[50px] ${hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
+                        {player.user_id === user?.id ? '自己' : player.users?.username}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-bold truncate max-w-[50px] ${hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
-                      {player.user_id === user?.id ? '自己' : player.users?.username}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
           </div>
 
-          {/* 右侧固定工具按钮 */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-            <button
-              ref={toolsBtnRef}
-              onClick={handleToggleToolsFan}
-              className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
-            >
-              <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                handyman
-              </span>
-            </button>
+          {/* 右侧渐变遮挡 + 固定工具按钮 */}
+          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pointer-events-none">
+            <div className="w-14 h-full bg-gradient-to-l from-background-light dark:from-background-dark to-transparent" />
+            <div className="pr-3 pointer-events-auto bg-background-light dark:bg-background-dark">
+              <button
+                ref={toolsBtnRef}
+                onClick={handleToggleToolsFan}
+                className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
+              >
+                <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  handyman
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
