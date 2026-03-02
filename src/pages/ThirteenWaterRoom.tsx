@@ -313,11 +313,14 @@ const OpponentArea: React.FC<{
 }> = ({ player, isPlayerHost, position, confirmed, score }) => {
   const name = player.users?.username || '?';
   const isVertical = position === 'top';
-  const renderLane = (count: number) => (
-    <div className="flex gap-0.5">
-      {Array(count).fill(null).map((_, i) => (
-        <CardBack key={i} small />
-      ))}
+  const renderLane = (count: number, label: string) => (
+    <div className="flex items-center gap-0.5">
+      <span className="text-[8px] text-slate-600 w-5 text-right shrink-0">{label}</span>
+      <div className="flex gap-0.5">
+        {Array(count).fill(null).map((_, i) => (
+          <CardBack key={i} small />
+        ))}
+      </div>
     </div>
   );
 
@@ -331,9 +334,9 @@ const OpponentArea: React.FC<{
         </span>
       </div>
       <div className={`flex flex-col gap-1 relative ${!isVertical ? 'scale-[0.75] origin-center' : ''}`}>
-        {renderLane(3)}
-        {renderLane(5)}
-        {renderLane(5)}
+        {renderLane(3, '头')}
+        {renderLane(5, '中')}
+        {renderLane(5, '尾')}
         {confirmed && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg backdrop-blur-[1px]">
             <span className="text-2xl font-black text-blue-400 drop-shadow-lg">OK</span>
@@ -1407,27 +1410,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         <button onClick={() => setGamePhase('waiting')} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
           <span className="material-symbols-outlined text-[20px] text-slate-400">arrow_back</span>
         </button>
-        {/* 公共牌显示区 */}
-        <div className="flex items-center gap-1.5">
-          {publicCards.length > 0 ? (
-            <div className="flex items-center gap-0.5">
-              {publicCards.map((card, i) => (
-                <div key={i} className="w-6 h-9 rounded overflow-hidden shadow-sm bg-white">
-                  {cardToUrl(card) && <img src={cardToUrl(card)!} alt={card} className="w-full h-full object-contain" />}
-                </div>
-              ))}
-              {ghostCount > 0 && <span className="text-[10px] text-purple-400 font-bold ml-1">{Math.pow(2, ghostCount)}x</span>}
-            </div>
-          ) : (
-            isHost
-              ? <button onClick={() => setShowGhostPicker(true)} className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg hover:bg-amber-500/20 transition-colors font-bold">+ 设置公共牌</button>
-              : <span className="text-[10px] text-slate-500">无公共牌</span>
-          )}
-          {publicCards.length > 0 && isHost && (
-            <button onClick={() => setShowGhostPicker(true)} className="p-0.5 rounded hover:bg-white/10 transition-colors" title="修改公共牌">
-              <span className="material-symbols-outlined text-[14px] text-slate-500">edit</span>
-            </button>
-          )}
+        {/* 房间信息 */}
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <span>{game.name}</span>
+          {ghostCount > 0 && <span className="text-purple-400 font-bold">{Math.pow(2, ghostCount)}x</span>}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowScoreBoard(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
@@ -1452,12 +1438,46 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
             ))}
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center gap-1">
-            <div className="flex flex-wrap items-center justify-center gap-1 text-[9px] text-slate-600">
-              <span>{game.thirteen_base_score || 1}分</span><span>·</span><span>{game.thirteen_ghost_count || 6}鬼</span>
-              {game.thirteen_compare_suit && <><span>·</span><span>花色</span></>}
+          <div className="flex-1 flex flex-col items-center justify-center gap-2">
+            {/* 公共牌区域 */}
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-[9px] text-slate-500 font-bold tracking-wider">公共牌</span>
+              <div className="flex gap-1 items-center">
+                {Array(6).fill(null).map((_, i) => {
+                  const card = publicCards[i];
+                  if (card) {
+                    const url = cardToUrl(card);
+                    const isJoker = card.startsWith('JK');
+                    return (
+                      <div key={i} className={`w-8 h-11 rounded-md overflow-hidden shadow-sm bg-white ${isJoker ? 'ring-1 ring-purple-400/50' : ''}`}>
+                        {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className={`w-8 h-11 rounded-md border border-dashed flex items-center justify-center
+                      ${isHost && publicCards.length === 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
+                      <span className="text-white/10 text-[8px]">?</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {ghostCount > 0 && (
+                <span className="text-[10px] text-purple-400 font-bold">鬼×{ghostCount} · {Math.pow(2, ghostCount)}倍</span>
+              )}
+              {isHost && (
+                <button onClick={() => setShowGhostPicker(true)}
+                  className={`text-[10px] font-bold px-3 py-1 rounded-lg transition-all active:scale-95
+                    ${publicCards.length === 0
+                      ? 'text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 animate-pulse'
+                      : 'text-slate-400 bg-white/5 hover:bg-white/10'}`}>
+                  {publicCards.length === 0 ? '点击设置公共牌' : '修改公共牌'}
+                </button>
+              )}
+              {!isHost && publicCards.length === 0 && (
+                <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
+              )}
             </div>
-            <span className="text-[10px] text-slate-600">{game.name}</span>
             <span className="text-[9px] text-slate-500">{confirmedUsers.size}/{currentPlayers} 已确认</span>
           </div>
           <div className="w-[85px] flex justify-center">
@@ -1481,6 +1501,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               const cards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
               const count = lane === 'head' ? 3 : 5;
               const label = lane === 'head' ? '头道' : lane === 'mid' ? '中道' : '尾道';
+              const canPick = !isConfirmed && publicCards.length > 0;
               return (
                 <div key={lane} className="flex items-center gap-1">
                   <span className="text-[9px] text-slate-500 w-8 text-right">{label}</span>
@@ -1489,7 +1510,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                       const card = cards[i];
                       return card
                         ? <PokerCard key={card} card={card} faceUp onClick={() => !isConfirmed && handleRemoveCard(card)} />
-                        : <PokerCard key={`${lane}-${i}`} onClick={!isConfirmed ? () => { setActiveLane(lane); setShowPicker(true); } : undefined} />;
+                        : <PokerCard key={`${lane}-${i}`} onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && publicCards.length === 0 ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
                     })}
                   </div>
                 </div>
