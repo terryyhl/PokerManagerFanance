@@ -14,6 +14,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Vercel / 反向代理环境下需要信任 proxy 以正确获取客户端 IP
+app.set('trust proxy', 1);
+
 // 启动定时任务（自动关闭 24 小时以上的活跃房间）
 startCronJobs();
 

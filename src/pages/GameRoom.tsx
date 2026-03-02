@@ -500,6 +500,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               .sort((a, b) => (a.user_id === game?.created_by ? -1 : b.user_id === game?.created_by ? 1 : 0))
               .map(player => {
                 const isPlayerHost = player.user_id === game?.created_by;
+                const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
                 return (
                   <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                     onClick={() => setSelectedPlayerStats({ id: player.user_id, username: player.users?.username || '?' })}
@@ -508,13 +509,18 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       <Avatar
                         username={player.users?.username || '?'}
                         isAdmin={isPlayerHost}
-                        className="w-10 h-10"
+                        className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''}`}
                       />
-                      {isPlayerHost && (
+                      {isPlayerHost && !hasCheckedOut && (
                         <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
                       )}
+                      {hasCheckedOut && (
+                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
+                          <span className="material-symbols-outlined text-white text-[10px]">check</span>
+                        </div>
+                      )}
                     </div>
-                    <span className={`text-[10px] font-bold truncate max-w-[50px] ${isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
+                    <span className={`text-[10px] font-bold truncate max-w-[50px] ${hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
                       {player.users?.username}
                     </span>
                   </div>
@@ -607,10 +613,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               </div>
             )}
 
-            {/* 时间线：待审核申请（房主可见）+ 已确认买入记录 合并显示，并按时间升序排列 */}
+            {/* 时间线：待审核申请（房主可见）+ 已确认买入/结账记录 合并显示，并按时间升序排列 */}
             {[
               ...pendingRequests.map(r => ({ ...r, _pending: true as const, _time: new Date(r.createdAt).getTime() })),
-              ...buyIns.filter(b => b.type !== 'checkout').map(b => ({ ...b, _pending: false as const, _time: new Date(b.created_at).getTime() })),
+              ...buyIns.map(b => ({ ...b, _pending: false as const, _time: new Date(b.created_at).getTime() })),
             ].sort((a, b) => a._time - b._time).map((item) => {
               if (item._pending) {
                 // 待审核申请条目（只有房主能看到）
@@ -668,8 +674,57 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   </div>
                 );
               } else {
-                // 已确认买入条目
                 const b = item as BuyIn & { _pending: false };
+
+                // ── 结账记录条目 ──
+                if (b.type === 'checkout') {
+                  const playerTotalBuyin = buyIns
+                    .filter(prev => prev.user_id === b.user_id && (prev.type === 'initial' || prev.type === 'rebuy'))
+                    .reduce((sum, prev) => sum + prev.amount, 0);
+                  const profit = b.amount - playerTotalBuyin;
+
+                  return (
+                    <div key={b.id} className="flex items-end gap-3 group">
+                      <div className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                        onClick={() => setSelectedPlayerStats({ id: b.user_id, username: b.users?.username || '?' })}
+                      >
+                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-emerald-300 dark:border-emerald-600 ring-2 ring-emerald-500/20 grayscale-[30%]">
+                          <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
+                          <span className="material-symbols-outlined text-white text-[10px]">check</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 items-start max-w-[80%]">
+                        <div className="flex items-center gap-1.5 ml-1">
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{b.users?.username || '玩家'}</span>
+                          {b.user_id === game?.created_by && (
+                            <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
+                              <span className="material-symbols-outlined text-[10px]">grade</span>
+                              房主
+                            </span>
+                          )}
+                          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">. {formatTime(b.created_at)}</span>
+                          <span className="ml-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">已结账</span>
+                        </div>
+                        <div className="rounded-2xl rounded-bl-none bg-emerald-50 dark:bg-emerald-900/10 p-4 shadow-sm border border-emerald-200 dark:border-emerald-800/50">
+                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">结账离场</p>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${b.amount}</span>
+                            <div className="flex items-center gap-1.5 pt-1 border-t border-emerald-200 dark:border-emerald-800/50 mt-1">
+                              <span className="material-symbols-outlined text-emerald-500 text-[14px]">trending_flat</span>
+                              <span className={`text-[11px] font-bold ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                盈亏: {profit >= 0 ? '+' : ''}${profit}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // ── 已确认买入条目 ──
                 return (
                   <div key={b.id} className="flex items-end gap-3 group">
                     <div className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95"
@@ -691,7 +746,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                             房主
                           </span>
                         )}
-                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">• {formatTime(b.created_at)}</span>
+                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">. {formatTime(b.created_at)}</span>
                       </div>
                       <div className="rounded-2xl rounded-bl-none bg-white dark:bg-[#1e2936] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">{b.type === 'initial' ? '初始买入' : '重买/加注'}</p>

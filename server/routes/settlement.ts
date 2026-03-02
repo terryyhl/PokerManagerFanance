@@ -148,47 +148,14 @@ router.post('/:gameId', async (req, res) => {
             }
         }
 
-        // ── 验证：所有玩家都需要结账 ─────────────────────────────────────────
-        const { data: players } = await supabase
-            .from('game_players')
-            .select('user_id, users(username)')
-            .eq('game_id', gameId);
-
+        // ── 获取买入数据 ──────────────────────────────────────────────────────
         const { data: allBuyIns } = await supabase
             .from('buy_ins')
             .select('*')
             .eq('game_id', gameId);
 
-        // 检查每个玩家是否有买入记录（有买入的才需要结账）
-        const playersWithBuyIn = new Set(
-            (allBuyIns || [])
-                .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
-                .map((b: BuyInRecord) => b.user_id)
-        );
-
-        // 检查哪些玩家已经结账
-        const playersWithCheckout = new Set(
-            (allBuyIns || [])
-                .filter((b: BuyInRecord) => b.type === 'checkout')
-                .map((b: BuyInRecord) => b.user_id)
-        );
-
-        // 找出还没结账的玩家
-        const notCheckedOut: string[] = [];
-        (players || []).forEach((p: PlayerRecord) => {
-            if (playersWithBuyIn.has(p.user_id) && !playersWithCheckout.has(p.user_id)) {
-                notCheckedOut.push(extractUsername(p.users) !== '未知' ? extractUsername(p.users) : p.user_id);
-            }
-        });
-
-        if (notCheckedOut.length > 0) {
-            return res.status(400).json({
-                error: `以下玩家尚未结账，无法关闭房间：${notCheckedOut.join('、')}`,
-                notCheckedOut
-            });
-        }
-
         // ── 验证：账单需要平账 ────────────────────────────────────────────────
+        // 房主提交的 playerResults 中的 finalChips 即为最终筹码（不强制要求每个玩家自行结账）
         const totalBuyInAmount = (allBuyIns || [])
             .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
             .reduce((sum: number, b: BuyInRecord) => sum + b.amount, 0);

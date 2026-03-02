@@ -78,7 +78,14 @@ export function useGameSSE(
                 (payload) => {
                     const newBuyin = payload.new as SupabaseBuyInPayload;
 
-                    if (newBuyin.type === 'checkout') return; // 忽略结账记录
+                    // 结账记录：通知所有人刷新数据（显示谁已结账）
+                    if (newBuyin.type === 'checkout') {
+                        handlersRef.current.onGameRefresh?.({
+                            type: 'checkout',
+                            userId: newBuyin.user_id,
+                        });
+                        return;
+                    }
 
                     if (newBuyin.user_id === userId) {
                         // 是我自己的买入记录被写入
