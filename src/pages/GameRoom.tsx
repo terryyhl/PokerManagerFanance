@@ -76,105 +76,101 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const toolsBtnRef = useRef<HTMLButtonElement>(null);
   const toolsPanelRef = useRef<HTMLDivElement>(null);
   const toolsBackdropRef = useRef<HTMLDivElement>(null);
-  const toolsAnimatingRef = useRef(false);
+  const toolsOpenRef = useRef(false);
 
-  const handleToggleToolsFan = useCallback(() => {
-    if (toolsAnimatingRef.current) return;
-    const opening = !showToolsFan;
-    setShowToolsFan(opening);
-    toolsAnimatingRef.current = true;
+  /** 停止工具面板所有正在运行的动画 */
+  const killToolsAnime = useCallback(() => {
+    const btn = toolsBtnRef.current;
+    const panel = toolsPanelRef.current;
+    const backdrop = toolsBackdropRef.current;
+    if (btn) anime.remove(btn);
+    if (panel) anime.remove(panel);
+    if (backdrop) anime.remove(backdrop);
+    anime.remove('.tools-fan-item');
+  }, []);
+
+  const openToolsFan = useCallback(() => {
+    if (toolsOpenRef.current) return;
+    toolsOpenRef.current = true;
+    setShowToolsFan(true);
+    killToolsAnime();
 
     const btn = toolsBtnRef.current;
     const panel = toolsPanelRef.current;
     const backdrop = toolsBackdropRef.current;
     const items = panel?.querySelectorAll('.tools-fan-item');
 
-    if (opening) {
-      // ── 打开动画 ──────────────────────────────────────
-      // 按钮旋转 + 换色
-      anime({
-        targets: btn,
-        rotate: [0, 135],
-        duration: 400,
-        easing: 'easeOutBack',
-      });
-      if (btn) btn.classList.replace('bg-slate-700', 'bg-primary');
+    // 按钮旋转 + 换色
+    if (btn) {
+      anime({ targets: btn, rotate: [0, 135], duration: 400, easing: 'easeOutBack' });
+      btn.classList.replace('bg-slate-700', 'bg-primary');
+    }
 
-      // 背景遮罩淡入
-      if (backdrop) {
-        backdrop.style.pointerEvents = 'auto';
-        anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
-      }
+    // 背景遮罩淡入
+    if (backdrop) {
+      backdrop.style.pointerEvents = 'auto';
+      anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
+    }
 
-      // 面板滑入
+    // 面板滑入
+    if (panel) {
+      anime({ targets: panel, height: [0, panel.scrollHeight || 72], opacity: [0, 1], duration: 350, easing: 'easeOutCubic' });
+    }
+
+    // 工具图标交错弹入
+    if (items) {
       anime({
-        targets: panel,
-        height: [0, panel?.scrollHeight || 72],
+        targets: items,
         opacity: [0, 1],
-        duration: 350,
-        easing: 'easeOutCubic',
-      });
-
-      // 工具图标交错弹入
-      if (items) {
-        anime({
-          targets: items,
-          opacity: [0, 1],
-          scale: [0, 1],
-          translateY: [-10, 0],
-          delay: anime.stagger(50, { start: 120 }),
-          duration: 400,
-          easing: 'spring(1, 80, 10, 0)',
-          complete: () => { toolsAnimatingRef.current = false; },
-        });
-      } else {
-        toolsAnimatingRef.current = false;
-      }
-    } else {
-      // ── 关闭动画 ──────────────────────────────────────
-      // 按钮旋回
-      anime({
-        targets: btn,
-        rotate: [135, 0],
-        duration: 300,
-        easing: 'easeInQuad',
-      });
-      if (btn) btn.classList.replace('bg-primary', 'bg-slate-700');
-
-      // 工具图标缩小消失
-      if (items) {
-        anime({
-          targets: items,
-          opacity: 0,
-          scale: 0,
-          translateY: -10,
-          duration: 200,
-          easing: 'easeInQuad',
-        });
-      }
-
-      // 背景遮罩淡出
-      if (backdrop) {
-        anime({
-          targets: backdrop,
-          opacity: 0,
-          duration: 250,
-          easing: 'easeInQuad',
-          complete: () => { backdrop.style.pointerEvents = 'none'; },
-        });
-      }
-
-      // 面板收起
-      anime({
-        targets: panel,
-        height: 0,
-        opacity: 0,
-        duration: 280,
-        easing: 'easeInCubic',
-        complete: () => { toolsAnimatingRef.current = false; },
+        scale: [0, 1],
+        translateY: [-10, 0],
+        delay: anime.stagger(50, { start: 120 }),
+        duration: 400,
+        easing: 'spring(1, 80, 10, 0)',
       });
     }
-  }, [showToolsFan]);
+  }, [killToolsAnime]);
+
+  const closeToolsFan = useCallback(() => {
+    if (!toolsOpenRef.current) return;
+    toolsOpenRef.current = false;
+    setShowToolsFan(false);
+    killToolsAnime();
+
+    const btn = toolsBtnRef.current;
+    const panel = toolsPanelRef.current;
+    const backdrop = toolsBackdropRef.current;
+    const items = panel?.querySelectorAll('.tools-fan-item');
+
+    // 按钮旋回
+    if (btn) {
+      anime({ targets: btn, rotate: 0, duration: 250, easing: 'easeOutQuad' });
+      btn.classList.replace('bg-primary', 'bg-slate-700');
+    }
+
+    // 工具图标缩小消失
+    if (items) {
+      anime({ targets: items, opacity: 0, scale: 0, translateY: -10, duration: 150, easing: 'easeInQuad' });
+    }
+
+    // 背景遮罩淡出
+    if (backdrop) {
+      anime({ targets: backdrop, opacity: 0, duration: 200, easing: 'easeInQuad', complete: () => { backdrop.style.pointerEvents = 'none'; } });
+    }
+
+    // 面板收起
+    if (panel) {
+      anime({ targets: panel, height: 0, opacity: 0, duration: 220, easing: 'easeInCubic' });
+    }
+  }, [killToolsAnime]);
+
+  const handleToggleToolsFan = useCallback(() => {
+    if (toolsOpenRef.current) {
+      closeToolsFan();
+    } else {
+      openToolsFan();
+    }
+  }, [openToolsFan, closeToolsFan]);
 
   // 幸运手牌命中庆祝动画
   const [celebrationData, setCelebrationData] = useState<{ combo: string; username: string; hitCount: number } | null>(null);
@@ -693,7 +689,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           ref={toolsBackdropRef}
           className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px]"
           style={{ opacity: 0, pointerEvents: 'none' }}
-          onClick={handleToggleToolsFan}
+          onClick={closeToolsFan}
         />
         <div
           ref={toolsPanelRef}
@@ -713,7 +709,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 <button
                   key={tool.path}
                   onClick={() => {
-                    handleToggleToolsFan();
+                    closeToolsFan();
                     const state: Record<string, unknown> = { fromGame: true };
                     if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
                     navigate(tool.path, { state });

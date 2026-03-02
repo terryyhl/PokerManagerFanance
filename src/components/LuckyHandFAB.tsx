@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import anime from 'animejs';
 import HandComboDisp from './HandComboDisp';
 
@@ -30,112 +30,126 @@ export default function LuckyHandFAB({
 
     const mainBtnRef = useRef<HTMLDivElement>(null);
     const backdropRef = useRef<HTMLDivElement>(null);
-    const animatingRef = useRef(false);
+    const expandedRef = useRef(false); // 跟踪真实展开状态，不依赖 React state 同步
 
-    // 展开/收起动画
-    useEffect(() => {
-        if (animatingRef.current) return;
-        animatingRef.current = true;
+    /** 停止所有正在运行的动画 */
+    const killAll = useCallback(() => {
+        const mainBtn = mainBtnRef.current;
+        const backdrop = backdropRef.current;
+        if (mainBtn) anime.remove(mainBtn);
+        if (backdrop) anime.remove(backdrop);
+        const ring = mainBtnRef.current?.querySelector('.fab-ring');
+        if (ring) anime.remove(ring);
+        anime.remove('.lucky-hand-item');
+    }, []);
+
+    const doOpen = useCallback(() => {
+        if (expandedRef.current) return;
+        expandedRef.current = true;
+        setIsExpanded(true);
+        killAll();
 
         const mainBtn = mainBtnRef.current;
         const backdrop = backdropRef.current;
-        const items = document.querySelectorAll('.lucky-hand-item');
-        const itemCount = items.length;
 
-        if (isExpanded) {
-            // ── 展开动画 ──────────────────────────────────────
-
-            // 主按钮：弹性旋转 + 缩小 + 换色脉冲
-            if (mainBtn) {
-                anime.remove(mainBtn);
-                anime({
-                    targets: mainBtn,
-                    rotate: [0, 135],
-                    scale: [1, 0.88],
-                    duration: 450,
-                    easing: 'easeOutBack',
-                });
-                // 脉冲光环
-                const ring = mainBtn.querySelector('.fab-ring');
-                if (ring) {
-                    anime({
-                        targets: ring,
-                        scale: [0.8, 1.6],
-                        opacity: [0.6, 0],
-                        duration: 600,
-                        easing: 'easeOutQuad',
-                    });
-                }
-            }
-
-            // 背景遮罩淡入
-            if (backdrop) {
-                backdrop.style.pointerEvents = 'auto';
-                anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
-            }
-
-            // 子按钮：弹性扇形弹出 + 旋转入场
+        // 主按钮旋转 + 缩小
+        if (mainBtn) {
             anime({
-                targets: '.lucky-hand-item',
-                translateX: (_el: Element, i: number, l: number) => {
-                    const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
-                    const rad = (angle * Math.PI) / 180;
-                    return Math.cos(rad) * 120;
-                },
-                translateY: (_el: Element, i: number, l: number) => {
-                    const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
-                    const rad = (angle * Math.PI) / 180;
-                    return Math.sin(rad) * 120;
-                },
-                opacity: [0, 1],
-                scale: [0, 1],
-                rotate: ['-45deg', '0deg'],
-                duration: 500,
-                delay: anime.stagger(60, { start: 80 }),
-                easing: 'spring(1, 80, 12, 0)',
-                complete: () => { animatingRef.current = false; },
+                targets: mainBtn,
+                rotate: [0, 135],
+                scale: [1, 0.88],
+                duration: 450,
+                easing: 'easeOutBack',
             });
-        } else {
-            // ── 收起动画 ──────────────────────────────────────
-
-            // 主按钮旋回 + 恢复大小
-            if (mainBtn) {
-                anime.remove(mainBtn);
+            const ring = mainBtn.querySelector('.fab-ring');
+            if (ring) {
                 anime({
-                    targets: mainBtn,
-                    rotate: [135, 0],
-                    scale: [0.88, 1],
-                    duration: 350,
+                    targets: ring,
+                    scale: [0.8, 1.6],
+                    opacity: [0.6, 0],
+                    duration: 600,
                     easing: 'easeOutQuad',
                 });
             }
-
-            // 子按钮快速吸回中心 + 旋转
-            anime({
-                targets: '.lucky-hand-item',
-                translateX: 0,
-                translateY: 0,
-                opacity: 0,
-                scale: 0,
-                rotate: '45deg',
-                duration: 250,
-                delay: anime.stagger(30, { direction: 'reverse' }),
-                easing: 'easeInBack',
-                complete: () => { animatingRef.current = false; },
-            });
-
-            // 背景遮罩淡出
-            if (backdrop) {
-                anime({
-                    targets: backdrop,
-                    opacity: 0,
-                    duration: 250,
-                    easing: 'easeInQuad',
-                    complete: () => { backdrop.style.pointerEvents = 'none'; },
-                });
-            }
         }
-    }, [isExpanded]);
+
+        // 遮罩淡入
+        if (backdrop) {
+            backdrop.style.pointerEvents = 'auto';
+            anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
+        }
+
+        // 子按钮弹出
+        anime({
+            targets: '.lucky-hand-item',
+            translateX: (_el: Element, i: number, l: number) => {
+                const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
+                return Math.cos((angle * Math.PI) / 180) * 120;
+            },
+            translateY: (_el: Element, i: number, l: number) => {
+                const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
+                return Math.sin((angle * Math.PI) / 180) * 120;
+            },
+            opacity: [0, 1],
+            scale: [0, 1],
+            rotate: ['-45deg', '0deg'],
+            duration: 500,
+            delay: anime.stagger(60, { start: 80 }),
+            easing: 'spring(1, 80, 12, 0)',
+        });
+    }, [killAll]);
+
+    const doClose = useCallback(() => {
+        if (!expandedRef.current) return;
+        expandedRef.current = false;
+        setIsExpanded(false);
+        killAll();
+
+        const mainBtn = mainBtnRef.current;
+        const backdrop = backdropRef.current;
+
+        // 主按钮旋回
+        if (mainBtn) {
+            anime({
+                targets: mainBtn,
+                rotate: 0,
+                scale: 1,
+                duration: 250,
+                easing: 'easeOutQuad',
+            });
+        }
+
+        // 子按钮吸回
+        anime({
+            targets: '.lucky-hand-item',
+            translateX: 0,
+            translateY: 0,
+            opacity: 0,
+            scale: 0,
+            rotate: '45deg',
+            duration: 200,
+            easing: 'easeInQuad',
+        });
+
+        // 遮罩淡出
+        if (backdrop) {
+            anime({
+                targets: backdrop,
+                opacity: 0,
+                duration: 200,
+                easing: 'easeInQuad',
+                complete: () => { backdrop.style.pointerEvents = 'none'; },
+            });
+        }
+    }, [killAll]);
+
+    const handleToggle = useCallback(() => {
+        if (expandedRef.current) {
+            doClose();
+        } else {
+            doOpen();
+        }
+    }, [doOpen, doClose]);
 
     // 渲染已配置槽位的牌面摘要
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
@@ -160,7 +174,7 @@ export default function LuckyHandFAB({
                 ref={backdropRef}
                 className="fixed inset-0 z-40 bg-black/25"
                 style={{ opacity: 0, pointerEvents: 'none' }}
-                onClick={() => setIsExpanded(false)}
+                onClick={doClose}
             />
 
             <div className="fixed bottom-24 right-6 z-50 flex items-center justify-center select-none">
@@ -173,9 +187,9 @@ export default function LuckyHandFAB({
                             <div
                                 key={slotIndex}
                                 onClick={() => {
-                                    if (!isExpanded) return;
+                                    if (!expandedRef.current) return;
                                     onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
-                                    setIsExpanded(false);
+                                    doClose();
                                 }}
                                 className={`lucky-hand-item absolute w-[4.5rem] h-[4.5rem] rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto active:scale-95 ${configured
                                     ? 'bg-indigo-600 text-white border-2 border-indigo-400 shadow-indigo-500/30'
@@ -214,7 +228,7 @@ export default function LuckyHandFAB({
                     onPointerUp={() => {
                         if (mainPressTimer) clearTimeout(mainPressTimer);
                         if (!isMainLongPressing) {
-                            setIsExpanded(!isExpanded);
+                            handleToggle();
                         }
                         setIsMainLongPressing(false);
                     }}
@@ -236,7 +250,7 @@ export default function LuckyHandFAB({
                         {isExpanded ? 'close' : 'playing_cards'}
                     </span>
 
-                    {/* 角标：有命中显示火焰+命中数，仅配置未命中显示配置数 */}
+                    {/* 角标 */}
                     {!isExpanded && configuredHands.length > 0 && (() => {
                         const totalHits = configuredHands.reduce((sum, h) => sum + h.hit_count, 0);
                         return (
