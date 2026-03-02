@@ -284,7 +284,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   }, [buyIns.length, pendingRequests.length]);
 
   // ── SSE 长连接 ─────────────────────────────────────────────────────────────
-  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop } = useGameSSE(id, user?.id, {
+  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, setActiveTimerRef } = useGameSSE(id, user?.id, {
     onConnected: (isHost) => {
       console.log('[SSE] connected, isHost=', isHost);
     },

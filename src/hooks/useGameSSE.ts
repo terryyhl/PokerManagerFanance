@@ -72,6 +72,7 @@ export function useGameSSE(
     markPendingSubmitted: (amount: number, type: 'initial' | 'rebuy') => void;
     broadcastTimerStart: (data: ActiveTimerEvent) => void;
     broadcastTimerStop: (targetUserId: string) => void;
+    setActiveTimerRef: (data: ActiveTimerEvent | null) => void;
 } {
     const handlersRef = useRef<SSEHandlers>(handlers);
     handlersRef.current = handlers;
@@ -79,16 +80,24 @@ export function useGameSSE(
     // 记录「我已提交待审核申请」的信息
     const pendingSubmittedRef = useRef<{ amount: number; type: 'initial' | 'rebuy' } | null>(null);
     const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    // 记录当前活跃的催促计时器（用于 sync_request 响应）
+    const activeTimerRef = useRef<ActiveTimerEvent | null>(null);
 
     const markPendingSubmitted = useCallback((amount: number, type: 'initial' | 'rebuy') => {
         pendingSubmittedRef.current = { amount, type };
     }, []);
 
+    const setActiveTimerRef = useCallback((data: ActiveTimerEvent | null) => {
+        activeTimerRef.current = data;
+    }, []);
+
     const broadcastTimerStart = useCallback((data: ActiveTimerEvent) => {
+        activeTimerRef.current = data;
         broadcastChannelRef.current?.send({ type: 'broadcast', event: 'timer_start', payload: data });
     }, []);
 
     const broadcastTimerStop = useCallback((targetUserId: string) => {
+        activeTimerRef.current = null;
         broadcastChannelRef.current?.send({ type: 'broadcast', event: 'timer_stop', payload: { targetUserId } });
     }, []);
 
@@ -99,13 +108,44 @@ export function useGameSSE(
         const broadcastChannel = supabase.channel(`game-broadcast:${gameId}`)
             .on('broadcast', { event: 'timer_start' }, (payload) => {
                 const data = payload.payload as ActiveTimerEvent;
+                activeTimerRef.current = data;
                 handlersRef.current.onTimerStart?.(data);
             })
             .on('broadcast', { event: 'timer_stop' }, (payload) => {
                 const data = payload.payload as { targetUserId: string };
+                activeTimerRef.current = null;
                 handlersRef.current.onTimerStop?.(data);
             })
-            .subscribe();
+            .on('broadcast', { event: 'sync_request' }, () => {
+                // 只有计时器发起者回复，避免多人同时响应
+                const timer = activeTimerRef.current;
+                if (timer && timer.startedBy === userId) {
+                    broadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'sync_response',
+                        payload: { activeTimer: timer },
+                    });
+                }
+            })
+            .on('broadcast', { event: 'sync_response' }, (payload) => {
+                const data = payload.payload as { activeTimer: ActiveTimerEvent | null };
+                if (data.activeTimer && !activeTimerRef.current) {
+                    activeTimerRef.current = data.activeTimer;
+                    handlersRef.current.onTimerStart?.(data.activeTimer);
+                }
+            })
+            .subscribe((status) => {
+                // 订阅成功后发送同步请求，获取当前房间状态
+                if (status === 'SUBSCRIBED') {
+                    setTimeout(() => {
+                        broadcastChannel.send({
+                            type: 'broadcast',
+                            event: 'sync_request',
+                            payload: { userId },
+                        });
+                    }, 500);
+                }
+            });
         broadcastChannelRef.current = broadcastChannel;
 
         // ─── Supabase Realtime 订阅 ──────────────────────────────────────────
@@ -243,5 +283,5 @@ export function useGameSSE(
         };
     }, [gameId, userId]);
 
-    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop };
+    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, setActiveTimerRef };
 }
