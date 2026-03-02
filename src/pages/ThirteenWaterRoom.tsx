@@ -218,6 +218,14 @@ const CardPickerModal: React.FC<{
   const laneLabels = { head: '头道 (3)', mid: '中道 (5)', tail: '尾道 (5)' };
   const currentLaneCards = laneCards[activeLane];
   const currentLaneFull = currentLaneCards.length >= laneMax[activeLane];
+  // 当前道已选的牌（可以点击取消）
+  const currentLaneSet = new Set(currentLaneCards);
+  // 其他道已选的牌（禁用，不可选也不可取消）
+  const otherLaneCards = new Set(
+    (['head', 'mid', 'tail'] as const)
+      .filter(l => l !== activeLane)
+      .flatMap(l => laneCards[l])
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col">
@@ -253,13 +261,17 @@ const CardPickerModal: React.FC<{
             <div className="grid grid-cols-7 gap-1.5">
               {RANKS.map(rank => {
                 const card = `${rank}${suit}`;
-                const isSelected = selectedSet.has(card);
-                const isDisabled = !isSelected && (selectedCards.length >= 13 || currentLaneFull);
+                const inCurrentLane = currentLaneSet.has(card);
+                const inOtherLane = otherLaneCards.has(card);
+                const isSelected = inCurrentLane || inOtherLane;
+                // 其他道已选的牌：禁用（灰色且不可操作）
+                // 当前道已满或总数已达13：禁用新选
+                const isDisabled = inOtherLane || (!inCurrentLane && (selectedCards.length >= 13 || currentLaneFull));
                 const url = cardToUrl(card);
                 return (
-                  <button key={card} disabled={isDisabled && !isSelected} onClick={() => isSelected ? onRemoveCard(card) : onSelectCard(card)}
+                  <button key={card} disabled={isDisabled && !inCurrentLane} onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? onSelectCard(card) : undefined}
                     className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all
-                      ${isSelected ? 'border-primary ring-2 ring-primary shadow-lg scale-95' : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
+                      ${inCurrentLane ? 'border-primary ring-2 ring-primary shadow-lg scale-95' : inOtherLane ? 'border-transparent opacity-20 cursor-not-allowed grayscale' : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
                     {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
                   </button>
                 );
@@ -272,15 +284,16 @@ const CardPickerModal: React.FC<{
             <div className="flex items-center gap-1 mb-1.5 px-1"><span className="text-sm text-purple-400">大小王</span></div>
             <div className="flex flex-wrap gap-1">
               {Array.from({ length: ghostCount }, (_, i) => `JK${i + 1}`).map(card => {
-                const isSelected = selectedSet.has(card);
-                const isDisabled = !isSelected && (selectedCards.length >= 13 || currentLaneFull);
+                const inCurrentLane = currentLaneSet.has(card);
+                const inOtherLane = otherLaneCards.has(card);
+                const isDisabled = inOtherLane || (!inCurrentLane && (selectedCards.length >= 13 || currentLaneFull));
                 const num = parseInt(card.slice(2));
                 const isBlack = num <= 3;
                 const url = cardToUrl(card);
                 return (
-                  <button key={card} disabled={isDisabled && !isSelected} onClick={() => isSelected ? onRemoveCard(card) : onSelectCard(card)}
+                  <button key={card} disabled={isDisabled && !inCurrentLane} onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? onSelectCard(card) : undefined}
                     className={`w-[42px] h-[58px] rounded-lg overflow-hidden border transition-all relative
-                      ${isSelected ? 'border-purple-400 ring-2 ring-purple-400 shadow-lg scale-95' : isDisabled ? 'border-white/5 opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
+                      ${inCurrentLane ? 'border-purple-400 ring-2 ring-purple-400 shadow-lg scale-95' : inOtherLane ? 'border-white/5 opacity-20 cursor-not-allowed grayscale' : isDisabled ? 'border-white/5 opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-105 active:scale-95 cursor-pointer shadow-sm'}`}>
                     {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
                     <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold ${isBlack ? 'text-slate-800' : 'text-red-500'} bg-white/80 px-1`}>
                       {isBlack ? '大王' : '小王'}
