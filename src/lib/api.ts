@@ -83,9 +83,12 @@ export interface LeaderboardEntry {
 
 // ──────────────────────────── Games API ────────────────────────────────────
 
+export type RoomType = 'texas' | 'thirteen';
+
 export interface Game {
     id: string;
     name: string;
+    room_type: RoomType;
     blind_level: string;
     min_buyin: number;
     max_buyin: number;
@@ -93,6 +96,12 @@ export interface Game {
     room_code: string;
     status: 'active' | 'finished';
     lucky_hands_count: number;
+    // 13水专属配置
+    thirteen_base_score: number;
+    thirteen_ghost_count: number;
+    thirteen_compare_suit: boolean;
+    thirteen_max_players: number;
+    thirteen_time_limit: number;
     created_by: string;
     created_at: string;
     finished_at?: string;
@@ -118,6 +127,24 @@ export interface Player {
     users?: { id: string; username: string };
 }
 
+export interface CreateGameOptions {
+    name: string;
+    userId: string;
+    roomType?: RoomType;
+    // 德州配置
+    blindLevel?: string;
+    minBuyin?: number;
+    maxBuyin?: number;
+    insuranceMode?: boolean;
+    luckyHandsCount?: number;
+    // 13水配置
+    thirteenBaseScore?: number;
+    thirteenGhostCount?: number;
+    thirteenCompareSuit?: boolean;
+    thirteenMaxPlayers?: number;
+    thirteenTimeLimit?: number;
+}
+
 export const gamesApi = {
     list: () =>
         request<{ games: Game[] }>('GET', '/games'),
@@ -128,9 +155,8 @@ export const gamesApi = {
     get: (id: string) =>
         request<{ game: Game; buyIns: BuyIn[]; players: Player[] }>('GET', `/games/${id}`),
 
-    // 默认创建时开启幸运手牌次数为 0，让房间创建接口能够接收到该值
-    create: (name: string, userId: string, blindLevel?: string, minBuyin?: number, maxBuyin?: number, insuranceMode?: boolean, luckyHandsCount?: number) =>
-        request<{ game: Game }>('POST', '/games', { name, userId, blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount }),
+    create: (opts: CreateGameOptions) =>
+        request<{ game: Game }>('POST', '/games', opts),
 
     join: (roomCode: string, userId: string) =>
         request<{ game: Game }>('POST', '/games/join', { roomCode, userId }),

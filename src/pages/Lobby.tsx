@@ -150,34 +150,75 @@ export default function Lobby() {
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h4 className="font-bold text-slate-900 dark:text-white text-base mb-1">{game.name}</h4>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">德州扑克 . 盲注 {game.blind_level}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                          {game.room_type === 'thirteen' ? '十三水' : '德州扑克'}
+                          {game.room_type === 'thirteen'
+                            ? ` · 底分 ${game.thirteen_base_score || 1}`
+                            : ` · 盲注 ${game.blind_level}`
+                          }
+                        </p>
                         <div className="flex items-center gap-3 mt-2">
-                          <div className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-primary text-base">payments</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white">{game.blind_level} 积分</span>
-                          </div>
-                          <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                          <div className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-slate-400 text-base">group</span>
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{getPlayerCount(game)} 人</span>
-                          </div>
+                          {game.room_type === 'thirteen' ? (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <span className="text-base">🀄</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">{game.thirteen_base_score || 1}分/水</span>
+                              </div>
+                              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                              <div className="flex items-center gap-1">
+                                <span className="material-symbols-outlined text-slate-400 text-base">group</span>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{getPlayerCount(game)}/{game.thirteen_max_players || 4}人</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <span className="material-symbols-outlined text-primary text-base">payments</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">{game.blind_level} 积分</span>
+                              </div>
+                              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                              <div className="flex items-center gap-1">
+                                <span className="material-symbols-outlined text-slate-400 text-base">group</span>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{getPlayerCount(game)} 人</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">最低买入</p>
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{game.min_buyin} 积分</p>
+                        {game.room_type === 'thirteen' ? (
+                          <>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">鬼牌</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{game.thirteen_ghost_count || 6}张</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">最低买入</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{game.min_buyin} 积分</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 mb-3">
+                      {game.room_type === 'thirteen' ? (
+                        <span className="bg-purple-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">🀄 十三水</span>
+                      ) : (
+                        <span className="bg-blue-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">🃏 德州</span>
+                      )}
                       <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">进行中</span>
                       <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded">
                         <span className="material-symbols-outlined text-[12px]">lock</span>
                         密码房间
                       </span>
-                      {game.insurance_mode && (
+                      {game.room_type === 'texas' && game.insurance_mode && (
                         <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded">
                           <span className="material-symbols-outlined text-[12px]">verified_user</span>
                           带入审核
+                        </span>
+                      )}
+                      {game.room_type === 'thirteen' && game.thirteen_compare_suit && (
+                        <span className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                          ♠♥ 比花色
                         </span>
                       )}
                     </div>

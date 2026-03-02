@@ -156,7 +156,14 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
     try {
-        const { name, blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount, userId } = req.body;
+        const {
+            name, userId, roomType,
+            // 德州配置
+            blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount,
+            // 13水配置
+            thirteenBaseScore, thirteenGhostCount, thirteenCompareSuit,
+            thirteenMaxPlayers, thirteenTimeLimit,
+        } = req.body;
 
         if (!name || !userId) {
             return res.status(400).json({ error: '缺少必要参数' });
@@ -166,6 +173,8 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: '房间名称不能为空' });
         }
 
+        const type = roomType === 'thirteen' ? 'thirteen' : 'texas';
+
         // 生成唯一房间码：利用数据库唯一约束 + 重试机制
         let data = null;
         let lastError = null;
@@ -174,19 +183,32 @@ router.post('/', async (req, res) => {
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             const roomCode = generateRoomCode();
 
+            const insertPayload: Record<string, unknown> = {
+                name: name.trim(),
+                room_type: type,
+                room_code: roomCode,
+                status: 'active',
+                created_by: userId,
+                // 德州字段（13水房间也保留默认值，不影响）
+                blind_level: blindLevel || '1/2',
+                min_buyin: minBuyin || 100,
+                max_buyin: maxBuyin || 400,
+                insurance_mode: insuranceMode || false,
+                lucky_hands_count: luckyHandsCount || 0,
+            };
+
+            // 13水专属配置
+            if (type === 'thirteen') {
+                insertPayload.thirteen_base_score = thirteenBaseScore || 1;
+                insertPayload.thirteen_ghost_count = [0, 2, 4, 6].includes(thirteenGhostCount) ? thirteenGhostCount : 6;
+                insertPayload.thirteen_compare_suit = thirteenCompareSuit !== false;
+                insertPayload.thirteen_max_players = Math.min(4, Math.max(2, thirteenMaxPlayers || 4));
+                insertPayload.thirteen_time_limit = thirteenTimeLimit || 90;
+            }
+
             const { data: insertedGame, error: insertError } = await supabase
                 .from('games')
-                .insert({
-                    name: name.trim(),
-                    blind_level: blindLevel || '1/2',
-                    min_buyin: minBuyin || 100,
-                    max_buyin: maxBuyin || 400,
-                    insurance_mode: insuranceMode || false,
-                    lucky_hands_count: luckyHandsCount || 0,
-                    room_code: roomCode,
-                    status: 'active',
-                    created_by: userId,
-                })
+                .insert(insertPayload)
                 .select()
                 .single();
 
@@ -251,6 +273,28 @@ router.post('/join', async (req, res) => {
 
         if (gameError || !game) {
             return res.status(404).json({ error: '房间不存在或已结束' });
+        }
+
+        // 13水房间检查最大人数限制
+        if (game.room_type === 'thirteen') {
+            const maxPlayers = game.thirteen_max_players || 4;
+            const { count, error: countErr } = await supabase
+                .from('game_players')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_id', game.id);
+
+            if (!countErr && count !== null && count >= maxPlayers) {
+                // 检查是否已在房间内（允许重复加入）
+                const { data: existing } = await supabase
+                    .from('game_players')
+                    .select('id')
+                    .eq('game_id', game.id)
+                    .eq('user_id', userId)
+                    .single();
+                if (!existing) {
+                    return res.status(400).json({ error: `房间已满（最多${maxPlayers}人）` });
+                }
+            }
         }
 
         // 加入游戏（如果已加入则忽略）

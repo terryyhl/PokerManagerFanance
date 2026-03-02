@@ -6,7 +6,7 @@ import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import JoinRoom from './pages/JoinRoom';
 import CreateGame from './pages/CreateGame';
-import GameRoom from './pages/GameRoom';
+import GameRouter from './components/GameRouter';
 import PersonalBill from './pages/PersonalBill';
 import SettlementReport from './pages/SettlementReport';
 import LuckyHandHistory from './pages/LuckyHandHistory';
@@ -107,7 +107,7 @@ function AppShell() {
             style={{ visibility: gameRoomVisible ? 'visible' : 'hidden' }}
           >
             {/* forcedId 绕过 useParams 在 keep-alive 层外获取不到参数的问题 */}
-            <GameRoom forcedId={mountedGameId} />
+            <GameRouter forcedId={mountedGameId} />
           </div>
         </ProtectedRoute>
       )}
