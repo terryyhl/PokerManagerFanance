@@ -10,6 +10,7 @@ export interface SSEHandlers {
     onBuyinRejected?: (data: { amount: number; type: string; requestId: string }) => void;
     onGameSettled?: (data: { message: string }) => void;
     onLobbyRefresh?: (data: { gameId: string }) => void;
+    onShameTimer?: (data: { targetUserId: string; startedBy: string; durationSeconds: number }) => void;
 }
 
 export interface PendingBuyinEvent {
@@ -182,6 +183,18 @@ export function useGameSSE(
                     if (newPlayer.user_id !== userId) {
                         handlersRef.current.onGameRefresh?.({ type: 'player_joined', userId: newPlayer.user_id });
                     }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'shame_timers', filter: `game_id=eq.${gameId}` },
+                (payload) => {
+                    const record = payload.new as { target_user_id: string; started_by: string; duration_seconds: number };
+                    handlersRef.current.onShameTimer?.({
+                        targetUserId: record.target_user_id,
+                        startedBy: record.started_by,
+                        durationSeconds: record.duration_seconds,
+                    });
                 }
             )
             .subscribe();

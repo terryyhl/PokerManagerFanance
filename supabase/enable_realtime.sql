@@ -4,3 +4,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE games;
 ALTER PUBLICATION supabase_realtime ADD TABLE game_players;
 ALTER PUBLICATION supabase_realtime ADD TABLE buy_ins;
 ALTER PUBLICATION supabase_realtime ADD TABLE pending_buyins;
+ALTER PUBLICATION supabase_realtime ADD TABLE shame_timers;

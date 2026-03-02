@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
-import { usersApi, LuckyHandHistory } from '../lib/api';
+import { usersApi, LuckyHandHistory, timerApi, ShameTimerUserStats } from '../lib/api';
 import Avatar from '../components/Avatar';
 import HandComboDisp from '../components/HandComboDisp';
 
@@ -30,6 +30,7 @@ export default function Profile() {
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
     const [history, setHistory] = useState<GameHistoryItem[]>([]);
     const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
+    const [timerStats, setTimerStats] = useState<ShameTimerUserStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -43,13 +44,15 @@ export default function Profile() {
 
         const fetchProfileData = async () => {
             try {
-                const [statsResult, luckyResult] = await Promise.all([
+                const [statsResult, luckyResult, timerResult] = await Promise.all([
                     usersApi.getStats(user.id),
                     usersApi.getLuckyHandsHistory(user.id),
+                    timerApi.getUserStats(user.id).catch(() => ({ stats: null })),
                 ]);
                 setStats(statsResult.stats);
                 setHistory(statsResult.history);
                 setLuckyHands(luckyResult.luckyHands);
+                if (timerResult.stats) setTimerStats(timerResult.stats);
             } catch (err) {
                 console.error('Failed to load profile data:', err);
                 setError(true);
@@ -145,6 +148,38 @@ export default function Profile() {
                             </p>
                         </div>
                     </div>
+
+                    {/* 思考计时生涯统计 */}
+                    {!isLoading && timerStats && timerStats.timedCount > 0 && (
+                        <div className="mb-5">
+                            <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-orange-500">timer</span>
+                                思考计时
+                            </h3>
+                            <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 dark:from-orange-900/20 dark:to-amber-900/10 p-4 rounded-2xl shadow-sm border border-orange-200/50 dark:border-orange-800/30">
+                                <div className="grid grid-cols-4 gap-2">
+                                    <div className="flex flex-col items-center py-2">
+                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.timedCount}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold mt-1">被催次数</span>
+                                    </div>
+                                    <div className="flex flex-col items-center py-2">
+                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.avgSeconds}s</span>
+                                        <span className="text-[10px] text-slate-500 font-bold mt-1">平均时长</span>
+                                    </div>
+                                    <div className="flex flex-col items-center py-2">
+                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">{timerStats.maxSeconds}s</span>
+                                        <span className="text-[10px] text-slate-500 font-bold mt-1">最长一次</span>
+                                    </div>
+                                    <div className="flex flex-col items-center py-2">
+                                        <span className="text-xl font-black text-orange-600 dark:text-orange-400">
+                                            {Math.floor(timerStats.totalSeconds / 60)}m
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 font-bold mt-1">累计时长</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Lucky Hands Top 3 */}
                     {!isLoading && topLuckyHands.length > 0 && (

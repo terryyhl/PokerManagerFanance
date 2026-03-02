@@ -97,6 +97,18 @@ CREATE TABLE IF NOT EXISTS pending_lucky_hits (
 );
 
 -- ============================================
+-- 思考计时记录表（趣味互动：催促对手出牌）
+-- ============================================
+CREATE TABLE IF NOT EXISTS shame_timers (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id         UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  target_user_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  started_by      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  duration_seconds INTEGER NOT NULL CHECK (duration_seconds >= 0),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
 -- 索引优化
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_games_status        ON games(status);
@@ -106,6 +118,8 @@ CREATE INDEX IF NOT EXISTS idx_game_players_user   ON game_players(user_id);
 CREATE INDEX IF NOT EXISTS idx_buy_ins_game        ON buy_ins(game_id);
 CREATE INDEX IF NOT EXISTS idx_buy_ins_user        ON buy_ins(user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_game    ON settlements(game_id);
+CREATE INDEX IF NOT EXISTS idx_shame_timers_game   ON shame_timers(game_id);
+CREATE INDEX IF NOT EXISTS idx_shame_timers_target ON shame_timers(target_user_id);
 
 -- ============================================
 -- Row Level Security (RLS) - 基础配置
@@ -125,6 +139,8 @@ CREATE POLICY "Allow all for anon" ON buy_ins      FOR ALL USING (true) WITH CHE
 CREATE POLICY "Allow all for anon" ON settlements  FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON lucky_hands  FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON pending_lucky_hits FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE shame_timers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for anon" ON shame_timers FOR ALL USING (true) WITH CHECK (true);
 
 -- 开启实时订阅
 ALTER PUBLICATION supabase_realtime ADD TABLE lucky_hands;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { playerStatsApi, PlayerBuyInRecord, luckyHandsApi, LuckyHand } from '../lib/api';
+import { playerStatsApi, PlayerBuyInRecord, luckyHandsApi, LuckyHand, timerApi, ShameTimerGameStats } from '../lib/api';
 import { LuckyHandData } from './LuckyHandFAB';
 import Avatar from './Avatar';
 import HandComboDisp from './HandComboDisp';
@@ -28,6 +28,7 @@ export default function PlayerStatsModal({
     const [buyInRecords, setBuyInRecords] = useState<PlayerBuyInRecord[]>([]);
     const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number; created_at: string } | null>(null);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
+    const [timerStats, setTimerStats] = useState<ShameTimerGameStats | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(false);
 
@@ -63,6 +64,15 @@ export default function PlayerStatsModal({
                         setLuckyHands(playerHands);
                     }
                 }
+
+                // Fetch timer stats
+                try {
+                    const { stats: allTimerStats } = await timerApi.getGameStats(gameId);
+                    if (isMounted) {
+                        const playerTimer = allTimerStats.find(s => s.userId === userId);
+                        setTimerStats(playerTimer || null);
+                    }
+                } catch { /* timer stats are optional */ }
             } catch (err) {
                 console.error('Fetch player stats error:', err);
                 if (isMounted) setError(true);
@@ -195,6 +205,30 @@ export default function PlayerStatsModal({
                                     </div>
                                 )}
                             </div>
+
+                            {/* 思考计时统计 */}
+                            {timerStats && timerStats.count > 0 && (
+                                <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800/40">
+                                    <div className="text-sm text-orange-600 dark:text-orange-400 font-bold mb-3 flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[18px]">timer</span>
+                                        本局思考计时
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{timerStats.count}</span>
+                                            <span className="text-[10px] text-slate-500 font-bold mt-0.5">被催次数</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{timerStats.avgSeconds}s</span>
+                                            <span className="text-[10px] text-slate-500 font-bold mt-0.5">平均时长</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{timerStats.maxSeconds}s</span>
+                                            <span className="text-[10px] text-slate-500 font-bold mt-0.5">最长一次</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Lucky Hands Section */}
                             {luckyHandsCount > 0 && (

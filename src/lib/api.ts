@@ -228,6 +228,52 @@ export const playerStatsApi = {
 
 // ──────────────────────────── Lucky Hands API ─────────────────────────────
 
+// ──────────────────────────── Timer (Shame Timer) API ──────────────────────
+
+export interface ShameTimerRecord {
+    id: string;
+    game_id: string;
+    target_user_id: string;
+    started_by: string;
+    duration_seconds: number;
+    created_at: string;
+    target?: { id: string; username: string };
+    starter?: { id: string; username: string };
+}
+
+export interface ShameTimerGameStats {
+    userId: string;
+    count: number;
+    totalSeconds: number;
+    avgSeconds: number;
+    maxSeconds: number;
+}
+
+export interface ShameTimerUserStats {
+    timedCount: number;
+    totalSeconds: number;
+    avgSeconds: number;
+    maxSeconds: number;
+}
+
+export const timerApi = {
+    /** 记录一次思考计时 */
+    record: (gameId: string, targetUserId: string, startedBy: string, durationSeconds: number) =>
+        request<{ record: ShameTimerRecord }>('POST', '/timer/record', { gameId, targetUserId, startedBy, durationSeconds }),
+
+    /** 获取某局所有计时记录 */
+    getGameRecords: (gameId: string) =>
+        request<{ records: ShameTimerRecord[] }>('GET', `/timer/game/${gameId}`),
+
+    /** 获取某局每人计时统计 */
+    getGameStats: (gameId: string) =>
+        request<{ stats: ShameTimerGameStats[] }>('GET', `/timer/game/${gameId}/stats`),
+
+    /** 获取某用户跨游戏的计时统计（个人中心用） */
+    getUserStats: (userId: string) =>
+        request<{ stats: ShameTimerUserStats }>('GET', `/timer/user/${userId}/stats`),
+};
+
 export const luckyHandsApi = {
     getAll: (gameId: string) =>
         request<{ luckyHands: LuckyHand[] }>('GET', `/lucky-hands/${gameId}`),

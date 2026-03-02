@@ -15,6 +15,10 @@ import PokerCardDisp from '../components/PokerCardDisp';
 import HandComboDisp from '../components/HandComboDisp';
 import LuckyHandsTVDashboard from '../components/LuckyHandsTVDashboard';
 import LuckyHandCelebration from '../components/LuckyHandCelebration';
+import PlayerActionPopup, { PlayerActionTarget } from '../components/PlayerActionPopup';
+import ShameTimerOverlay from '../components/ShameTimerOverlay';
+import EggThrowAnimation from '../components/EggThrowAnimation';
+import { timerApi } from '../lib/api';
 
 interface GameRoomProps {
   forcedId?: string;
@@ -71,6 +75,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [showTVDashboard, setShowTVDashboard] = useState(false);
 
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<{ id: string; username: string } | null>(null);
+
+  // 长按交互
+  const [actionPopupTarget, setActionPopupTarget] = useState<PlayerActionTarget | null>(null);
+  const [shameTimerTarget, setShameTimerTarget] = useState<{ userId: string; username: string } | null>(null);
+  const [eggTarget, setEggTarget] = useState<string | null>(null); // username
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
 
   // 工具按钮展开面板
   const [showToolsFan, setShowToolsFan] = useState(false);
@@ -346,6 +357,59 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  // ── 长按头像交互 ────────────────────────────────────────────────────────────
+  const handleAvatarTouchStart = useCallback((playerId: string, playerName: string, e: React.TouchEvent | React.MouseEvent) => {
+    longPressFiredRef.current = false;
+    const target = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true;
+      // 触发触觉反馈（如果支持）
+      if ('vibrate' in navigator) navigator.vibrate(30);
+      setActionPopupTarget({ userId: playerId, username: playerName, rect: target });
+    }, 500);
+  }, []);
+
+  const handleAvatarTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleAvatarClick = useCallback((playerId: string, playerName: string) => {
+    // 如果是长按触发了弹窗，忽略 click
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    setSelectedPlayerStats({ id: playerId, username: playerName });
+  }, []);
+
+  const handleStartTimer = useCallback(() => {
+    if (!actionPopupTarget) return;
+    const target = { userId: actionPopupTarget.userId, username: actionPopupTarget.username };
+    setActionPopupTarget(null);
+    setShameTimerTarget(target);
+  }, [actionPopupTarget]);
+
+  const handleStopTimer = useCallback(async (durationSeconds: number) => {
+    if (!shameTimerTarget || !user || !id) return;
+    try {
+      await timerApi.record(id, shameTimerTarget.userId, user.id, durationSeconds);
+      showToast(`${shameTimerTarget.username} 思考了 ${durationSeconds} 秒`, 'info');
+    } catch (err) {
+      console.error('Record timer error:', err);
+    }
+    setShameTimerTarget(null);
+  }, [shameTimerTarget, user, id]);
+
+  const handleThrowEgg = useCallback(() => {
+    if (!actionPopupTarget) return;
+    const name = actionPopupTarget.username;
+    setActionPopupTarget(null);
+    setEggTarget(name);
+  }, [actionPopupTarget]);
 
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
@@ -641,7 +705,14 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
                   return (
                     <div key={player.id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                      onClick={() => setSelectedPlayerStats({ id: player.user_id, username: player.users?.username || '?' })}
+                      onClick={() => handleAvatarClick(player.user_id, player.users?.username || '?')}
+                      onTouchStart={(e) => handleAvatarTouchStart(player.user_id, player.users?.username || '?', e)}
+                      onTouchEnd={handleAvatarTouchEnd}
+                      onTouchCancel={handleAvatarTouchEnd}
+                      onMouseDown={(e) => handleAvatarTouchStart(player.user_id, player.users?.username || '?', e)}
+                      onMouseUp={handleAvatarTouchEnd}
+                      onMouseLeave={handleAvatarTouchEnd}
+                      onContextMenu={(e) => e.preventDefault()}
                     >
                       <div className="relative">
                         <Avatar
@@ -1282,6 +1353,36 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             username={celebrationData.username}
             hitCount={celebrationData.hitCount}
             onComplete={() => setCelebrationData(null)}
+          />
+        )}
+
+        {/* 长按头像 — 趣味交互弹窗 */}
+        {actionPopupTarget && (
+          <PlayerActionPopup
+            target={actionPopupTarget}
+            onClose={() => setActionPopupTarget(null)}
+            onStartTimer={handleStartTimer}
+            onThrowEgg={handleThrowEgg}
+            isSelf={actionPopupTarget.userId === user?.id}
+          />
+        )}
+
+        {/* 思考计时器覆盖层 */}
+        {shameTimerTarget && user && (
+          <ShameTimerOverlay
+            targetUsername={shameTimerTarget.username}
+            targetUserId={shameTimerTarget.userId}
+            startedByUsername={user.username}
+            onStop={handleStopTimer}
+            onCancel={() => setShameTimerTarget(null)}
+          />
+        )}
+
+        {/* 扔鸡蛋动画 */}
+        {eggTarget && (
+          <EggThrowAnimation
+            targetUsername={eggTarget}
+            onComplete={() => setEggTarget(null)}
           />
         )}
       </div>
