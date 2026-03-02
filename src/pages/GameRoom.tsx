@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
 
 import { gamesApi, buyInApi, pendingBuyInApi, luckyHandsApi, BuyIn, Game, Player } from '../lib/api';
@@ -72,6 +73,108 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // 工具按钮展开面板
   const [showToolsFan, setShowToolsFan] = useState(false);
+  const toolsBtnRef = useRef<HTMLButtonElement>(null);
+  const toolsPanelRef = useRef<HTMLDivElement>(null);
+  const toolsBackdropRef = useRef<HTMLDivElement>(null);
+  const toolsAnimatingRef = useRef(false);
+
+  const handleToggleToolsFan = useCallback(() => {
+    if (toolsAnimatingRef.current) return;
+    const opening = !showToolsFan;
+    setShowToolsFan(opening);
+    toolsAnimatingRef.current = true;
+
+    const btn = toolsBtnRef.current;
+    const panel = toolsPanelRef.current;
+    const backdrop = toolsBackdropRef.current;
+    const items = panel?.querySelectorAll('.tools-fan-item');
+
+    if (opening) {
+      // ── 打开动画 ──────────────────────────────────────
+      // 按钮旋转 + 换色
+      anime({
+        targets: btn,
+        rotate: [0, 135],
+        duration: 400,
+        easing: 'easeOutBack',
+      });
+      if (btn) btn.classList.replace('bg-slate-700', 'bg-primary');
+
+      // 背景遮罩淡入
+      if (backdrop) {
+        backdrop.style.pointerEvents = 'auto';
+        anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
+      }
+
+      // 面板滑入
+      anime({
+        targets: panel,
+        height: [0, panel?.scrollHeight || 72],
+        opacity: [0, 1],
+        duration: 350,
+        easing: 'easeOutCubic',
+      });
+
+      // 工具图标交错弹入
+      if (items) {
+        anime({
+          targets: items,
+          opacity: [0, 1],
+          scale: [0, 1],
+          translateY: [-10, 0],
+          delay: anime.stagger(50, { start: 120 }),
+          duration: 400,
+          easing: 'spring(1, 80, 10, 0)',
+          complete: () => { toolsAnimatingRef.current = false; },
+        });
+      } else {
+        toolsAnimatingRef.current = false;
+      }
+    } else {
+      // ── 关闭动画 ──────────────────────────────────────
+      // 按钮旋回
+      anime({
+        targets: btn,
+        rotate: [135, 0],
+        duration: 300,
+        easing: 'easeInQuad',
+      });
+      if (btn) btn.classList.replace('bg-primary', 'bg-slate-700');
+
+      // 工具图标缩小消失
+      if (items) {
+        anime({
+          targets: items,
+          opacity: 0,
+          scale: 0,
+          translateY: -10,
+          duration: 200,
+          easing: 'easeInQuad',
+        });
+      }
+
+      // 背景遮罩淡出
+      if (backdrop) {
+        anime({
+          targets: backdrop,
+          opacity: 0,
+          duration: 250,
+          easing: 'easeInQuad',
+          complete: () => { backdrop.style.pointerEvents = 'none'; },
+        });
+      }
+
+      // 面板收起
+      anime({
+        targets: panel,
+        height: 0,
+        opacity: 0,
+        duration: 280,
+        easing: 'easeInCubic',
+        complete: () => { toolsAnimatingRef.current = false; },
+      });
+    }
+  }, [showToolsFan]);
 
   // 幸运手牌命中庆祝动画
   const [celebrationData, setCelebrationData] = useState<{ combo: string; username: string; hitCount: number } | null>(null);
@@ -568,48 +671,57 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           {/* 右侧固定工具按钮 */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
             <button
-              onClick={() => setShowToolsFan(prev => !prev)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${showToolsFan ? 'bg-primary rotate-45' : 'bg-slate-700 hover:bg-slate-600'}`}
+              ref={toolsBtnRef}
+              onClick={handleToggleToolsFan}
+              className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
             >
               <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {showToolsFan ? 'close' : 'handyman'}
+                handyman
               </span>
             </button>
           </div>
         </div>
 
-        {/* 工具扇形展开菜单 */}
-        {showToolsFan && (
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setShowToolsFan(false)} />
-            <div className="relative z-40 bg-white dark:bg-[#1a2632] border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-              <div className="grid grid-cols-6 gap-2">
-                {[
-                  { icon: 'event_seat', label: '座位', color: 'text-emerald-500 bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
-                  { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500 bg-purple-500/10', path: '/tools/picker', withPlayers: true },
-                  { icon: 'timer', label: '时钟', color: 'text-blue-500 bg-blue-500/10', path: '/tools/clock', withPlayers: false },
-                  { icon: 'monetization_on', label: '硬币', color: 'text-amber-500 bg-amber-500/10', path: '/tools/coin', withPlayers: false },
-                  { icon: 'analytics', label: '概率', color: 'text-indigo-500 bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
-                  { icon: 'casino', label: '骰子', color: 'text-orange-500 bg-orange-500/10', path: '/tools/dice', withPlayers: false },
-                ].map(tool => (
-                  <button
-                    key={tool.path}
-                    onClick={() => {
-                      setShowToolsFan(false);
-                      const state: Record<string, unknown> = { fromGame: true };
-                      if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
-                      navigate(tool.path, { state });
-                    }}
-                    className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-all active:scale-90 ${tool.color}`}
-                  >
-                    <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
-                    <span className="text-[10px] font-bold">{tool.label}</span>
-                  </button>
-                ))}
-              </div>
+        {/* 工具展开面板 — 始终挂载，通过动画控制可见性 */}
+        <div
+          ref={toolsBackdropRef}
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px]"
+          style={{ opacity: 0, pointerEvents: 'none' }}
+          onClick={handleToggleToolsFan}
+        />
+        <div
+          ref={toolsPanelRef}
+          className="relative z-40 overflow-hidden"
+          style={{ height: 0, opacity: 0 }}
+        >
+          <div className="bg-white/95 dark:bg-[#1a2632]/95 border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+            <div className="grid grid-cols-6 gap-2">
+              {[
+                { icon: 'event_seat', label: '座位', color: 'text-emerald-500', bg: 'bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
+                { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500', bg: 'bg-purple-500/10', path: '/tools/picker', withPlayers: true },
+                { icon: 'timer', label: '时钟', color: 'text-blue-500', bg: 'bg-blue-500/10', path: '/tools/clock', withPlayers: false },
+                { icon: 'monetization_on', label: '硬币', color: 'text-amber-500', bg: 'bg-amber-500/10', path: '/tools/coin', withPlayers: false },
+                { icon: 'analytics', label: '概率', color: 'text-indigo-500', bg: 'bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
+                { icon: 'casino', label: '骰子', color: 'text-orange-500', bg: 'bg-orange-500/10', path: '/tools/dice', withPlayers: false },
+              ].map((tool, idx) => (
+                <button
+                  key={tool.path}
+                  onClick={() => {
+                    handleToggleToolsFan();
+                    const state: Record<string, unknown> = { fromGame: true };
+                    if (tool.withPlayers) state.players = players.map(p => p.users?.username || '?');
+                    navigate(tool.path, { state });
+                  }}
+                  className={`tools-fan-item flex flex-col items-center gap-1 py-2 rounded-xl active:scale-90 ${tool.bg}`}
+                  style={{ opacity: 0, transform: 'scale(0) translateY(-10px)' }}
+                >
+                  <span className={`material-symbols-outlined text-[22px] ${tool.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                  <span className={`text-[10px] font-bold ${tool.color}`}>{tool.label}</span>
+                </button>
+              ))}
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
         {/* 房间码弹窗 */}
         {showRoomCode && (
