@@ -322,6 +322,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     // 立即关闭面板，提升交互响应
     setIsCardSelectorOpen(false);
 
+    // 检查是否与自己其他槽位的组合重复
+    const duplicate = luckyHands.find(h => h.hand_index !== targetHandIndex && h.card_1 === card1);
+    if (duplicate) {
+      showToast(`该组合已在槽位 #${duplicate.hand_index} 中使用`, 'error');
+      return;
+    }
+
     try {
       if (isModifyingLuckyHand) {
         const hand = luckyHands.find(h => h.hand_index === targetHandIndex);

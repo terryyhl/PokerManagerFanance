@@ -70,6 +70,20 @@ router.post('/:gameId/setup', async (req, res) => {
             return res.status(400).json({ error: '槽位不被房间配置允许' });
         }
 
+        // 检查该用户其他槽位是否已有相同组合
+        const combo = card1.trim();
+        const { data: existing } = await supabase
+            .from('lucky_hands')
+            .select('hand_index, card_1')
+            .eq('game_id', gameId)
+            .eq('user_id', userId)
+            .eq('card_1', combo)
+            .neq('hand_index', parsedHandIndex);
+
+        if (existing && existing.length > 0) {
+            return res.status(400).json({ error: `该组合已在槽位 #${existing[0].hand_index} 中使用，不能重复设置` });
+        }
+
         // Upsert 写入对应用户+槽位配置并重置中奖次数
         // card_1 存组合字符串 (如 'AKs')，card_2 存空字符串兼容旧列
         const { data, error } = await supabase
