@@ -247,7 +247,10 @@ export default function PlayerStatsModal({
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="text-2xl text-slate-300 dark:text-slate-600 font-light">-</div>
+                                                        <div className="flex flex-col items-center gap-1 py-1">
+                                                            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">playing_cards</span>
+                                                            <span className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">未配置</span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );

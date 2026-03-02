@@ -101,6 +101,14 @@ export default function LuckyHandHistory() {
                         </div>
                     </div>
 
+                    {/* 0 命中鼓励语 */}
+                    {!isLoading && luckyHands.length > 0 && totalHits === 0 && (
+                        <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 text-amber-600 dark:text-amber-400 text-sm">
+                            <span className="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
+                            虽然还没有命中记录，但好运总会来的！继续加油
+                        </div>
+                    )}
+
                     {/* Error */}
                     {error && (
                         <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-500 text-sm">

@@ -59,8 +59,8 @@ export default function Profile() {
         fetchProfileData();
     }, [user, navigate]);
 
-    // Top 3 lucky hands by hit_count (already sorted from backend)
-    const topLuckyHands = luckyHands.slice(0, 3);
+    // Top 3 lucky hands by hit_count (already sorted from backend), filter out 0 hits
+    const topLuckyHands = luckyHands.filter(lh => lh.hit_count > 0).slice(0, 3);
 
     if (!user) return null;
 

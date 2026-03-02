@@ -100,7 +100,13 @@ export default function LuckyHandsTVDashboard({
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
                     <span className="material-symbols-outlined text-6xl text-slate-500 mb-6 animate-pulse" style={{ transform: 'rotate(90deg)' }}>screen_rotation</span>
                     <h2 className="text-2xl font-bold text-slate-300 mb-3">为获得最佳大屏体验</h2>
-                    <p className="text-slate-500 max-w-sm">请将您的设备横向放置或全屏投射至横向电视面板，以展示最完整的玩家矩阵手牌数据极简列表。</p>
+                    <p className="text-slate-500 max-w-sm mb-8">请将设备横向放置，或投射至横向电视面板。</p>
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-3 rounded-xl bg-slate-800 border border-slate-600 text-slate-300 font-bold hover:bg-slate-700 transition-colors active:scale-95"
+                    >
+                        返回牌局
+                    </button>
                 </div>
             ) : (
                 <main className="flex-1 overflow-auto no-scrollbar relative">

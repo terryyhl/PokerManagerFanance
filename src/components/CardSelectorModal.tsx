@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const SUITS = [
     { symbol: '♠', color: 'text-slate-900 dark:text-slate-100', name: 's' },
@@ -18,6 +18,20 @@ interface CardSelectorModalProps {
 
 export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHandIndex }: CardSelectorModalProps) {
     const [selectedCards, setSelectedCards] = useState<string[]>([]);
+    const autoConfirmTimer = useRef<NodeJS.Timeout | null>(null);
+
+    // 选中 2 张后自动确认（短延迟让用户看到选中效果）
+    useEffect(() => {
+        if (selectedCards.length === 2) {
+            autoConfirmTimer.current = setTimeout(() => {
+                onConfirm(selectedCards[0], selectedCards[1]);
+                setSelectedCards([]);
+            }, 350);
+        }
+        return () => {
+            if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current);
+        };
+    }, [selectedCards, onConfirm]);
 
     if (!isOpen) return null;
 
@@ -111,15 +125,18 @@ export default function CardSelectorModal({ isOpen, onClose, onConfirm, targetHa
                     </div>
                 </div>
 
-                {/* 底部按钮 */}
+                {/* 底部提示 */}
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#192633] sticky bottom-0 z-10 w-full">
-                    <button
-                        onClick={handleConfirm}
-                        disabled={selectedCards.length !== 2}
-                        className="w-full h-12 rounded-xl bg-primary text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 active:scale-[0.98]"
-                    >
-                        确认手牌
-                    </button>
+                    <div className={`w-full h-12 rounded-xl flex items-center justify-center font-bold transition-all ${selectedCards.length === 2 ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>
+                        {selectedCards.length === 2 ? (
+                            <span className="flex items-center gap-2">
+                                <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                                自动确认中...
+                            </span>
+                        ) : (
+                            <span>选择 2 张牌后自动确认（已选 {selectedCards.length}/2）</span>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

@@ -301,9 +301,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           try {
             await luckyHandsApi.submitHit(id!, user!.id, (hand as LuckyHandData & { id: string }).id);
             showToast("已向房主发起中奖审核，请等待批准", 'info');
-            console.log("Submit hit successfully!");
           } catch (e: any) {
             console.error(e);
+            showToast(e.message || '中奖申请提交失败', 'error');
           }
         }
       }
@@ -578,8 +578,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           <div>
                             <div className="font-bold text-slate-800 dark:text-slate-200">{hit.users?.username}</div>
                             <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center mt-1">
-                              {isUpdate ? '申请修改手牌：' : '申请中奖：'}
-                              <div className="flex gap-1 ml-1">
+                              {isUpdate ? '申请修改手牌' : '申请中奖'}
+                              {hit.lucky_hands?.hand_index && <span className="ml-1 text-yellow-500/70">#{hit.lucky_hands.hand_index}</span>}
+                              <span className="mx-1">:</span>
+                              <div className="flex gap-1">
                                 {isUpdate ? (
                                   <>
                                     <PokerCardDisp card={hit.new_card_1} className="text-xs px-1" />

@@ -37,12 +37,12 @@ export default function LuckyHandFAB({
                     // 计算按扇形分散的角度 (从 180度[左] 到 270度[上])
                     const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
                     const rad = (angle * Math.PI) / 180;
-                    return Math.cos(rad) * 90; // 半径 90px
+                    return Math.cos(rad) * 110; // 半径 110px (增大间距)
                 },
                 translateY: (el: any, i: number, l: number) => {
                     const angle = l === 1 ? -135 : -180 + (90 / (l - 1)) * i;
                     const rad = (angle * Math.PI) / 180;
-                    return Math.sin(rad) * 90;
+                    return Math.sin(rad) * 110;
                 },
                 opacity: [0, 1],
                 scale: [0.5, 1],
@@ -63,16 +63,16 @@ export default function LuckyHandFAB({
         }
     }, [isExpanded]);
 
-    // 渲染单张扑克小图标（用来在已配置手牌槽位上显示）
+    // 渲染已配置槽位的牌面摘要
     const renderCardSummary = (c1: string, c2: string, hitCount: number) => {
         return (
-            <div className="flex flex-col items-center justify-center p-1 leading-tight h-full w-full relative">
-                <div className="flex gap-0.5 justify-center w-full">
-                    <PokerCardDisp card={c1} className="text-[14px] px-1 py-0 shadow-sm" />
-                    <PokerCardDisp card={c2} className="text-[14px] px-1 py-0 shadow-sm" />
+            <div className="flex flex-col items-center justify-center leading-tight h-full w-full relative">
+                <div className="flex gap-1 justify-center w-full">
+                    <PokerCardDisp card={c1} className="text-[11px] px-0.5 py-0 shadow-sm" />
+                    <PokerCardDisp card={c2} className="text-[11px] px-0.5 py-0 shadow-sm" />
                 </div>
                 {hitCount > 0 && (
-                    <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 border-2 border-indigo-600 text-[10px] font-black w-5 h-5 rounded-full shadow-sm flex items-center justify-center">
+                    <div className="absolute -top-2.5 -right-2.5 bg-yellow-400 text-yellow-900 border-2 border-indigo-600 text-[10px] font-black w-5 h-5 rounded-full shadow-md flex items-center justify-center">
                         {hitCount}
                     </div>
                 )}
@@ -105,15 +105,20 @@ export default function LuckyHandFAB({
                                 onSelectSlot(slotIndex, configured ? 'hit' : 'setup');
                                 setIsExpanded(false);
                             }}
-                            className={`lucky-hand-item absolute w-14 h-14 rounded-full shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
+                            className={`lucky-hand-item absolute w-16 h-16 rounded-2xl shadow-lg flex items-center justify-center cursor-pointer pointer-events-auto transition-transform hover:scale-110 active:scale-95 ${configured
                                 ? 'bg-indigo-600 text-white border-2 border-indigo-400'
                                 : 'bg-slate-700 text-slate-300 border-2 border-dashed border-slate-500 hover:bg-slate-600'
                                 }`}
-                            style={{ opacity: 0, transform: 'scale(0.5)' }} // 初始隐藏
+                            style={{ opacity: 0, transform: 'scale(0.5)' }}
                         >
                             {configured
                                 ? renderCardSummary(configured.card_1, configured.card_2, configured.hit_count)
-                                : <span className="material-symbols-outlined text-[24px]">add</span>
+                                : (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className="material-symbols-outlined text-[20px]">add</span>
+                                        <span className="text-[9px] font-bold opacity-70">#{slotIndex}</span>
+                                    </div>
+                                )
                             }
                         </div>
                     );
@@ -156,19 +161,16 @@ export default function LuckyHandFAB({
                     {isExpanded ? 'close' : 'playing_cards'}
                 </span>
 
-                {/* 提示角标 */}
-                {!isExpanded && configuredHands.length > 0 && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-[10px] text-white font-bold shadow-md ring-2 ring-indigo-500">
-                        {configuredHands.reduce((sum, h) => sum + h.hit_count, 0) || configuredHands.length}
-                    </div>
-                )}
+                {/* 角标：有命中显示火焰+命中数，仅配置未命中显示配置数 */}
+                {!isExpanded && configuredHands.length > 0 && (() => {
+                    const totalHits = configuredHands.reduce((sum, h) => sum + h.hit_count, 0);
+                    return (
+                        <div className={`absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-2 ring-indigo-500 ${totalHits > 0 ? 'bg-amber-400 text-amber-900' : 'bg-indigo-400 text-white'}`}>
+                            {totalHits > 0 ? totalHits : configuredHands.length}
+                        </div>
+                    );
+                })()}
             </div>
-
-            {!isExpanded && (
-                <div className="absolute -top-8 right-0 bg-black/50 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none opacity-60">
-                    点击配置手牌
-                </div>
-            )}
         </div>
     );
 }
