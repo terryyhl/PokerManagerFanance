@@ -1524,33 +1524,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             )}
           </div>
         ) : (
-          /* 2人: 顶部栏显示房间名(放大) + 公共牌缩略(如已设置) */
+          /* 2人: 顶部栏只显示房间名(放大)，公共牌在中间区域显示 */
           <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
             <span className="text-sm font-bold text-white truncate">{game.name}</span>
-            {publicCardsSet && (
-              <div className="flex items-center gap-1 cursor-pointer" onClick={isHost ? () => setShowGhostPicker(true) : undefined}>
-                <div className="flex gap-[2px] items-center">
-                  {publicCards.map((card, i) => {
-                    const url = cardToUrl(card);
-                    const isJoker = card.startsWith('JK');
-                    return (
-                      <div key={i} className={`w-5 h-7 rounded-[2px] overflow-hidden bg-white shadow-sm ${isJoker ? 'ring-1 ring-purple-400/40' : ''}`}>
-                        {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
-                      </div>
-                    );
-                  })}
-                </div>
-                {ghostCount > 0 && (
-                  <span className="text-[10px] text-purple-400 font-black">{Math.pow(2, ghostCount)}x</span>
-                )}
-                {isHost && (
-                  <span className="material-symbols-outlined text-[12px] text-slate-500">edit</span>
-                )}
-              </div>
-            )}
-            {!publicCardsSet && ghostCount > 0 && (
-              <span className="text-[10px] text-purple-400 font-bold">{Math.pow(2, ghostCount)}x</span>
-            )}
           </div>
         )}
 
