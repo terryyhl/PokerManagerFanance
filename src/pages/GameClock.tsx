@@ -144,9 +144,9 @@ export default function GameClock() {
 
                     {/* 圆内内容 */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        {/* Lottie 动画 */}
+                        {/* Lottie 动画 — cat-loading 原始尺寸偏大，缩小显示 */}
                         <div
-                            className={`w-40 h-40 flex items-center justify-center transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
+                            className={`${lottieSrc === '/cat-loading.lottie' ? 'w-28 h-28' : 'w-40 h-40'} flex items-center justify-center transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
                         >
                             <DotLottieReact
                                 key={lottieSrc}
