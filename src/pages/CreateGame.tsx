@@ -34,20 +34,37 @@ export default function CreateGame() {
   const [twCompareSuit, setTwCompareSuit] = useState(true);
   const [twMaxPlayers, setTwMaxPlayers] = useState(4);
   const [twTimeLimit, setTwTimeLimit] = useState(90);
+  // 额外功能开关
+  const [twAutoSuggest, setTwAutoSuggest] = useState(true);
+  const [twCountdown, setTwCountdown] = useState(true);
+  const [twRearrange, setTwRearrange] = useState(true);
+  const [twMultiRound, setTwMultiRound] = useState(true);
 
-  useEffect(() => {
-    if (user?.username) {
-      setRoomName(`${user.username} 的牌局`);
-    }
+  const runFormAnimation = () => {
+    if (!formRef.current) return;
     anime({
-      targets: formRef.current?.children,
+      targets: formRef.current.children,
       translateY: [20, 0],
       opacity: [0, 1],
       duration: 600,
       easing: 'easeOutExpo',
       delay: anime.stagger(100),
     });
+  };
+
+  useEffect(() => {
+    if (user?.username) {
+      setRoomName(`${user.username} 的牌局`);
+    }
+    runFormAnimation();
   }, []);
+
+  // 切换房间类型时重新触发动画（新的配置项带 opacity-0 需要被动画激活）
+  useEffect(() => {
+    // 短暂延迟让 React 渲染完新的条件内容
+    const timer = setTimeout(runFormAnimation, 50);
+    return () => clearTimeout(timer);
+  }, [roomType]);
 
   const blinds = ['1/2', '2/4', '5/10', '10/20', '25/50', '50/100'];
   const baseScores = [1, 2, 5, 10];
@@ -318,6 +335,42 @@ export default function CreateGame() {
           {/* ═══════ 十三水配置 ═══════ */}
           {roomType === 'thirteen' && (
             <>
+              {/* 参与人数 — 步进器 */}
+              <div className="space-y-3 opacity-0">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">参与人数</h3>
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => setTwMaxPlayers(Math.max(2, twMaxPlayers - 1))}
+                    disabled={twMaxPlayers <= 2}
+                    className="w-12 h-12 flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#233648] text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#2a4055] disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 text-xl font-bold"
+                  >
+                    −
+                  </button>
+                  <div className="flex items-baseline gap-2 min-w-[100px] justify-center">
+                    <span className="text-4xl font-black text-primary">{twMaxPlayers}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">人</span>
+                  </div>
+                  <button
+                    onClick={() => setTwMaxPlayers(Math.min(4, twMaxPlayers + 1))}
+                    disabled={twMaxPlayers >= 4}
+                    className="w-12 h-12 flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#233648] text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#2a4055] disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 text-xl font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <div className="flex gap-1.5">
+                    {[2, 3, 4].map(n => (
+                      <div
+                        key={n}
+                        className={`w-2 h-2 rounded-full transition-all ${n <= twMaxPlayers ? 'bg-primary scale-110' : 'bg-slate-300 dark:bg-slate-700'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">最少2人，最多4人</p>
+              </div>
+
               {/* 底分 */}
               <div className="space-y-3 opacity-0">
                 <div className="flex items-center justify-between">
@@ -371,52 +424,45 @@ export default function CreateGame() {
                 )}
               </div>
 
-              {/* 最大人数 */}
-              <div className="space-y-3 opacity-0">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">参与人数</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {playerOptions.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setTwMaxPlayers(p)}
-                      className={`flex h-10 items-center justify-center rounded-lg font-medium transition-all ${twMaxPlayers === p
-                        ? 'bg-primary text-white font-semibold shadow-md shadow-primary/20'
-                        : 'bg-slate-200 dark:bg-[#233648] text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#2a4055]'
-                      }`}
-                    >
-                      {p}人
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* 摆牌倒计时 */}
               <div className="space-y-3 opacity-0">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">摆牌倒计时</h3>
                   <span className="text-lg font-black text-primary bg-primary/10 px-3 py-1 rounded-lg">
-                    {twTimeLimit}秒
+                    {!twCountdown ? '关闭' : `${twTimeLimit}秒`}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {timeLimits.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTwTimeLimit(t)}
-                      className={`flex h-10 items-center justify-center rounded-lg font-medium transition-all ${twTimeLimit === t
-                        ? 'bg-primary text-white font-semibold shadow-md shadow-primary/20'
-                        : 'bg-slate-200 dark:bg-[#233648] text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#2a4055]'
-                      }`}
-                    >
-                      {t >= 60 ? `${t / 60}分钟` : `${t}秒`}
-                    </button>
-                  ))}
-                </div>
+                {twCountdown && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {timeLimits.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTwTimeLimit(t)}
+                        className={`flex h-10 items-center justify-center rounded-lg font-medium transition-all ${twTimeLimit === t
+                          ? 'bg-primary text-white font-semibold shadow-md shadow-primary/20'
+                          : 'bg-slate-200 dark:bg-[#233648] text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#2a4055]'
+                        }`}
+                      >
+                        {t >= 60 ? `${t / 60}分钟` : `${t}秒`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* 是否比花色 */}
-              <div className="border-t border-slate-200 dark:border-slate-800 mt-2 opacity-0">
-                <Toggle value={twCompareSuit} onChange={setTwCompareSuit} label="比较花色" desc="开启后同牌型比花色大小：♠>♥>♣>♦" />
+              {/* ═══════ 规则开关 ═══════ */}
+              <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-4 opacity-0">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">规则设置</h3>
+                <Toggle value={twCompareSuit} onChange={setTwCompareSuit} label="比较花色" desc="同牌型同点数时比花色：♠>♥>♣>♦" />
+                <Toggle value={twCountdown} onChange={setTwCountdown} label="摆牌倒计时" desc="开启后超时未确认视为乌龙" />
+                <Toggle value={twMultiRound} onChange={setTwMultiRound} label="连续多局模式" desc="一局结束后可快速开始下一局" />
+              </div>
+
+              {/* ═══════ 辅助功能 ═══════ */}
+              <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-4 opacity-0">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">辅助功能</h3>
+                <Toggle value={twAutoSuggest} onChange={setTwAutoSuggest} label="自动理牌建议" desc="系统自动推荐最优摆牌方案" />
+                <Toggle value={twRearrange} onChange={setTwRearrange} label="允许重新摆牌" desc="确认前可多次重新调整摆牌" />
               </div>
             </>
           )}

@@ -161,8 +161,8 @@ export const gamesApi = {
     join: (roomCode: string, userId: string) =>
         request<{ game: Game }>('POST', '/games/join', { roomCode, userId }),
 
-    finish: (id: string) =>
-        request<{ game: Game }>('POST', `/games/${id}/finish`),
+    finish: (id: string, userId: string) =>
+        request<{ game: Game }>('POST', `/games/${id}/finish`, { userId }),
 };
 
 // ──────────────────────────── Buy-in API ───────────────────────────────────

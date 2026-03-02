@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS thirteen_rounds (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   round_number INTEGER NOT NULL DEFAULT 1,
-  status      TEXT NOT NULL DEFAULT 'dealing' CHECK (status IN ('dealing', 'arranging', 'revealing', 'scoring', 'finished')),
+  status      TEXT NOT NULL DEFAULT 'arranging' CHECK (status IN ('arranging', 'revealing', 'settled', 'finished')),
   public_cards JSONB NOT NULL DEFAULT '[]',   -- 6张公共牌 ["AS", "KH", "JK1", ...]
   ghost_count  INTEGER NOT NULL DEFAULT 0,     -- 公共牌中鬼牌数量
   ghost_multiplier INTEGER NOT NULL DEFAULT 1, -- 鬼牌倍率 2^n
@@ -139,8 +139,7 @@ CREATE TABLE IF NOT EXISTS thirteen_hands (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   round_id    UUID NOT NULL REFERENCES thirteen_rounds(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  dealt_cards JSONB NOT NULL DEFAULT '[]',      -- 发到的13张牌 ["AS", "KH", ...]
-  head_cards  JSONB,                             -- 头道3张（摆好后填入）
+  head_cards  JSONB,                             -- 头道3张（玩家手动选牌摆入）
   mid_cards   JSONB,                             -- 中道5张
   tail_cards  JSONB,                             -- 尾道5张
   is_confirmed BOOLEAN NOT NULL DEFAULT FALSE,   -- 是否已确认摆牌

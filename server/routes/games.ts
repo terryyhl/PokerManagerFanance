@@ -206,19 +206,50 @@ router.post('/', async (req, res) => {
                 insertPayload.thirteen_time_limit = thirteenTimeLimit || 90;
             }
 
-            const { data: insertedGame, error: insertError } = await supabase
+            let insertedGame = null;
+            let insertError = null;
+
+            // 尝试插入（含13水字段）
+            const result1 = await supabase
                 .from('games')
                 .insert(insertPayload)
                 .select()
                 .single();
 
-            if (!insertError) {
+            insertedGame = result1.data;
+            insertError = result1.error;
+
+            // 如果 room_type 列不存在（数据库尚未迁移），降级为仅德州字段
+            if (insertError && insertError.code === 'PGRST204' && insertError.message?.includes('room_type')) {
+                console.warn('[games/create] room_type 列不存在，降级为德州模式插入');
+                const fallbackPayload: Record<string, unknown> = {
+                    name: name.trim(),
+                    room_code: roomCode,
+                    status: 'active',
+                    created_by: userId,
+                    blind_level: blindLevel || '1/2',
+                    min_buyin: minBuyin || 100,
+                    max_buyin: maxBuyin || 400,
+                    insurance_mode: insuranceMode || false,
+                    lucky_hands_count: luckyHandsCount || 0,
+                };
+                const result2 = await supabase
+                    .from('games')
+                    .insert(fallbackPayload)
+                    .select()
+                    .single();
+
+                insertedGame = result2.data;
+                insertError = result2.error;
+            }
+
+            if (!insertError && insertedGame) {
                 data = insertedGame;
                 break;
             }
 
             // 如果是唯一约束冲突（room_code 重复），重试
-            if (insertError.code === '23505' && insertError.message?.includes('room_code')) {
+            if (insertError?.code === '23505' && insertError.message?.includes('room_code')) {
                 lastError = insertError;
                 continue;
             }
