@@ -666,8 +666,11 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             </div>
           </div>
 
+          {/* 分隔线 */}
+          <div className="shrink-0 w-px self-stretch my-2 bg-slate-200 dark:bg-slate-700" />
+
           {/* 工具按钮 — 固定在右侧，不参与滚动 */}
-          <div className="shrink-0 flex items-center pr-3 pl-1">
+          <div className="shrink-0 flex items-center px-3">
             <button
               ref={toolsBtnRef}
               onClick={handleToggleToolsFan}
