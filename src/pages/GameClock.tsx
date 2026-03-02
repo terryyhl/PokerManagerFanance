@@ -146,14 +146,13 @@ export default function GameClock() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                         {/* Lottie 动画 */}
                         <div
-                            className={`w-28 h-28 overflow-hidden transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
+                            className={`w-28 transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
                         >
                             <DotLottieReact
                                 key={lottieSrc}
                                 src={lottieSrc}
                                 loop
                                 autoplay
-                                style={{ width: '112px', height: '112px' }}
                             />
                         </div>
 
