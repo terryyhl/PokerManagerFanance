@@ -400,8 +400,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       longPressFiredRef.current = false;
       return;
     }
+    // 如果该玩家正在被催促，打开计时器 viewer 而不是个人面板
+    if (activeTimer?.targetUserId === playerId) {
+      setViewingTimer(true);
+      return;
+    }
     setSelectedPlayerStats({ id: playerId, username: playerName });
-  }, []);
+  }, [activeTimer]);
 
   const handleStartTimer = useCallback(() => {
     if (!actionPopupTarget) return;
