@@ -112,9 +112,9 @@ interface RoundResult {
 // ─── 牌面显示组件（CDN 图片版） ──────────────────────────────────
 
 const PokerCard: React.FC<{
-  card?: string; faceUp?: boolean; small?: boolean; onClick?: () => void; selected?: boolean;
-}> = ({ card, faceUp = true, small = false, onClick, selected = false }) => {
-  const w = small ? 'w-9 h-[50px]' : 'w-[46px] h-[64px]';
+  card?: string; faceUp?: boolean; small?: boolean; large?: boolean; onClick?: () => void; selected?: boolean;
+}> = ({ card, faceUp = true, small = false, large = false, onClick, selected = false }) => {
+  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-9 h-[50px]' : 'w-[46px] h-[64px]';
 
   // 空槽位
   if (!faceUp || !card) {
@@ -155,8 +155,8 @@ const PokerCard: React.FC<{
 };
 
 // ─── 牌背组件 ──────────────────────────────────────────────────
-const CardBack: React.FC<{ small?: boolean }> = ({ small = false }) => {
-  const w = small ? 'w-8 h-[44px]' : 'w-[46px] h-[64px]';
+const CardBack: React.FC<{ small?: boolean; large?: boolean }> = ({ small = false, large = false }) => {
+  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-8 h-[44px]' : 'w-[46px] h-[64px]';
   return (
     <div className={`${w} rounded-lg overflow-hidden shadow-sm bg-red-900/20`}>
       <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill rounded-lg" loading="lazy" />
@@ -957,6 +957,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     if (!id || !user) return;
     try {
       const res = await fetch(`/api/thirteen/${id}/state?_t=${Date.now()}`);
+      if (!res.ok) return;
       const state: GameState = await res.json();
 
       setPlayerTotals(state.playerTotals || {});
@@ -968,29 +969,63 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         setPublicCards(round.public_cards || []);
         setGhostCount(round.ghost_count || 0);
 
+        // 同步所有玩家的确认状态
         const confirmed = new Set<string>();
         for (const h of state.hands) {
           if (h.is_confirmed) confirmed.add(h.user_id);
         }
         setConfirmedUsers(confirmed);
 
+        // 恢复当前用户手牌（无论是否已确认）
         const myHand = state.hands.find(h => h.user_id === user.id);
-        if (myHand && myHand.is_confirmed) {
-          setMyHeadCards(myHand.head_cards || []);
-          setMyMidCards(myHand.mid_cards || []);
-          setMyTailCards(myHand.tail_cards || []);
-          setIsConfirmed(true);
+        if (myHand) {
+          if (myHand.head_cards?.length) setMyHeadCards(myHand.head_cards);
+          if (myHand.mid_cards?.length) setMyMidCards(myHand.mid_cards);
+          if (myHand.tail_cards?.length) setMyTailCards(myHand.tail_cards);
+          setIsConfirmed(myHand.is_confirmed);
         }
 
+        // 根据 round status 设置游戏阶段
         if (round.status === 'arranging') {
           setGamePhase('arranging');
         } else if (round.status === 'revealing') {
           setGamePhase('revealing');
-        } else if (round.status === 'settled') {
-          setGamePhase('settled');
+        } else if (round.status === 'settled' || round.status === 'finished') {
+          // 如果已结算，尝试拉取结算结果展示
+          setGamePhase('arranging'); // 先设为 arranging 让 UI 渲染
+          try {
+            const detailRes = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
+            const detailData = await detailRes.json();
+            if (detailData.totals?.length > 0) {
+              const settlementPlayers: SettlementPlayer[] = (detailData.totals || []).map((t: any) => ({
+                userId: t.user_id, rawScore: t.raw_score, finalScore: t.final_score,
+                gunsFired: t.guns_fired, homerun: t.homerun,
+                laneScores: (detailData.scores || []).filter((s: any) => s.user_id === t.user_id).map((s: any) => ({
+                  lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail,
+                })),
+              }));
+              setRoundResult({
+                settlement: { players: settlementPlayers },
+                hands: detailData.hands || [],
+                ghostCount: round.ghost_count || 0,
+                ghostMultiplier: round.ghost_multiplier || 1,
+                roundNumber: round.round_number || 0,
+              });
+              setShowCompare(true);
+            }
+          } catch { /* silent */ }
         }
       } else {
+        // 没有活跃轮次 → 回到等待状态
         setGamePhase('waiting');
+        setCurrentRoundId(null);
+        setPublicCards([]);
+        setGhostCount(0);
+        setConfirmedUsers(new Set());
+        setMyHeadCards([]);
+        setMyMidCards([]);
+        setMyTailCards([]);
+        setIsConfirmed(false);
       }
     } catch { /* silent */ }
   }, [id, user]);
@@ -1452,8 +1487,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           <span className="material-symbols-outlined text-[20px] text-slate-400">arrow_back</span>
         </button>
 
-        {/* 顶部中央: 3-4人时显示公共牌，2人时显示房间名 */}
+        {/* 顶部中央: 根据人数和公共牌状态动态显示 */}
         {isMultiPlayer ? (
+          /* 3-4人: 顶部栏显示公共牌(缩略) */
           <div className="flex items-center gap-1 flex-1 justify-center min-w-0 cursor-pointer"
             onClick={isHost ? () => setShowGhostPicker(true) : undefined}>
             {publicCardsSet ? (
@@ -1488,9 +1524,33 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 flex-1 justify-center text-[10px] text-slate-500">
-            <span>{game.name}</span>
-            {ghostCount > 0 && <span className="text-purple-400 font-bold">{Math.pow(2, ghostCount)}x</span>}
+          /* 2人: 顶部栏显示房间名(放大) + 公共牌缩略(如已设置) */
+          <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+            <span className="text-sm font-bold text-white truncate">{game.name}</span>
+            {publicCardsSet && (
+              <div className="flex items-center gap-1 cursor-pointer" onClick={isHost ? () => setShowGhostPicker(true) : undefined}>
+                <div className="flex gap-[2px] items-center">
+                  {publicCards.map((card, i) => {
+                    const url = cardToUrl(card);
+                    const isJoker = card.startsWith('JK');
+                    return (
+                      <div key={i} className={`w-5 h-7 rounded-[2px] overflow-hidden bg-white shadow-sm ${isJoker ? 'ring-1 ring-purple-400/40' : ''}`}>
+                        {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+                      </div>
+                    );
+                  })}
+                </div>
+                {ghostCount > 0 && (
+                  <span className="text-[10px] text-purple-400 font-black">{Math.pow(2, ghostCount)}x</span>
+                )}
+                {isHost && (
+                  <span className="material-symbols-outlined text-[12px] text-slate-500">edit</span>
+                )}
+              </div>
+            )}
+            {!publicCardsSet && ghostCount > 0 && (
+              <span className="text-[10px] text-purple-400 font-bold">{Math.pow(2, ghostCount)}x</span>
+            )}
           </div>
         )}
 
@@ -1504,57 +1564,74 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         </div>
       </div>
 
-      {/* ── 游戏主区域: 上对手 → 中间行(左对手 + 桌面信息 + 右对手) → 自己 ── */}
+      {/* ── 游戏主区域 ── */}
       <div className="flex-1 flex flex-col relative min-h-0">
 
-        {/* 上方对手 */}
-        <div className="flex justify-center items-start pt-2 shrink-0" style={{ minHeight: topOpponents.length > 0 ? 100 : 8 }}>
-          {topOpponents.map(opp => (
-            <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="top" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-          ))}
-        </div>
+        {/* ===== 2人桌布局: 上对手 → 公共牌 → 自己 ===== */}
+        {!isMultiPlayer ? (
+          <>
+            {/* 对手区域 (2人-放大) */}
+            <div className="flex flex-col items-center pt-3 pb-2 shrink-0">
+              {topOpponents.map(opp => {
+                const oppName = opp.users?.username || '?';
+                const oppScore = playerTotals[opp.user_id] || 0;
+                const oppConfirmed = confirmedUsers.has(opp.user_id);
+                return (
+                  <div key={opp.id} className="flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar username={oppName} isAdmin={opp.user_id === game.created_by} className="w-10 h-10" />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-white">{oppName}</span>
+                        <span className={`text-sm font-black ${oppScore > 0 ? 'text-emerald-400' : oppScore < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                          {oppScore > 0 ? `+${oppScore}` : oppScore}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 relative">
+                      <div className="flex gap-1">{Array(3).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
+                      <div className="flex gap-1">{Array(5).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
+                      <div className="flex gap-1">{Array(5).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
+                      {oppConfirmed && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg backdrop-blur-[1px]">
+                          <span className="text-3xl font-black text-blue-400 drop-shadow-lg">OK</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-        {/* 中间行: 左对手 + 桌面中心 + 右对手 */}
-        <div className="flex items-center flex-1 min-h-0 px-1">
-          {/* 左侧对手 */}
-          <div className="w-[76px] flex justify-center shrink-0">
-            {leftOpponents.map(opp => (
-              <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-            ))}
-          </div>
-
-          {/* 桌面中心 */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-1.5 min-w-0">
-            {/* 2人模式：公共牌放中间 */}
-            {!isMultiPlayer && (
-              <div className="flex flex-col items-center gap-1.5 mb-1">
-                <span className="text-[9px] text-slate-500 font-bold tracking-wider">公共牌</span>
-                <div className="flex gap-1 items-center">
+            {/* 公共牌 + 桌面信息 (2人-放大) */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
+              <div className="flex flex-col items-center gap-2.5">
+                <span className="text-xs text-slate-500 font-bold tracking-widest uppercase">公共牌</span>
+                <div className="flex gap-2 items-center">
                   {Array(6).fill(null).map((_, i) => {
                     const card = publicCards[i];
                     if (card) {
                       const url = cardToUrl(card);
                       const isJoker = card.startsWith('JK');
                       return (
-                        <div key={i} className={`w-8 h-11 rounded-md overflow-hidden shadow-sm bg-white ${isJoker ? 'ring-1 ring-purple-400/50' : ''}`}>
+                        <div key={i} className={`w-[50px] h-[70px] rounded-lg overflow-hidden shadow-md bg-white ${isJoker ? 'ring-2 ring-purple-400/50' : 'ring-1 ring-white/10'}`}>
                           {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
                         </div>
                       );
                     }
                     return (
-                      <div key={i} className={`w-8 h-11 rounded-md border border-dashed flex items-center justify-center
+                      <div key={i} className={`w-[50px] h-[70px] rounded-lg border-2 border-dashed flex items-center justify-center
                         ${isHost && !publicCardsSet ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-                        <span className="text-white/10 text-[8px]">?</span>
+                        <span className="text-white/15 text-sm">?</span>
                       </div>
                     );
                   })}
                 </div>
                 {ghostCount > 0 && (
-                  <span className="text-[10px] text-purple-400 font-bold">鬼×{ghostCount} · {Math.pow(2, ghostCount)}倍</span>
+                  <span className="text-xs text-purple-400 font-bold">鬼×{ghostCount} · {Math.pow(2, ghostCount)}倍</span>
                 )}
                 {isHost && (
                   <button onClick={() => setShowGhostPicker(true)}
-                    className={`text-[10px] font-bold px-3 py-1 rounded-lg transition-all active:scale-95
+                    className={`text-xs font-bold px-5 py-2 rounded-xl transition-all active:scale-95
                       ${!publicCardsSet
                         ? 'text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 animate-pulse'
                         : 'text-slate-400 bg-white/5 hover:bg-white/10'}`}>
@@ -1562,71 +1639,124 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                   </button>
                 )}
                 {!isHost && !publicCardsSet && (
-                  <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
+                  <span className="text-xs text-amber-400/70">等待房主设置公共牌...</span>
                 )}
               </div>
-            )}
-            {/* 3-4人模式 + 公共牌未设置：中间显示提示 */}
-            {isMultiPlayer && !publicCardsSet && (
-              <div className="flex flex-col items-center gap-1">
-                {isHost ? (
-                  <button onClick={() => setShowGhostPicker(true)}
-                    className="text-xs text-amber-400 bg-amber-500/10 px-4 py-2 rounded-xl font-bold animate-pulse transition-all active:scale-95">
-                    请先设置公共牌
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-[9px] text-slate-500">
-              {isMultiPlayer && <span>{game.name}</span>}
-              {isMultiPlayer && <span>·</span>}
-              <span>{confirmedUsers.size}/{currentPlayers} 已确认</span>
+              <span className="text-xs text-slate-500">{confirmedUsers.size}/{currentPlayers} 已确认</span>
             </div>
-          </div>
 
-          {/* 右侧对手 */}
-          <div className="w-[76px] flex justify-center shrink-0">
-            {rightOpponents.map(opp => (
-              <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="right" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-            ))}
-          </div>
-        </div>
-
-        {/* 自己区域 */}
-        <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
-          {me && (
-            <div className="flex items-center gap-2 mb-1.5">
-              <Avatar username={me.users?.username || '?'} isAdmin={me.user_id === game.created_by} className="w-7 h-7" />
-              <span className="text-[11px] font-bold text-white">{me.users?.username || '?'}</span>
-              <span className={`text-[11px] font-black ${(playerTotals[me.user_id] || 0) > 0 ? 'text-emerald-400' : (playerTotals[me.user_id] || 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                {(playerTotals[me.user_id] || 0) > 0 ? `+${playerTotals[me.user_id]}` : playerTotals[me.user_id] || 0}
-              </span>
-            </div>
-          )}
-          <div className="flex flex-col gap-1 items-center">
-            {(['head', 'mid', 'tail'] as const).map(lane => {
-              const cards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
-              const count = lane === 'head' ? 3 : 5;
-              const label = lane === 'head' ? '头道' : lane === 'mid' ? '中道' : '尾道';
-              const canPick = !isConfirmed && publicCardsSet;
-              return (
-                <div key={lane} className="flex items-center gap-1">
-                  <span className="text-[8px] text-slate-500 w-7 text-right">{label}</span>
-                  <div className="flex gap-0.5">
-                    {Array(count).fill(null).map((_, i) => {
-                      const card = cards[i];
-                      return card
-                        ? <PokerCard key={card} card={card} faceUp small onClick={() => !isConfirmed && handleRemoveCard(card)} />
-                        : <PokerCard key={`${lane}-${i}`} small onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && !publicCardsSet ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
-                    })}
-                  </div>
+            {/* 自己区域 (2人-放大) */}
+            <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+              {me && (
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  <Avatar username={me.users?.username || '?'} isAdmin={me.user_id === game.created_by} className="w-10 h-10" />
+                  <span className="text-sm font-bold text-white">{me.users?.username || '?'}</span>
+                  <span className={`text-sm font-black ${(playerTotals[me.user_id] || 0) > 0 ? 'text-emerald-400' : (playerTotals[me.user_id] || 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                    {(playerTotals[me.user_id] || 0) > 0 ? `+${playerTotals[me.user_id]}` : playerTotals[me.user_id] || 0}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              )}
+              <div className="flex flex-col gap-1.5 items-center">
+                {(['head', 'mid', 'tail'] as const).map(lane => {
+                  const cards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
+                  const count = lane === 'head' ? 3 : 5;
+                  const label = lane === 'head' ? '头道' : lane === 'mid' ? '中道' : '尾道';
+                  const canPick = !isConfirmed && publicCardsSet;
+                  return (
+                    <div key={lane} className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-500 w-8 text-right font-medium">{label}</span>
+                      <div className="flex gap-1">
+                        {Array(count).fill(null).map((_, i) => {
+                          const card = cards[i];
+                          return card
+                            ? <PokerCard key={card} card={card} faceUp large onClick={() => !isConfirmed && handleRemoveCard(card)} />
+                            : <PokerCard key={`${lane}-${i}`} large onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && !publicCardsSet ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ===== 3-4人桌布局: 上 → 中间行(左+中心+右) → 自己 ===== */
+          <>
+            {/* 上方对手 */}
+            <div className="flex justify-center items-start pt-2 shrink-0" style={{ minHeight: topOpponents.length > 0 ? 100 : 8 }}>
+              {topOpponents.map(opp => (
+                <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="top" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+              ))}
+            </div>
+
+            {/* 中间行 */}
+            <div className="flex items-center flex-1 min-h-0 px-1">
+              <div className="w-[76px] flex justify-center shrink-0">
+                {leftOpponents.map(opp => (
+                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+                ))}
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-1.5 min-w-0">
+                {!publicCardsSet && (
+                  <div className="flex flex-col items-center gap-1">
+                    {isHost ? (
+                      <button onClick={() => setShowGhostPicker(true)}
+                        className="text-xs text-amber-400 bg-amber-500/10 px-4 py-2 rounded-xl font-bold animate-pulse transition-all active:scale-95">
+                        请先设置公共牌
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-[9px] text-slate-500">
+                  <span>{game.name}</span>
+                  <span>·</span>
+                  <span>{confirmedUsers.size}/{currentPlayers} 已确认</span>
+                </div>
+              </div>
+              <div className="w-[76px] flex justify-center shrink-0">
+                {rightOpponents.map(opp => (
+                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="right" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+                ))}
+              </div>
+            </div>
+
+            {/* 自己区域 (3-4人) */}
+            <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+              {me && (
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Avatar username={me.users?.username || '?'} isAdmin={me.user_id === game.created_by} className="w-7 h-7" />
+                  <span className="text-[11px] font-bold text-white">{me.users?.username || '?'}</span>
+                  <span className={`text-[11px] font-black ${(playerTotals[me.user_id] || 0) > 0 ? 'text-emerald-400' : (playerTotals[me.user_id] || 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                    {(playerTotals[me.user_id] || 0) > 0 ? `+${playerTotals[me.user_id]}` : playerTotals[me.user_id] || 0}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-col gap-1 items-center">
+                {(['head', 'mid', 'tail'] as const).map(lane => {
+                  const cards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
+                  const count = lane === 'head' ? 3 : 5;
+                  const label = lane === 'head' ? '头道' : lane === 'mid' ? '中道' : '尾道';
+                  const canPick = !isConfirmed && publicCardsSet;
+                  return (
+                    <div key={lane} className="flex items-center gap-1">
+                      <span className="text-[8px] text-slate-500 w-7 text-right">{label}</span>
+                      <div className="flex gap-0.5">
+                        {Array(count).fill(null).map((_, i) => {
+                          const card = cards[i];
+                          return card
+                            ? <PokerCard key={card} card={card} faceUp small onClick={() => !isConfirmed && handleRemoveCard(card)} />
+                            : <PokerCard key={`${lane}-${i}`} small onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && !publicCardsSet ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 底部操作 */}
