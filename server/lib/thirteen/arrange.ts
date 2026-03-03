@@ -5,8 +5,8 @@
  * 约束: 尾道 >= 中道 >= 头道（否则乌龙）
  *
  * 算法: 暴力枚举 C(13,3)×C(10,5) = 72072 种组合，
- *       评估每种合法排列的总得分，选最高分方案。
- *       有多个同分方案时，优先选尾道最强的（防守策略）。
+ *       评估每种合法排列，选最优方案。
+ *       优先级: 尾道最强 → 总分最高 → 中道最强（尾道是最重要的道）。
  */
 
 import { Card } from './deck.js';
@@ -121,16 +121,10 @@ export function autoArrange(cards: Card[]): ArrangeResult {
             }
 
             // 都合法或都乌龙时，比较综合实力
-            // 1. 总得分更高
-            if (current.totalScore > best.totalScore) {
-                best = current;
-                continue;
-            }
-            if (current.totalScore < best.totalScore) {
-                continue;
-            }
+            // 策略: 尾道最强优先 → 总分最高 → 中道最强
+            // 尾道是最重要的道，优先保证尾道牌力最大化
 
-            // 2. 同分时，优先尾道更强（防守策略：尾道最重要）
+            // 1. 尾道最强优先（防守策略：尾道最重要）
             const tailCmp = compareHandResults(current.tailResult, best.tailResult);
             if (tailCmp > 0) {
                 best = current;
@@ -140,7 +134,16 @@ export function autoArrange(cards: Card[]): ArrangeResult {
                 continue;
             }
 
-            // 3. 尾道相同时，优先中道更强
+            // 2. 尾道相同时，总得分更高
+            if (current.totalScore > best.totalScore) {
+                best = current;
+                continue;
+            }
+            if (current.totalScore < best.totalScore) {
+                continue;
+            }
+
+            // 3. 尾道和总分都相同时，优先中道更强
             const midCmp = compareHandResults(current.midResult, best.midResult);
             if (midCmp > 0) {
                 best = current;
