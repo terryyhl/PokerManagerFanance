@@ -71,11 +71,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [showGhostPicker, setShowGhostPicker] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
 
-  // 密码门禁
+  // 密码门禁 & 旁观模式
   const [needsPassword, setNeedsPassword] = useState(false);
   const [passwordPin, setPasswordPin] = useState<string[]>(['', '', '', '', '', '']);
   const [passwordError, setPasswordError] = useState('');
   const [joiningGame, setJoiningGame] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(false);
 
   // 同名互踢
   const sessionIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -467,17 +468,27 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     if (code.length !== 6 || !user || !id) return;
     setJoiningGame(true); setPasswordError('');
     try {
+      // 先验证密码（room_code）是否正确
+      // gamesApi.join 会检查 room_code 匹配性，房间满时会返回错误
       await gamesApi.join(code, user.id);
       setNeedsPassword(false);
-      // 重新拉取房间数据 + 同步游戏状态
       const updated = await gamesApi.get(id);
       setGame(updated.game);
       setPlayers(updated.players);
       showToast('已入座', 'success');
       await syncGameState();
-    } catch {
-      setPasswordError('密码错误或房间不存在');
-      setPasswordPin(['', '', '', '', '', '']);
+    } catch (err: any) {
+      // 判断是否是房间满的错误 — 密码正确但无法入座 → 旁观模式
+      const errMsg = err?.message || err?.toString() || '';
+      if (errMsg.includes('满') || errMsg.includes('full') || errMsg.includes('上限')) {
+        setNeedsPassword(false);
+        setIsSpectator(true);
+        showToast('房间已满，进入旁观模式', 'info');
+        await syncGameState();
+      } else {
+        setPasswordError('密码错误或房间不存在');
+        setPasswordPin(['', '', '', '', '', '']);
+      }
     } finally { setJoiningGame(false); }
   };
 
@@ -607,7 +618,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               );
             })}
             {Array.from({ length: maxPlayers - currentPlayers }).map((_, i) => (
-              isHost ? (
+              isHost && !isSpectator ? (
                 <button key={`empty-${i}`} onClick={() => setShowInvite(true)}
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-dashed border-white/10 min-h-[72px] hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-[0.97] group cursor-pointer">
                   <span className="material-symbols-outlined text-[24px] text-slate-600 group-hover:text-primary transition-colors">person_add</span>
@@ -626,8 +637,16 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 gap-4">
           <div className="w-20 h-20 rounded-2xl bg-purple-500/10 flex items-center justify-center"><span className="text-4xl">🀄</span></div>
+          {isSpectator && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+              <span className="material-symbols-outlined text-slate-400 text-lg">visibility</span>
+              <span className="text-slate-400 text-sm font-bold">旁观模式</span>
+            </div>
+          )}
           <p className="text-slate-500 text-sm text-center">
-            {currentPlayers < 2 ? '至少需要 2 名玩家才能开始' : isHost ? '点击下方按钮开始新一局' : '等待房主开始游戏...'}
+            {isSpectator
+              ? '房间已满，你正在旁观。比牌时可以查看所有玩家的牌。'
+              : currentPlayers < 2 ? '至少需要 2 名玩家才能开始' : isHost ? '点击下方按钮开始新一局' : '等待房主开始游戏...'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] text-slate-500">
             <span className="bg-white/5 px-2 py-1 rounded">{game.thirteen_base_score || 1}分/水</span>
@@ -636,7 +655,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </div>
         </div>
 
-        {isHost && currentPlayers >= 2 && (
+        {isHost && !isSpectator && currentPlayers >= 2 && (
           <div className="p-4 border-t border-white/5 pb-8">
             <button disabled={isStarting} onClick={handleStartRound}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-purple-700/30 transition-all active:scale-[0.98] disabled:opacity-60">
@@ -734,6 +753,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleCloseRoom,
     showToast,
     toast,
+    isSpectator,
   };
 
   if (currentPlayers <= 2) {

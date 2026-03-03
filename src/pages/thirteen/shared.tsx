@@ -147,6 +147,7 @@ export interface TableProps {
   handleCloseRoom: () => void;
   showToast: (msg: string, type: 'info' | 'error' | 'success') => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
+  isSpectator: boolean;
 }
 
 // ─── 牌面显示组件 ──────────────────────────────────────────────
@@ -979,6 +980,19 @@ export const BottomActionBar: React.FC<{
         </span>
       </div>
     )}
+  </div>
+);
+
+// ─── 旁观者底部栏 ──────────────────────────────────────────────
+
+export const SpectatorBar: React.FC<{
+  confirmedCount: number; totalPlayers: number;
+}> = ({ confirmedCount, totalPlayers }) => (
+  <div className="p-3 pb-8 flex gap-3 shrink-0 bg-black/20 border-t border-white/5">
+    <div className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/5 border border-white/10">
+      <span className="material-symbols-outlined text-slate-400 text-xl">visibility</span>
+      <span className="text-slate-400 font-bold">旁观中 · {confirmedCount}/{totalPlayers} 已确认</span>
+    </div>
   </div>
 );
 

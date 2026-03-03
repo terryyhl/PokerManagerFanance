@@ -1,13 +1,17 @@
 import React from 'react';
 import Avatar from '../../components/Avatar';
 import {
-  TableProps, PokerCard, CardBack, PublicCardsCenter, MyHandArea, BottomActionBar, GameModals,
+  TableProps, PokerCard, CardBack, PublicCardsCenter, MyHandArea, BottomActionBar, SpectatorBar, GameModals,
+  OpponentArea,
   cardToUrl,
 } from './shared';
 
 /** 2人桌布局 — 上对手(放大) → 公共牌(中间放大) → 自己(放大) */
 export const TwoPlayerTable: React.FC<TableProps> = (p) => {
-  const topOpponent = p.opponents[0];
+  // 旁观者看到的对手 = 所有玩家；玩家看到的对手 = 除自己外
+  const allOpponents = p.isSpectator ? p.players : p.opponents;
+  const topOpponent = allOpponents[0];
+  const bottomOpponent = p.isSpectator ? allOpponents[1] : undefined;
 
   return (
     <div className="h-screen bg-background-dark text-white flex flex-col overflow-hidden relative">
@@ -18,11 +22,9 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
         </button>
         <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
           <span className="text-sm font-bold text-white truncate">{p.game.name}</span>
+          {p.isSpectator && <span className="text-[10px] text-slate-400 bg-white/10 px-1.5 py-0.5 rounded font-bold">旁观</span>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <button onClick={() => p.setShowInvite(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="房间密码">
-            <span className="material-symbols-outlined text-[20px] text-slate-400">key</span>
-          </button>
           <button onClick={() => p.setShowScoreBoard(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
             <span className="material-symbols-outlined text-[20px] text-slate-400">receipt_long</span>
           </button>
@@ -67,31 +69,44 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <PublicCardsCenter
             publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
-            isHost={p.isHost} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+            isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
             onEdit={() => p.setShowGhostPicker(true)} size="large"
           />
         </div>
 
-        {/* 自己区域 (放大) */}
-        <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
-          <MyHandArea me={p.me} isHost={p.isHost} gameCreatedBy={p.game.created_by}
-            playerTotals={p.playerTotals} myHeadCards={p.myHeadCards} myMidCards={p.myMidCards} myTailCards={p.myTailCards}
-            isConfirmed={p.isConfirmed} publicCardsSet={p.publicCardsSet} activeLane={p.activeLane}
-            setActiveLane={p.setActiveLane} setShowPicker={p.setShowPicker}
-            handleRemoveCard={p.handleRemoveCard} showToast={p.showToast}
-            cardSize="large" avatarSize="w-10 h-10" textSize="text-sm"
-          />
-        </div>
+        {/* 自己区域 (放大) — 旁观者显示第二个对手 */}
+        {p.isSpectator ? (
+          bottomOpponent && (
+            <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+              <OpponentArea player={bottomOpponent} isPlayerHost={bottomOpponent.user_id === p.game.created_by}
+                confirmed={p.confirmedUsers.has(bottomOpponent.user_id)} score={p.playerTotals[bottomOpponent.user_id] || 0} />
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+            <MyHandArea me={p.me} isHost={p.isHost} gameCreatedBy={p.game.created_by}
+              playerTotals={p.playerTotals} myHeadCards={p.myHeadCards} myMidCards={p.myMidCards} myTailCards={p.myTailCards}
+              isConfirmed={p.isConfirmed} publicCardsSet={p.publicCardsSet} activeLane={p.activeLane}
+              setActiveLane={p.setActiveLane} setShowPicker={p.setShowPicker}
+              handleRemoveCard={p.handleRemoveCard} showToast={p.showToast}
+              cardSize="large" avatarSize="w-10 h-10" textSize="text-sm"
+            />
+          </div>
+        )}
       </div>
 
       {/* 底部操作 */}
-      <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
-        allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
-        onRearrange={p.handleRearrange} onSubmit={p.handleSubmitHand} />
+      {p.isSpectator ? (
+        <SpectatorBar confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers} />
+      ) : (
+        <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
+          allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+          onRearrange={p.handleRearrange} onSubmit={p.handleSubmitHand} />
+      )}
 
-      {/* 弹层 */}
-      <GameModals game={p.game} showPicker={p.showPicker} showScoreBoard={p.showScoreBoard}
-        showInvite={p.showInvite} inviteCopied={p.inviteCopied} showGhostPicker={p.showGhostPicker}
+      {/* 弹层 — 旁观者不显示选牌器 */}
+      <GameModals game={p.game} showPicker={p.isSpectator ? false : p.showPicker} showScoreBoard={p.showScoreBoard}
+        showInvite={p.showInvite} inviteCopied={p.inviteCopied} showGhostPicker={p.isSpectator ? false : p.showGhostPicker}
         showCompare={p.showCompare} publicCards={p.publicCards} ghostCount={p.ghostCount}
         roundResult={p.roundResult} activeLane={p.activeLane} allSelectedCards={p.allSelectedCards}
         myHeadCards={p.myHeadCards} myMidCards={p.myMidCards} myTailCards={p.myTailCards}
