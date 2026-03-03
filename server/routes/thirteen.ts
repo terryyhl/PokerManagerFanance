@@ -859,18 +859,8 @@ router.get('/:gameId/state', async (req, res) => {
             .single();
         if (pendingRound) {
             activeRound = pendingRound;
-        } else {
-            // 没有活跃轮次，取最近 finished 的（支持重连看到结算结果）
-            const { data: lastRound } = await supabase
-                .from('thirteen_rounds')
-                .select('*')
-                .eq('game_id', gameId)
-                .eq('status', 'finished')
-                .order('round_number', { ascending: false })
-                .limit(1)
-                .single();
-            if (lastRound) activeRound = lastRound;
         }
+        // 已结算的轮次不再作为 activeRound 返回，结算完成即进入等待状态
 
         let hands: any[] = [];
         if (activeRound) {

@@ -145,10 +145,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           setIsConfirmed(myHand.is_confirmed);
         }
 
-        // 判断是否需要进入结算流程
+        // 判断是否需要进入结算流程（finished 不再触发，结算完成即回到等待状态）
         const needsSettle =
           round.status === 'settling' ||
-          round.status === 'finished' ||
           (round.status === 'arranging' && stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
 
         console.log('[syncGameState] needsSettle=', needsSettle, {
