@@ -201,6 +201,7 @@ export default function GameHistory() {
                         <div ref={listRef} className="flex flex-col gap-3">
                             {thirteenHistory.map((h, i) => (
                                 <div key={`${h.gameId}-${i}`}
+                                    onClick={() => navigate(`/thirteen-report/${h.gameId}`)}
                                     className="opacity-0 cursor-pointer rounded-xl bg-white dark:bg-[#1a2632] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden hover:border-violet-400/40 transition-all active:scale-[0.99] p-4">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex-1 min-w-0">
@@ -209,6 +210,16 @@ export default function GameHistory() {
                                         </div>
                                         <div className={`text-lg font-black ${h.totalScore > 0 ? 'text-green-500' : h.totalScore < 0 ? 'text-red-500' : 'text-amber-400'}`}>
                                             {h.totalScore > 0 ? '+' : ''}{h.totalScore} 分
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                                            <span className="material-symbols-outlined text-[14px]">playing_cards</span>
+                                            <span>十三水</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-violet-500 dark:text-violet-400 font-medium">
+                                            <span>查看详情</span>
+                                            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                                         </div>
                                     </div>
                                 </div>

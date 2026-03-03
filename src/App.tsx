@@ -17,6 +17,7 @@ import SeatDraw from './pages/SeatDraw';
 import RandomPicker from './pages/RandomPicker';
 import OddsChart from './pages/OddsChart';
 import DiceRoll from './pages/DiceRoll';
+import ThirteenReport from './pages/ThirteenReport';
 import MainLayout from './components/MainLayout';
 import { setupGlobalClickSound } from './lib/audio';
 
@@ -130,6 +131,7 @@ function AppShell() {
               <Route path="/tools/picker" element={<RandomPicker />} />
               <Route path="/tools/odds" element={<OddsChart />} />
               <Route path="/tools/dice" element={<DiceRoll />} />
+              <Route path="/thirteen-report/:id" element={<ThirteenReport />} />
             </Routes>
           </ProtectedRoute>
         </div>
