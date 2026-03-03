@@ -424,6 +424,20 @@ router.post('/:gameId/settle', async (req, res) => {
         if (roundErr || !round) return res.status(404).json({ error: '轮次不存在' });
         if (round.status === 'finished') return res.status(400).json({ error: '该轮次已结算' });
 
+        // 乐观锁: 用 CAS 抢占结算权，防止并发重复结算
+        const { data: locked, error: lockErr } = await supabase
+            .from('thirteen_rounds')
+            .update({ status: 'settling' })
+            .eq('id', roundId)
+            .eq('status', 'arranging')
+            .select('id')
+            .single();
+
+        if (lockErr || !locked) {
+            // 另一个请求已抢占，直接返回成功（前端会通过 Realtime 收到结果）
+            return res.json({ settlement: null, alreadySettling: true });
+        }
+
         const players = memberIds; // 已在上方获取
 
         // 获取所有已确认的手牌
@@ -494,7 +508,7 @@ router.post('/:gameId/settle', async (req, res) => {
 
         const { error: totalErr } = await supabase
             .from('thirteen_totals')
-            .insert(totalRecords);
+            .upsert(totalRecords, { onConflict: 'round_id,user_id' });
 
         if (totalErr) {
             console.error('[thirteen/settle] 写入汇总失败:', totalErr);

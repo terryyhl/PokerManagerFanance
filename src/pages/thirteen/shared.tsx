@@ -848,10 +848,16 @@ export const CompareAnimation: React.FC<{
   const [phase, setPhase] = useState(replay ? 3 : -1);
   const [laneRevealed, setLaneRevealed] = useState<boolean[]>(replay ? [true, true, true] : [false, false, false]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showEffect, setShowEffect] = useState(false);
 
   // 分享截图
   const contentRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+
+  // 检测打枪/全垒打
+  const hasHomerun = settlement.players.some(p => p.homerun);
+  const hasGun = settlement.players.some(p => p.gunsFired > 0);
+  const effectType = hasHomerun ? 'homerun' : hasGun ? 'gun' : null;
 
   const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
   const laneLabels = ['头道', '中道', '尾道'];
@@ -883,6 +889,15 @@ export const CompareAnimation: React.FC<{
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [phase, replay]);
+
+  // 进入结算阶段时触发特效
+  useEffect(() => {
+    if (phase === 3 && effectType && !replay) {
+      setShowEffect(true);
+      const t = setTimeout(() => setShowEffect(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, effectType, replay]);
 
   const sorted = [...settlement.players].sort((a, b) => b.finalScore - a.finalScore);
 
@@ -1038,6 +1053,47 @@ export const CompareAnimation: React.FC<{
           <button onClick={onClose} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-base shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">
             继续
           </button>
+        </div>
+      )}
+      {/* 打枪/全垒打全屏特效 */}
+      {showEffect && effectType && (
+        <div className="fixed inset-0 z-[70] pointer-events-none flex items-center justify-center animate-[effectIn_0.3s_ease-out]"
+          onClick={() => setShowEffect(false)}>
+          {/* 径向光芒背景 */}
+          <div className={`absolute inset-0 ${effectType === 'homerun'
+            ? 'bg-gradient-radial from-yellow-500/30 via-amber-600/10 to-transparent'
+            : 'bg-gradient-radial from-orange-500/25 via-red-600/10 to-transparent'} animate-pulse`} />
+          {/* 四散粒子 */}
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="absolute w-2 h-2 rounded-full animate-[particle_1.5s_ease-out_forwards]"
+              style={{
+                background: effectType === 'homerun' ? '#fbbf24' : '#f97316',
+                left: '50%', top: '50%',
+                animationDelay: `${i * 80}ms`,
+                transform: `rotate(${i * 30}deg) translateY(-40px)`,
+                opacity: 0,
+              }} />
+          ))}
+          {/* 主文字 */}
+          <div className="relative flex flex-col items-center gap-3 animate-[effectBounce_0.6s_cubic-bezier(0.34,1.56,0.64,1)]">
+            <span className={`text-6xl ${effectType === 'homerun' ? '' : ''}`}>
+              {effectType === 'homerun' ? '💥' : '🔫'}
+            </span>
+            <div className={`text-4xl font-black tracking-wider ${effectType === 'homerun'
+              ? 'text-yellow-400 drop-shadow-[0_0_30px_rgba(251,191,36,0.6)]'
+              : 'text-orange-400 drop-shadow-[0_0_20px_rgba(249,115,22,0.5)]'}`}>
+              {effectType === 'homerun' ? '全垒打!' : '打枪!'}
+            </div>
+            {/* 涉及的玩家 */}
+            <div className="flex flex-wrap justify-center gap-2 mt-1">
+              {settlement.players.filter(p => effectType === 'homerun' ? p.homerun : p.gunsFired > 0).map(p => (
+                <span key={p.userId} className="text-sm font-bold text-white/80 bg-white/10 px-3 py-1 rounded-full">
+                  {playerMap[p.userId]?.users?.username || '?'}
+                  {effectType === 'gun' && p.gunsFired > 1 ? ` x${p.gunsFired}` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

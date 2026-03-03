@@ -229,6 +229,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         showToast(data.error || '结算失败', 'error');
         return;
       }
+      // 另一个客户端已抢占结算，等待 Realtime 通知即可
+      if (data.alreadySettling || !data.settlement) return;
+
       const detailRes = await fetch(`/api/thirteen/${game.id}/round/${currentRoundId}?_t=${Date.now()}`);
       const detailData = await detailRes.json();
 
