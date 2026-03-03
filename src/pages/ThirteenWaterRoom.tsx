@@ -642,7 +642,15 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-purple-500/10 flex items-center justify-center"><span className="text-4xl">🀄</span></div>
+          {/* 密码加亮显示 */}
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">房间密码</span>
+            <div className="flex gap-2">
+              {game.room_code.split('').map((d, i) => (
+                <span key={i} className="w-11 h-14 flex items-center justify-center bg-surface-dark rounded-xl text-2xl font-black text-white border border-white/10 shadow-lg shadow-black/20">{d}</span>
+              ))}
+            </div>
+          </div>
           {isSpectator && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
               <span className="material-symbols-outlined text-slate-400 text-lg">visibility</span>
@@ -652,6 +660,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           <p className="text-slate-500 text-sm text-center">
             {isSpectator
               ? '房间已满，你正在旁观。比牌时可以查看所有玩家的牌。'
+              : currentRoundId
+              ? '游戏进行中，点击下方按钮回到牌桌'
               : currentPlayers < 2 ? '至少需要 2 名玩家才能开始' : isHost ? '点击下方按钮开始新一局' : '等待房主开始游戏...'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] text-slate-500">
@@ -661,7 +671,19 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </div>
         </div>
 
-        {isHost && !isSpectator && currentPlayers >= 2 && (
+        {/* 回到游戏 — 有活跃 round 时所有玩家都能看到 */}
+        {currentRoundId && !isSpectator && (
+          <div className="p-4 border-t border-white/5 pb-8">
+            <button onClick={() => setGamePhase('arranging')}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-emerald-700/30 transition-all active:scale-[0.98]">
+              <span className="material-symbols-outlined">arrow_forward</span>
+              回到游戏
+            </button>
+          </div>
+        )}
+
+        {/* 开始新一局 — 仅房主、无活跃 round 时显示 */}
+        {!currentRoundId && isHost && !isSpectator && currentPlayers >= 2 && (
           <div className="p-4 border-t border-white/5 pb-8">
             <button disabled={isStarting} onClick={handleStartRound}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-purple-700/30 transition-all active:scale-[0.98] disabled:opacity-60">
@@ -698,7 +720,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         )}
 
         {showScoreBoard && (
-          <ScoreBoard gameId={id} players={players} playerTotals={playerTotals} finishedRounds={finishedRounds}
+          <ScoreBoard gameId={id} gameName={game.name} players={players} playerTotals={playerTotals} finishedRounds={finishedRounds}
             isHost={isHost} userId={user?.id} onClose={() => setShowScoreBoard(false)} onCloseRoom={handleCloseRoom} />
         )}
 

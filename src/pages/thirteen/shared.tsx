@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { toPng } from 'html-to-image';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
 
@@ -526,14 +527,20 @@ export const CardPickerModal: React.FC<{
 // ─── 积分账单面板 ────────────────────────────────────────────
 
 export const ScoreBoard: React.FC<{
-  gameId: string; players: Player[]; playerTotals: Record<string, number>;
+  gameId: string; gameName: string; players: Player[]; playerTotals: Record<string, number>;
   finishedRounds: number; isHost: boolean; userId?: string;
   onClose: () => void; onCloseRoom: () => void;
-}> = ({ gameId, players, playerTotals, finishedRounds, isHost, userId, onClose, onCloseRoom }) => {
+}> = ({ gameId, gameName, players, playerTotals, finishedRounds, isHost, userId, onClose, onCloseRoom }) => {
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [replayResult, setReplayResult] = useState<RoundResult | null>(null);
   const [loadingRoundId, setLoadingRoundId] = useState<string | null>(null);
+
+  // 分享海报
+  const [showSharePoster, setShowSharePoster] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const posterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -585,6 +592,34 @@ export const ScoreBoard: React.FC<{
     setLoadingRoundId(null);
   };
 
+  const generateImage = useCallback(async () => {
+    if (!posterRef.current) return;
+    setIsGenerating(true);
+    try {
+      const dataUrl = await toPng(posterRef.current, { pixelRatio: 3, backgroundColor: '#0f1923' });
+      setPreviewUrl(dataUrl);
+    } catch (err) { console.error('生成图片失败:', err); }
+    finally { setIsGenerating(false); }
+  }, []);
+
+  const handleShare = async () => {
+    if (!previewUrl) return;
+    const res = await fetch(previewUrl);
+    const blob = await res.blob();
+    const file = new File([blob], `十三水积分_${gameName}.png`, { type: 'image/png' });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ title: `${gameName} 积分账单`, files: [file] }); return; } catch { /* cancelled */ }
+    }
+    const a = document.createElement('a');
+    a.href = previewUrl; a.download = `十三水积分_${gameName}.png`; a.click();
+  };
+
+  const handleSaveImage = () => {
+    if (!previewUrl) return;
+    const a = document.createElement('a');
+    a.href = previewUrl; a.download = `十三水积分_${gameName}.png`; a.click();
+  };
+
   const sorted = players
     .map(p => ({ ...p, total: playerTotals[p.user_id] || 0 }))
     .sort((a, b) => b.total - a.total);
@@ -594,9 +629,14 @@ export const ScoreBoard: React.FC<{
       <div className="bg-background-dark flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 h-14 border-b border-white/5 shrink-0">
           <h2 className="text-lg font-bold text-white">积分账单</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
-            <span className="material-symbols-outlined text-white">close</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => { setPreviewUrl(null); setShowSharePoster(true); }} className="p-1.5 rounded-lg hover:bg-white/10" title="分享">
+              <span className="material-symbols-outlined text-white">share</span>
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
+              <span className="material-symbols-outlined text-white">close</span>
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="px-4 pt-4 pb-2">
@@ -673,6 +713,123 @@ export const ScoreBoard: React.FC<{
           onClose={() => setReplayResult(null)}
           replay
         />
+      )}
+      {/* 分享海报弹层 */}
+      {showSharePoster && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-sm" onClick={() => setShowSharePoster(false)}>
+          <div className="flex-1 overflow-y-auto flex flex-col items-center py-6 px-4" onClick={e => e.stopPropagation()}>
+            {/* 隐藏的海报 DOM — 用于截图 */}
+            {!previewUrl && (
+              <div ref={posterRef} style={{
+                width: 375, padding: '28px 20px',
+                background: 'linear-gradient(180deg, #0f1923 0%, #162230 50%, #0f1923 100%)',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                color: '#e2e8f0',
+              }}>
+                {/* 头部 */}
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '6px 16px', background: 'rgba(168,85,247,0.15)',
+                    borderRadius: 20, border: '1px solid rgba(168,85,247,0.3)', marginBottom: 12,
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#c084fc' }}>{gameName}</span>
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: -0.5 }}>积分账单</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>已完成 {finishedRounds} 局 · 十三水</div>
+                </div>
+                {/* 玩家排名 */}
+                <div style={{
+                  background: 'rgba(26,38,50,0.8)', borderRadius: 16,
+                  border: '1px solid rgba(51,65,85,0.5)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', padding: '10px 16px',
+                    fontSize: 10, fontWeight: 600, color: '#64748b',
+                    borderBottom: '1px solid rgba(51,65,85,0.5)', letterSpacing: 1,
+                  }}>
+                    <span style={{ width: 28 }}>#</span>
+                    <span style={{ flex: 1 }}>玩家</span>
+                    <span style={{ width: 80, textAlign: 'right' as const }}>总积分</span>
+                  </div>
+                  {sorted.map((p, idx) => {
+                    const name = p.users?.username || '?';
+                    const isMe = p.user_id === userId;
+                    const rankColors: Record<number, string> = { 1: '#fbbf24', 2: '#94a3b8', 3: '#d97706' };
+                    const rankColor = rankColors[idx + 1] || '#475569';
+                    const scoreColor = p.total > 0 ? '#34d399' : p.total < 0 ? '#f87171' : '#fbbf24';
+                    const initial = name.charAt(0).toUpperCase();
+                    return (
+                      <div key={p.id} style={{
+                        display: 'flex', alignItems: 'center', padding: '12px 16px',
+                        borderBottom: idx < sorted.length - 1 ? '1px solid rgba(51,65,85,0.3)' : 'none',
+                        background: isMe ? 'rgba(59,130,246,0.08)' : 'transparent',
+                      }}>
+                        <span style={{ width: 28, fontSize: idx < 3 ? 16 : 13, fontWeight: 800, color: rankColor }}>
+                          {idx < 3 ? ['\u{1F947}', '\u{1F948}', '\u{1F949}'][idx] : idx + 1}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: `linear-gradient(135deg, ${isMe ? '#3b82f6' : '#475569'}, ${isMe ? '#60a5fa' : '#64748b'})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
+                          }}>{initial}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 13, fontWeight: 600,
+                              color: isMe ? '#60a5fa' : '#e2e8f0',
+                              whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>
+                              {name}{isMe ? <span style={{ fontSize: 10, color: '#3b82f6', marginLeft: 4 }}>(我)</span> : null}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ width: 80, textAlign: 'right' as const, fontSize: 16, fontWeight: 800, color: scoreColor }}>
+                          {p.total > 0 ? '+' : ''}{p.total}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* 底部水印 */}
+                <div style={{ textAlign: 'center' as const, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(51,65,85,0.3)' }}>
+                  <div style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>Poker Finance Manager</div>
+                  <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>{new Date().toLocaleDateString('zh-CN')} 生成</div>
+                </div>
+              </div>
+            )}
+            {/* 预览已生成的图片 */}
+            {previewUrl && (
+              <div className="flex flex-col items-center gap-4 w-full max-w-sm">
+                <img src={previewUrl} alt="积分账单" className="w-full rounded-xl shadow-2xl border border-slate-700" />
+              </div>
+            )}
+            {/* 操作按钮 */}
+            <div className="flex flex-col gap-3 w-full max-w-sm mt-6">
+              {!previewUrl ? (
+                <button onClick={generateImage} disabled={isGenerating}
+                  className="w-full py-3.5 rounded-xl bg-primary text-white font-bold text-base transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2">
+                  {isGenerating ? (<><span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>生成中...</>)
+                    : (<><span className="material-symbols-outlined text-[20px]">image</span>生成分享图片</>)}
+                </button>
+              ) : (
+                <>
+                  <button onClick={handleShare}
+                    className="w-full py-3.5 rounded-xl bg-primary text-white font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-[20px]">share</span>分享给好友
+                  </button>
+                  <button onClick={handleSaveImage}
+                    className="w-full py-3.5 rounded-xl bg-slate-700 text-white font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-[20px]">download</span>保存到相册
+                  </button>
+                </>
+              )}
+              <button onClick={() => setShowSharePoster(false)}
+                className="w-full py-3 rounded-xl text-slate-400 font-medium text-sm transition-colors hover:text-white">关闭</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1051,7 +1208,7 @@ export const SpectatorBar: React.FC<{
 // ─── 弹层集合 ──────────────────────────────────────────────────
 
 export const GameModals: React.FC<{
-  game: { id: string; room_code: string; thirteen_ghost_count?: number };
+  game: { id: string; name: string; room_code: string; thirteen_ghost_count?: number };
   showPicker: boolean; showScoreBoard: boolean; showInvite: boolean;
   inviteCopied: boolean; showGhostPicker: boolean; showCompare: boolean;
   publicCards: string[]; ghostCount: number; roundResult: RoundResult | null;
@@ -1075,7 +1232,7 @@ export const GameModals: React.FC<{
         onSelectCard={p.handleSelectCard} onRemoveCard={p.handleRemoveCard} onSwitchLane={p.setActiveLane} onClose={() => p.setShowPicker(false)} />
     )}
     {p.showScoreBoard && (
-      <ScoreBoard gameId={p.game.id} players={p.players} playerTotals={p.playerTotals} finishedRounds={p.finishedRounds}
+      <ScoreBoard gameId={p.game.id} gameName={p.game.name} players={p.players} playerTotals={p.playerTotals} finishedRounds={p.finishedRounds}
         isHost={p.isHost} userId={p.userId} onClose={() => p.setShowScoreBoard(false)} onCloseRoom={p.handleCloseRoom} />
     )}
     {p.showInvite && (
