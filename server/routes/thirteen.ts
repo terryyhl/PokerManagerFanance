@@ -257,10 +257,11 @@ router.post('/:gameId/set-public-cards', async (req, res) => {
  * Body: { userId, roundId, headCards: string[], midCards: string[], tailCards: string[] }
  *
  * 服务端验证:
- *   - 总共13张牌
- *   - 头道3张, 中道5张, 尾道5张
+ *   - 至少选1张牌
+ *   - 头道0~3张, 中道0~5张, 尾道0~5张
  *   - 牌编码合法
  *   - 无重复牌
+ *   - 不满13张或不满道次上限 → 自动乌龙
  *   - 乌龙检测（尾道 >= 中道 >= 头道）
  */
 router.post('/:gameId/submit-hand', async (req, res) => {
@@ -272,12 +273,13 @@ router.post('/:gameId/submit-hand', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
-        // 验证牌数量
-        if (headCards.length !== 3) return res.status(400).json({ error: '头道必须3张牌' });
-        if (midCards.length !== 5) return res.status(400).json({ error: '中道必须5张牌' });
-        if (tailCards.length !== 5) return res.status(400).json({ error: '尾道必须5张牌' });
+        // 验证牌数量（允许空道次，但每道不超过上限）
+        if (headCards.length > 3) return res.status(400).json({ error: '头道最多3张牌' });
+        if (midCards.length > 5) return res.status(400).json({ error: '中道最多5张牌' });
+        if (tailCards.length > 5) return res.status(400).json({ error: '尾道最多5张牌' });
 
         const allCards = [...headCards, ...midCards, ...tailCards];
+        if (allCards.length === 0) return res.status(400).json({ error: '至少选1张牌' });
 
         // 验证牌编码合法
         for (const card of allCards) {
@@ -286,9 +288,9 @@ router.post('/:gameId/submit-hand', async (req, res) => {
             }
         }
 
-        // 验证无重复牌（鬼牌编号不同则可以共存）
+        // 验证无重复牌
         const cardSet = new Set(allCards);
-        if (cardSet.size !== 13) {
+        if (cardSet.size !== allCards.length) {
             return res.status(400).json({ error: '牌不能重复' });
         }
 

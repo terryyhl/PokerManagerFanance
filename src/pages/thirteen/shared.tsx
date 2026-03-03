@@ -288,7 +288,7 @@ export const PublicCardPickerModal: React.FC<{
               </div>
             );
           })}
-          {selected.length === 0 && <span className="text-xs text-slate-500 py-4">点击下方卡牌选择公共牌</span>}
+          {selected.length === 0 && <span className="text-xs text-slate-500 py-4">可只选鬼牌，也可选全部公共牌</span>}
         </div>
         {ghostsInSelected > 0 && (
           <div className="text-center mt-2">
@@ -398,8 +398,8 @@ export const CardPickerModal: React.FC<{
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">选牌摆牌</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalSelected >= 13 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-slate-400'}`}>
-              {totalSelected}/13
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalSelected >= 13 ? 'bg-emerald-500/20 text-emerald-400' : totalSelected > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-slate-400'}`}>
+              {totalSelected}/13{totalSelected > 0 && totalSelected < 13 ? ' · 空道乌龙' : ''}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
@@ -450,7 +450,7 @@ export const CardPickerModal: React.FC<{
                 const inCurrentLane = currentLaneSet.has(card);
                 const inOtherLane = otherLaneCards.has(card);
                 const isPublic = publicSet.has(card);
-                const isDisabled = isPublic || inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
+                const isDisabled = isPublic || inOtherLane || (!inCurrentLane && currentLaneFull);
                 const url = cardToUrl(card);
                 return (
                   <button key={card} disabled={isDisabled && !inCurrentLane}
@@ -491,7 +491,7 @@ export const CardPickerModal: React.FC<{
                 {availableJokers.map(card => {
                   const inCurrentLane = currentLaneSet.has(card);
                   const inOtherLane = otherLaneCards.has(card);
-                  const isDisabled = inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
+                  const isDisabled = inOtherLane || (!inCurrentLane && currentLaneFull);
                   const num = parseInt(card.slice(2));
                   const isBlack = num <= 3;
                   const url = cardToUrl(card);
@@ -1263,10 +1263,10 @@ export const BottomActionBar: React.FC<{
         <button onClick={onRearrange} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-amber-600/30 transition-all active:scale-[0.98]">
           重新摆牌
         </button>
-        <button disabled={allSelectedCount < 13 || isSubmitting} onClick={onSubmit}
+        <button disabled={allSelectedCount === 0 || isSubmitting} onClick={onSubmit}
           className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98] disabled:opacity-40">
           {isSubmitting ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : null}
-          {isSubmitting ? '提交中...' : `确认摆牌 (${allSelectedCount}/13)`}
+          {isSubmitting ? '提交中...' : allSelectedCount < 13 ? `确认摆牌 (${allSelectedCount}/13 · 空道乌龙)` : `确认摆牌 (${allSelectedCount}/13)`}
         </button>
       </>
     ) : (
