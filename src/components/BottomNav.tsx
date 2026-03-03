@@ -7,6 +7,7 @@ export default function BottomNav() {
 
     const tabs = [
         { id: 'lobby', path: '/lobby', icon: 'playing_cards', label: '大厅' },
+        { id: 'history', path: '/history', icon: 'history', label: '牌局' },
         { id: 'tools', path: '/tools', icon: 'handyman', label: '工具' },
         { id: 'profile', path: '/profile', icon: 'person', label: '个人' }
     ];

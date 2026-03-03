@@ -243,4 +243,124 @@ router.get('/:id/lucky-hands-history', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/users/:id/thirteen-stats
+ * 获取指定用户的13水统计数据
+ */
+router.get('/:id/thirteen-stats', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 获取该用户参与过的所有13水游戏
+        const { data: playerGames } = await supabase
+            .from('game_players')
+            .select('game_id, games!inner(id, room_type, status)')
+            .eq('user_id', id);
+
+        const thirteenGameIds = (playerGames || [])
+            .filter((pg: any) => pg.games?.room_type === 'thirteen_water')
+            .map((pg: any) => pg.game_id);
+
+        if (thirteenGameIds.length === 0) {
+            return res.json({
+                totalGames: 0,
+                totalRounds: 0,
+                totalScore: 0,
+                winRounds: 0,
+                winRate: 0,
+                gunCount: 0,
+                homerunCount: 0,
+            });
+        }
+
+        // 获取该用户在所有13水轮次中的汇总
+        const { data: totals } = await supabase
+            .from('thirteen_totals')
+            .select('final_score, guns_fired, homerun, thirteen_rounds!inner(game_id)')
+            .eq('user_id', id)
+            .in('thirteen_rounds.game_id', thirteenGameIds);
+
+        let totalScore = 0;
+        let winRounds = 0;
+        let gunCount = 0;
+        let homerunCount = 0;
+
+        for (const t of (totals || [])) {
+            totalScore += t.final_score || 0;
+            if ((t.final_score || 0) > 0) winRounds++;
+            gunCount += t.guns_fired || 0;
+            if (t.homerun) homerunCount++;
+        }
+
+        const totalRounds = (totals || []).length;
+
+        return res.json({
+            totalGames: thirteenGameIds.length,
+            totalRounds,
+            totalScore,
+            winRounds,
+            winRate: totalRounds > 0 ? Math.round((winRounds / totalRounds) * 100) : 0,
+            gunCount,
+            homerunCount,
+        });
+    } catch (err) {
+        console.error('[users/thirteen-stats] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+/**
+ * GET /api/users/:id/thirteen-history
+ * 获取指定用户的13水牌局历史列表
+ */
+router.get('/:id/thirteen-history', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 获取用户参与的所有13水游戏
+        const { data: playerGames } = await supabase
+            .from('game_players')
+            .select('game_id, games!inner(id, name, room_type, status, finished_at, created_at)')
+            .eq('user_id', id);
+
+        const thirteenGames = (playerGames || [])
+            .filter((pg: any) => pg.games?.room_type === 'thirteen_water' && pg.games?.status === 'finished')
+            .map((pg: any) => pg.games);
+
+        if (thirteenGames.length === 0) {
+            return res.json({ history: [] });
+        }
+
+        const gameIds = thirteenGames.map((g: any) => g.id);
+
+        // 获取每个游戏中该用户的总分
+        const { data: totals } = await supabase
+            .from('thirteen_totals')
+            .select('final_score, thirteen_rounds!inner(game_id)')
+            .eq('user_id', id)
+            .in('thirteen_rounds.game_id', gameIds);
+
+        // 按游戏汇总分数
+        const scoreByGame: Record<string, number> = {};
+        for (const t of (totals || [])) {
+            const gid = (t.thirteen_rounds as any)?.game_id;
+            if (gid) scoreByGame[gid] = (scoreByGame[gid] || 0) + (t.final_score || 0);
+        }
+
+        const history = thirteenGames
+            .map((g: any) => ({
+                gameId: g.id,
+                gameName: g.name || '未知房间',
+                finishedAt: g.finished_at || g.created_at,
+                totalScore: scoreByGame[g.id] || 0,
+            }))
+            .sort((a: any, b: any) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime());
+
+        return res.json({ history });
+    } catch (err) {
+        console.error('[users/thirteen-history] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
 export default router;

@@ -60,6 +60,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+  const [isAutoArranging, setIsAutoArranging] = useState(false);
   const settlingRef = useRef(false);
 
   // 弹层
@@ -458,6 +459,29 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     showToast('已清空，重新摆牌', 'info');
   };
 
+  const handleAutoArrange = async () => {
+    if (!game || isAutoArranging) return;
+    const allCards = [...myHeadCards, ...myMidCards, ...myTailCards];
+    if (allCards.length !== 13) {
+      showToast('请先选满13张牌再自动摆牌', 'info');
+      return;
+    }
+    setIsAutoArranging(true);
+    try {
+      const res = await fetch(`/api/thirteen/${game.id}/auto-arrange`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards: allCards }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || '自动摆牌失败', 'error'); return; }
+      setMyHeadCards(data.head);
+      setMyMidCards(data.mid);
+      setMyTailCards(data.tail);
+      showToast(`已自动摆牌: ${data.headName} / ${data.midName} / ${data.tailName}`, 'success');
+    } catch { showToast('网络错误', 'error'); }
+    finally { setIsAutoArranging(false); }
+  };
+
   // ─── 自动保存草稿（debounce 1秒） ──────────────────────────
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -797,6 +821,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleSelectCard,
     handleRemoveCard,
     handleRearrange,
+    handleAutoArrange,
+    isAutoArranging,
     handleSubmitHand,
     handleSetPublicCards,
     handleCompareClose,

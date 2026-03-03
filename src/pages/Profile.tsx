@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
 import { useUser } from '../contexts/UserContext';
-import { usersApi, LuckyHandHistory, timerApi } from '../lib/api';
+import { usersApi, LuckyHandHistory, timerApi, gamesApi } from '../lib/api';
 import Avatar from '../components/Avatar';
 import HandComboDisp from '../components/HandComboDisp';
 
@@ -14,21 +14,21 @@ interface UserStats {
     winRate: number;
 }
 
-interface GameHistoryItem {
-    gameId: string;
-    gameName: string;
-    blindLevel: string;
-    finishedAt: string;
-    profit: number;
-    finalChips: number;
-    totalBuyIn: number;
+interface ThirteenStats {
+    totalGames: number;
+    totalRounds: number;
+    totalScore: number;
+    winRounds: number;
+    winRate: number;
+    gunCount: number;
+    homerunCount: number;
 }
 
 export default function Profile() {
     const navigate = useNavigate();
     const { user, logout } = useUser();
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
-    const [history, setHistory] = useState<GameHistoryItem[]>([]);
+    const [thirteenStats, setThirteenStats] = useState<ThirteenStats>({ totalGames: 0, totalRounds: 0, totalScore: 0, winRounds: 0, winRate: 0, gunCount: 0, homerunCount: 0 });
     const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
     const [timerStats, setTimerStats] = useState<{
         timerCount: number; timerTotalSec: number; timerAvgSec: number; timerMaxSec: number;
@@ -47,15 +47,16 @@ export default function Profile() {
 
         const fetchProfileData = async () => {
             try {
-                const [statsResult, luckyResult, timerResult] = await Promise.all([
+                const [statsResult, luckyResult, timerResult, twResult] = await Promise.all([
                     usersApi.getStats(user.id),
                     usersApi.getLuckyHandsHistory(user.id),
                     timerApi.getUserStats(user.id).catch(() => ({ stats: null })),
+                    usersApi.getThirteenStats(user.id).catch(() => null),
                 ]);
                 setStats(statsResult.stats);
-                setHistory(statsResult.history);
                 setLuckyHands(luckyResult.luckyHands);
                 if (timerResult.stats) setTimerStats(timerResult.stats);
+                if (twResult) setThirteenStats(twResult);
             } catch (err) {
                 console.error('Failed to load profile data:', err);
                 setError(true);
@@ -236,43 +237,49 @@ export default function Profile() {
                         </div>
                     )}
 
-                    {/* Recent History */}
-                    <div className="mb-6">
-                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-slate-400">history</span>
-                            牌局回顾
-                        </h3>
-
-                        {isLoading ? (
-                            <div className="flex flex-col gap-3">
-                                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-xl" />)}
-                            </div>
-                        ) : history.length === 0 ? (
-                            <div className="text-center py-10 bg-white dark:bg-[#1a2632] rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-2">history_toggle_off</span>
-                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">暂无牌局回顾数据</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                {history.map((h, i) => (
-                                    <div key={`${h.gameId}-${i}`} className="bg-white dark:bg-[#1a2632] p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer" onClick={() => navigate(`/settlement/${h.gameId}`)}>
-                                        <div>
-                                            <h4 className="font-bold text-slate-900 dark:text-white text-base mb-1">{h.gameName}</h4>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                {new Date(h.finishedAt).toLocaleDateString('zh-CN')} • 盲注 {h.blindLevel}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className={`text-lg font-black ${h.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-                                                {h.profit > 0 ? '+' : ''}{h.profit} 积分
-                                            </p>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">买入 {h.totalBuyIn} 积分</p>
-                                        </div>
+                    {/* 13水统计 */}
+                    {!isLoading && thirteenStats.totalRounds > 0 && (
+                        <div className="mb-5">
+                            <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-violet-500">playing_cards</span>
+                                十三水
+                            </h3>
+                            <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 dark:from-violet-900/20 dark:to-purple-900/10 p-4 rounded-2xl shadow-sm border border-violet-200/50 dark:border-violet-800/30">
+                                <div className="grid grid-cols-4 gap-2 mb-3">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className="text-xl font-black text-violet-600 dark:text-violet-400">{thirteenStats.totalGames}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">总场次</span>
                                     </div>
-                                ))}
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className="text-xl font-black text-violet-600 dark:text-violet-400">{thirteenStats.totalRounds}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">总局数</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className="text-xl font-black text-violet-600 dark:text-violet-400">{thirteenStats.winRate}%</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">胜率</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className={`text-xl font-black ${thirteenStats.totalScore >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                            {thirteenStats.totalScore > 0 ? '+' : ''}{thirteenStats.totalScore}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 font-bold">总积分</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-center gap-6 pt-2 border-t border-violet-200/30 dark:border-violet-700/30">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-base">🔫</span>
+                                        <span className="text-sm font-bold text-orange-500">{thirteenStats.gunCount}</span>
+                                        <span className="text-[10px] text-slate-500">打枪</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-base">💥</span>
+                                        <span className="text-sm font-bold text-amber-500">{thirteenStats.homerunCount}</span>
+                                        <span className="text-[10px] text-slate-500">全垒打</span>
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                 </div>
 

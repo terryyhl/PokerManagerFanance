@@ -103,7 +103,8 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
       ) : (
         <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
           allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
-          onRearrange={p.handleRearrange} onSubmit={p.handleSubmitHand} />
+          onRearrange={p.handleRearrange} onAutoArrange={p.handleAutoArrange} isAutoArranging={p.isAutoArranging}
+          onSubmit={p.handleSubmitHand} />
       )}
 
       {/* 弹层 — 旁观者不显示选牌器 */}

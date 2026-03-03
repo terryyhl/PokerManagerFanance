@@ -15,6 +15,7 @@ import { supabase } from '../supabase.js';
 import { Card, isValidCard, isGhost, calcGhostMultiplier } from '../lib/thirteen/deck.js';
 import { evaluateHead, evaluateLane, validateArrangement, detectSpecialHand, checkThreeFlush, checkThreeStraight } from '../lib/thirteen/hands.js';
 import { settleRound, PlayerHand } from '../lib/thirteen/scoring.js';
+import { autoArrange } from '../lib/thirteen/arrange.js';
 
 const router = Router();
 
@@ -247,6 +248,50 @@ router.post('/:gameId/set-public-cards', async (req, res) => {
     } catch (err) {
         console.error('[thirteen/set-public-cards] Unhandled:', err);
         return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// ─── POST /auto-arrange ─────────────────────────────────────────
+
+/**
+ * 自动摆牌：给定13张牌，返回最优的 3+5+5 分配方案
+ * Body: { cards: string[] }  — 13张牌编码
+ */
+router.post('/:gameId/auto-arrange', async (req, res) => {
+    try {
+        const { cards } = req.body;
+
+        if (!Array.isArray(cards) || cards.length !== 13) {
+            return res.status(400).json({ error: '需要13张牌' });
+        }
+
+        // 验证牌编码合法
+        for (const card of cards) {
+            if (!isValidCard(card)) {
+                return res.status(400).json({ error: `无效的牌: ${card}` });
+            }
+        }
+
+        // 验证无重复
+        if (new Set(cards).size !== 13) {
+            return res.status(400).json({ error: '牌不能重复' });
+        }
+
+        const result = autoArrange(cards);
+
+        return res.json({
+            head: result.head,
+            mid: result.mid,
+            tail: result.tail,
+            headName: result.headResult.name,
+            midName: result.midResult.name,
+            tailName: result.tailResult.name,
+            totalScore: result.totalScore,
+            valid: result.valid,
+        });
+    } catch (err) {
+        console.error('[thirteen/auto-arrange] Unhandled:', err);
+        return res.status(500).json({ error: '自动摆牌失败' });
     }
 });
 

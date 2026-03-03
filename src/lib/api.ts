@@ -66,6 +66,15 @@ export const usersApi = {
         request<{ luckyHands: LuckyHandHistory[] }>('GET', `/users/${userId}/lucky-hands-history`),
     getLeaderboard: () =>
         request<{ leaderboard: LeaderboardEntry[] }>('GET', '/users/leaderboard'),
+    getThirteenStats: (userId: string) =>
+        request<{
+            totalGames: number; totalRounds: number; totalScore: number;
+            winRounds: number; winRate: number; gunCount: number; homerunCount: number;
+        }>('GET', `/users/${userId}/thirteen-stats`),
+    getThirteenHistory: (userId: string) =>
+        request<{
+            history: Array<{ gameId: string; gameName: string; finishedAt: string; totalScore: number }>;
+        }>('GET', `/users/${userId}/thirteen-history`),
 };
 
 export interface LeaderboardEntry {

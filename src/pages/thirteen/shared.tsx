@@ -142,6 +142,8 @@ export interface TableProps {
   handleSelectCard: (card: string) => void;
   handleRemoveCard: (card: string) => void;
   handleRearrange: () => void;
+  handleAutoArrange: () => void;
+  isAutoArranging: boolean;
   handleSubmitHand: () => void;
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void;
@@ -1255,16 +1257,23 @@ export const MyHandArea: React.FC<{
 export const BottomActionBar: React.FC<{
   isConfirmed: boolean; isSubmitting: boolean; isSettling: boolean;
   allSelectedCount: number; confirmedCount: number; totalPlayers: number;
-  onRearrange: () => void; onSubmit: () => void;
-}> = ({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onSubmit }) => (
-  <div className="p-3 pb-8 flex gap-3 shrink-0 bg-black/20 border-t border-white/5">
+  onRearrange: () => void; onAutoArrange: () => void; isAutoArranging: boolean; onSubmit: () => void;
+}> = ({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit }) => (
+  <div className="p-3 pb-8 flex flex-col gap-2 shrink-0 bg-black/20 border-t border-white/5">
     {!isConfirmed ? (
       <>
-        <button onClick={onRearrange} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-amber-600/30 transition-all active:scale-[0.98]">
-          重新摆牌
-        </button>
+        <div className="flex gap-3">
+          <button onClick={onRearrange} className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-sm py-3 rounded-2xl shadow-lg shadow-amber-600/30 transition-all active:scale-[0.98]">
+            重新摆牌
+          </button>
+          <button disabled={allSelectedCount < 13 || isAutoArranging} onClick={onAutoArrange}
+            className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-violet-500 to-violet-600 text-white font-bold text-sm py-3 rounded-2xl shadow-lg shadow-violet-600/30 transition-all active:scale-[0.98] disabled:opacity-40">
+            {isAutoArranging ? <span className="material-symbols-outlined animate-spin text-base">progress_activity</span> : <span className="material-symbols-outlined text-base">auto_fix_high</span>}
+            {isAutoArranging ? '计算中...' : '自动摆牌'}
+          </button>
+        </div>
         <button disabled={allSelectedCount === 0 || isSubmitting} onClick={onSubmit}
-          className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98] disabled:opacity-40">
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98] disabled:opacity-40">
           {isSubmitting ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : null}
           {isSubmitting ? '提交中...' : allSelectedCount < 13 ? `确认摆牌 (${allSelectedCount}/13 · 空道乌龙)` : `确认摆牌 (${allSelectedCount}/13)`}
         </button>
