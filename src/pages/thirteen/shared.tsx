@@ -861,7 +861,7 @@ export const ScoreBoard: React.FC<{
   );
 };
 
-// ─── 逐道比牌动画 ──────────────────────────────────────────
+// ─── 逐对逐道比牌动画 ──────────────────────────────────────
 
 export const CompareAnimation: React.FC<{
   result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean; gameName?: string;
@@ -870,8 +870,48 @@ export const CompareAnimation: React.FC<{
   const playerMap: Record<string, Player> = {};
   for (const p of players) playerMap[p.user_id] = p;
 
-  const [phase, setPhase] = useState(replay ? 3 : -1);
-  const [laneRevealed, setLaneRevealed] = useState<boolean[]>(replay ? [true, true, true] : [false, false, false]);
+  // 构建两两对战列表
+  const allPlayerIds = settlement.players.map(p => p.userId);
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < allPlayerIds.length; i++) {
+    for (let j = i + 1; j < allPlayerIds.length; j++) {
+      pairs.push([allPlayerIds[i], allPlayerIds[j]]);
+    }
+  }
+
+  // 构建每对每道的得分查找表: key = "userId_opponentId_lane" → score
+  const pairLaneScores: Record<string, number> = {};
+  for (const sp of settlement.players) {
+    for (const ls of sp.laneScores) {
+      if (ls.lane === 'head' || ls.lane === 'mid' || ls.lane === 'tail') {
+        const key = `${ls.userId}_${ls.opponentId}_${ls.lane}`;
+        pairLaneScores[key] = (pairLaneScores[key] || 0) + ls.score;
+      }
+    }
+  }
+
+  // 检测每对是否打枪
+  const pairGunStatus: Record<string, { gunner: string | null }> = {};
+  for (const [a, b] of pairs) {
+    const key = `${a}_${b}`;
+    const lanes: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
+    let aWins = 0, bWins = 0;
+    for (const lane of lanes) {
+      const scoreA = pairLaneScores[`${a}_${b}_${lane}`] || 0;
+      if (scoreA > 0) aWins++;
+      else if (scoreA < 0) bWins++;
+    }
+    pairGunStatus[key] = { gunner: aWins === 3 ? a : bWins === 3 ? b : null };
+  }
+
+  const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
+  const laneLabels: Record<string, string> = { head: '头道', mid: '中道', tail: '尾道' };
+
+  // 总阶段数: 每对3道 + 最终汇总
+  const totalPairPhases = pairs.length * 3;
+  const summaryPhase = totalPairPhases;
+
+  const [phase, setPhase] = useState(replay ? summaryPhase : -1);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showEffect, setShowEffect] = useState(false);
 
@@ -884,19 +924,6 @@ export const CompareAnimation: React.FC<{
   const hasGun = settlement.players.some(p => p.gunsFired > 0);
   const effectType = hasHomerun ? 'homerun' : hasGun ? 'gun' : null;
 
-  const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
-  const laneLabels = ['头道', '中道', '尾道'];
-
-  const pairScores: Record<string, Record<string, number>> = { head: {}, mid: {}, tail: {} };
-  for (const sp of settlement.players) {
-    for (const ls of sp.laneScores) {
-      if (ls.lane === 'head' || ls.lane === 'mid' || ls.lane === 'tail') {
-        const key = `${ls.userId}_${ls.opponentId}`;
-        pairScores[ls.lane][key] = ls.score;
-      }
-    }
-  }
-
   useEffect(() => {
     if (replay) return;
     timerRef.current = setTimeout(() => setPhase(0), 500);
@@ -905,39 +932,29 @@ export const CompareAnimation: React.FC<{
 
   useEffect(() => {
     if (replay) return;
-    if (phase < 0 || phase > 2) return;
-    setLaneRevealed(prev => { const n = [...prev]; n[phase] = true; return n; });
-    if (phase < 2) {
-      timerRef.current = setTimeout(() => setPhase(phase + 1), 2000);
-    } else {
-      timerRef.current = setTimeout(() => setPhase(3), 2000);
-    }
+    if (phase < 0 || phase >= summaryPhase) return;
+    timerRef.current = setTimeout(() => setPhase(phase + 1), 1500);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [phase, replay]);
+  }, [phase, replay, summaryPhase]);
 
   // 进入结算阶段时触发特效
   useEffect(() => {
-    if (phase === 3 && effectType && !replay) {
+    if (phase === summaryPhase && effectType && !replay) {
       setShowEffect(true);
       const t = setTimeout(() => setShowEffect(false), 2500);
       return () => clearTimeout(t);
     }
-  }, [phase, effectType, replay]);
+  }, [phase, effectType, replay, summaryPhase]);
 
   const sorted = [...settlement.players].sort((a, b) => b.finalScore - a.finalScore);
 
-  const getLaneTotal = (uid: string, lane: string): number => {
-    return settlement.players
-      .find(p => p.userId === uid)
-      ?.laneScores.filter(ls => ls.lane === lane && ls.userId === uid)
-      .reduce((s, ls) => s + ls.score, 0) || 0;
-  };
-
   const skipToEnd = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setLaneRevealed([true, true, true]);
-    setPhase(3);
+    setPhase(summaryPhase);
   };
+
+  const getName = (uid: string) => playerMap[uid]?.users?.username || '?';
+  const isMe = (uid: string) => uid === userId;
 
   const handleCapture = useCallback(async () => {
     if (!contentRef.current || isCapturing) return;
@@ -958,8 +975,9 @@ export const CompareAnimation: React.FC<{
   }, [isCapturing, roundNumber, gameName]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={!replay && phase < 3 ? skipToEnd : undefined}>
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={!replay && phase < summaryPhase ? skipToEnd : undefined}>
       <div className="flex-1 flex flex-col overflow-y-auto" ref={contentRef}>
+        {/* 标题栏 */}
         <div className="flex items-center justify-between px-4 h-12 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-white">第 {roundNumber} 局</span>
@@ -970,68 +988,112 @@ export const CompareAnimation: React.FC<{
             )}
           </div>
           <div className="flex items-center gap-1">
-            {(phase >= 3 || replay) && (
+            {(phase >= summaryPhase || replay) && (
               <button onClick={(e) => { e.stopPropagation(); handleCapture(); }} className="p-1.5 rounded-lg hover:bg-white/10" title="分享">
                 {isCapturing
                   ? <span className="material-symbols-outlined text-white animate-spin text-[20px]">progress_activity</span>
                   : <span className="material-symbols-outlined text-white text-[20px]">share</span>}
               </button>
             )}
-            {(phase >= 3 || replay) && (
+            {(phase >= summaryPhase || replay) && (
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
                 <span className="material-symbols-outlined text-white">close</span>
               </button>
             )}
           </div>
         </div>
-        <div className="flex-1 px-3 pt-2 pb-4 space-y-4">
-          {laneNames.map((lane, laneIdx) => {
-            const revealed = laneRevealed[laneIdx];
-            const isActive = phase === laneIdx;
-            const cardCount = lane === 'head' ? 3 : 5;
+
+        <div className="flex-1 px-3 pt-2 pb-4 space-y-3">
+          {/* 逐对比牌 */}
+          {pairs.map(([pA, pB], pairIdx) => {
+            const pairStartPhase = pairIdx * 3;
+            const pairVisible = phase >= pairStartPhase || replay;
+            if (!pairVisible) return null;
+
+            const handA = hands.find(h => h.user_id === pA);
+            const handB = hands.find(h => h.user_id === pB);
+            const nameA = getName(pA);
+            const nameB = getName(pB);
+            const pairKey = `${pA}_${pB}`;
+            const gun = pairGunStatus[pairKey];
+
+            // 该对的三道总得分（A视角）
+            let pairTotalA = 0;
+            for (const lane of laneNames) {
+              pairTotalA += pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
+            }
+
+            const pairDone = phase >= pairStartPhase + 3 || replay;
+
             return (
-              <div key={lane}
-                className={`rounded-2xl border p-3 transition-all duration-500
-                  ${isActive ? 'border-primary/50 bg-primary/5 shadow-lg shadow-primary/10' : revealed ? 'border-white/10 bg-white/[0.03]' : 'border-white/5 bg-white/[0.02] opacity-40'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-bold ${isActive ? 'text-primary' : revealed ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {laneLabels[laneIdx]}
-                  </span>
-                  {revealed && isActive && (
-                    <span className="text-[10px] text-primary animate-pulse font-bold">比牌中...</span>
+              <div key={pairKey} className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+                {/* 对战标题 */}
+                <div className="flex items-center justify-between px-3 py-2 bg-white/[0.03] border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold ${isMe(pA) ? 'text-primary' : 'text-white'}`}>{nameA}</span>
+                    <span className="text-[10px] text-slate-500">VS</span>
+                    <span className={`text-xs font-bold ${isMe(pB) ? 'text-primary' : 'text-white'}`}>{nameB}</span>
+                  </div>
+                  {pairDone && (
+                    <div className="flex items-center gap-2">
+                      {gun?.gunner && <span className="text-[10px] text-orange-400 font-bold">{getName(gun.gunner)} 打枪!</span>}
+                      <span className={`text-xs font-black ${pairTotalA > 0 ? 'text-emerald-400' : pairTotalA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                        {pairTotalA > 0 ? `+${pairTotalA}` : pairTotalA} : {-pairTotalA > 0 ? `+${-pairTotalA}` : -pairTotalA}
+                      </span>
+                    </div>
                   )}
                 </div>
-                <div className="space-y-2">
-                  {sorted.map(sp => {
-                    const hand = hands.find(h => h.user_id === sp.userId);
-                    const cards = hand ? (lane === 'head' ? hand.head_cards : lane === 'mid' ? hand.mid_cards : hand.tail_cards) : null;
-                    const name = playerMap[sp.userId]?.users?.username || '?';
-                    const isMe = sp.userId === userId;
-                    const laneScore = getLaneTotal(sp.userId, lane);
+                {/* 三道对比 */}
+                <div className="p-2 space-y-1.5">
+                  {laneNames.map((lane, laneIdx) => {
+                    const lanePhase = pairStartPhase + laneIdx;
+                    const revealed = phase >= lanePhase || replay;
+                    const isActive = phase === lanePhase;
+                    const cardCount = lane === 'head' ? 3 : 5;
+                    const cardsA = handA ? (lane === 'head' ? handA.head_cards : lane === 'mid' ? handA.mid_cards : handA.tail_cards) : null;
+                    const cardsB = handB ? (lane === 'head' ? handB.head_cards : lane === 'mid' ? handB.mid_cards : handB.tail_cards) : null;
+                    const scoreA = pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
+
                     return (
-                      <div key={sp.userId}
-                        className={`flex items-center gap-2 p-2 rounded-xl transition-all duration-500
-                          ${isMe ? 'bg-primary/10' : 'bg-white/[0.02]'}`}>
-                        <div className="w-14 shrink-0">
-                          <span className={`text-[10px] font-bold truncate block ${isMe ? 'text-primary' : 'text-slate-400'}`}>{name}</span>
+                      <div key={lane} className={`rounded-xl p-2 transition-all duration-300 ${isActive ? 'bg-primary/5 ring-1 ring-primary/30' : revealed ? 'bg-white/[0.01]' : 'opacity-30'}`}>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className={`text-[10px] font-bold ${isActive ? 'text-primary' : 'text-slate-500'}`}>{laneLabels[lane]}</span>
+                          {revealed && isActive && <span className="text-[9px] text-primary animate-pulse">比牌中</span>}
                         </div>
-                        <div className="flex gap-0.5 flex-1 justify-center">
-                          {revealed && cards
-                            ? cards.map((c, i) => (
-                              <div key={i} className="transition-all duration-300" style={{ animationDelay: `${i * 100}ms` }}>
-                                <PokerCard card={c} faceUp small />
-                              </div>
-                            ))
-                            : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)
-                          }
-                        </div>
-                        <div className="w-12 text-right shrink-0">
-                          {revealed ? (
-                            <span className={`text-sm font-black transition-all duration-500
-                              ${laneScore > 0 ? 'text-emerald-400' : laneScore < 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                              {laneScore > 0 ? `+${laneScore}` : laneScore}
-                            </span>
-                          ) : <span className="text-sm text-slate-600">?</span>}
+                        {/* 两行: A 的牌 和 B 的牌 */}
+                        <div className="space-y-1">
+                          {/* 玩家 A */}
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] font-bold w-10 truncate ${isMe(pA) ? 'text-primary' : 'text-slate-400'}`}>{nameA}</span>
+                            <div className="flex gap-0.5 flex-1">
+                              {revealed && cardsA
+                                ? cardsA.map((c, i) => <PokerCard key={i} card={c} faceUp small />)
+                                : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
+                            </div>
+                            <div className="w-10 text-right">
+                              {revealed && (
+                                <span className={`text-xs font-black ${scoreA > 0 ? 'text-emerald-400' : scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                                  {scoreA > 0 ? `+${scoreA}` : scoreA}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* 玩家 B */}
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] font-bold w-10 truncate ${isMe(pB) ? 'text-primary' : 'text-slate-400'}`}>{nameB}</span>
+                            <div className="flex gap-0.5 flex-1">
+                              {revealed && cardsB
+                                ? cardsB.map((c, i) => <PokerCard key={i} card={c} faceUp small />)
+                                : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
+                            </div>
+                            <div className="w-10 text-right">
+                              {revealed && (
+                                <span className={`text-xs font-black ${-scoreA > 0 ? 'text-emerald-400' : -scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                                  {-scoreA > 0 ? `+${-scoreA}` : -scoreA}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1040,22 +1102,23 @@ export const CompareAnimation: React.FC<{
               </div>
             );
           })}
-          {phase >= 3 && (
+
+          {/* 最终汇总 */}
+          {(phase >= summaryPhase || replay) && (
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3 animate-[fadeIn_0.5s_ease-out]">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-amber-400">最终结算</span>
                 {ghostMultiplier > 1 && <span className="text-[10px] text-purple-400">鬼牌 {ghostMultiplier}x</span>}
               </div>
               {sorted.map((sp, idx) => {
-                const name = playerMap[sp.userId]?.users?.username || '?';
-                const isMe = sp.userId === userId;
+                const name = getName(sp.userId);
                 const hand = hands.find(h => h.user_id === sp.userId);
                 return (
-                  <div key={sp.userId} className={`flex items-center gap-3 p-3 rounded-xl border ${isMe ? 'bg-primary/10 border-primary/30' : 'bg-white/[0.03] border-white/5'}`}>
+                  <div key={sp.userId} className={`flex items-center gap-3 p-3 rounded-xl border ${isMe(sp.userId) ? 'bg-primary/10 border-primary/30' : 'bg-white/[0.03] border-white/5'}`}>
                     <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${idx === 0 && sp.finalScore > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/5 text-slate-500'}`}>{idx + 1}</span>
                     <Avatar username={name} className="w-8 h-8" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-bold text-white truncate block">{name}{isMe ? ' (我)' : ''}</span>
+                      <span className="text-sm font-bold text-white truncate block">{name}{isMe(sp.userId) ? ' (我)' : ''}</span>
                       <div className="flex items-center gap-2 text-[10px] mt-0.5">
                         {hand?.is_foul && <span className="text-red-400 font-bold">乌龙</span>}
                         {hand?.special_hand && <span className="text-yellow-400 font-bold">{SPECIAL_HAND_NAMES[hand.special_hand] || hand.special_hand}</span>}
@@ -1073,7 +1136,7 @@ export const CompareAnimation: React.FC<{
           )}
         </div>
       </div>
-      {phase >= 3 && (
+      {(phase >= summaryPhase || replay) && (
         <div className="p-4 pb-8 shrink-0">
           <button onClick={onClose} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-base shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">
             继续
@@ -1084,11 +1147,9 @@ export const CompareAnimation: React.FC<{
       {showEffect && effectType && (
         <div className="fixed inset-0 z-[70] pointer-events-none flex items-center justify-center animate-[effectIn_0.3s_ease-out]"
           onClick={() => setShowEffect(false)}>
-          {/* 径向光芒背景 */}
           <div className={`absolute inset-0 ${effectType === 'homerun'
             ? 'bg-gradient-radial from-yellow-500/30 via-amber-600/10 to-transparent'
             : 'bg-gradient-radial from-orange-500/25 via-red-600/10 to-transparent'} animate-pulse`} />
-          {/* 四散粒子 */}
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="absolute w-2 h-2 rounded-full animate-[particle_1.5s_ease-out_forwards]"
               style={{
@@ -1099,9 +1160,8 @@ export const CompareAnimation: React.FC<{
                 opacity: 0,
               }} />
           ))}
-          {/* 主文字 */}
           <div className="relative flex flex-col items-center gap-3 animate-[effectBounce_0.6s_cubic-bezier(0.34,1.56,0.64,1)]">
-            <span className={`text-6xl ${effectType === 'homerun' ? '' : ''}`}>
+            <span className="text-6xl">
               {effectType === 'homerun' ? '💥' : '🔫'}
             </span>
             <div className={`text-4xl font-black tracking-wider ${effectType === 'homerun'
@@ -1109,11 +1169,10 @@ export const CompareAnimation: React.FC<{
               : 'text-orange-400 drop-shadow-[0_0_20px_rgba(249,115,22,0.5)]'}`}>
               {effectType === 'homerun' ? '全垒打!' : '打枪!'}
             </div>
-            {/* 涉及的玩家 */}
             <div className="flex flex-wrap justify-center gap-2 mt-1">
               {settlement.players.filter(p => effectType === 'homerun' ? p.homerun : p.gunsFired > 0).map(p => (
                 <span key={p.userId} className="text-sm font-bold text-white/80 bg-white/10 px-3 py-1 rounded-full">
-                  {playerMap[p.userId]?.users?.username || '?'}
+                  {getName(p.userId)}
                   {effectType === 'gun' && p.gunsFired > 1 ? ` x${p.gunsFired}` : ''}
                 </span>
               ))}
