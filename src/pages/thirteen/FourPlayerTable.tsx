@@ -109,7 +109,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         isHost={p.isHost} userId={p.userId}
         setShowPicker={p.setShowPicker} setShowInvite={p.setShowInvite} setInviteCopied={p.setInviteCopied}
         setShowScoreBoard={p.setShowScoreBoard} setShowGhostPicker={p.setShowGhostPicker}
-        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard} handleDropCardToLane={p.handleDropCardToLane}
+        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
         toast={p.toast} />

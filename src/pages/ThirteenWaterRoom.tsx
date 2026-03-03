@@ -443,18 +443,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     else setMyTailCards(prev => [...prev, card]);
   };
 
-  const handleDropCardToLane = (card: string, lane: 'head' | 'mid' | 'tail') => {
-    if (allSelectedCards.length >= 13) return;
-    const laneCards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
-    if (laneCards.length >= laneMax[lane]) return;
-    if (allSelectedCards.includes(card)) return;
-    if (publicCards.includes(card)) return;
-    if (lane === 'head') setMyHeadCards(prev => [...prev, card]);
-    else if (lane === 'mid') setMyMidCards(prev => [...prev, card]);
-    else setMyTailCards(prev => [...prev, card]);
-    setActiveLane(lane);
-  };
-
   const handleRemoveCard = (card: string) => {
     setMyHeadCards(prev => prev.filter(c => c !== card));
     setMyMidCards(prev => prev.filter(c => c !== card));
@@ -763,7 +751,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setActiveLane,
     setShowCompare,
     handleSelectCard,
-    handleDropCardToLane,
     handleRemoveCard,
     handleRearrange,
     handleSubmitHand,

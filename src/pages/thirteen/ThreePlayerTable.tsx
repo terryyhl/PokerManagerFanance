@@ -56,7 +56,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           </div>
 
           {/* 公共牌区域 — 紧跟上方对手，靠上显示 */}
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 mt-1">
+          <div className="absolute top-[10%] left-1/2 -translate-x-1/2">
             <PublicCardsCenter
               publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
               isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
@@ -114,7 +114,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
         isHost={p.isHost} userId={p.userId}
         setShowPicker={p.setShowPicker} setShowInvite={p.setShowInvite} setInviteCopied={p.setInviteCopied}
         setShowScoreBoard={p.setShowScoreBoard} setShowGhostPicker={p.setShowGhostPicker}
-        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard} handleDropCardToLane={p.handleDropCardToLane}
+        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
         toast={p.toast} />
