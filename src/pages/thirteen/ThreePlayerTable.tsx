@@ -64,16 +64,16 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
             />
           </div>
 
-          {/* 左侧对手 — 左半屏居中 */}
-          <div className="absolute left-[25%] -translate-x-1/2 top-[52%] -translate-y-1/2">
+          {/* 左侧对手 — 左半屏水平居中 + 垂直居中 */}
+          <div className="absolute left-[25%] -translate-x-1/2 top-1/2 -translate-y-1/2">
             {leftOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
                 confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
             ))}
           </div>
 
-          {/* 右侧对手 — 右半屏居中 */}
-          <div className="absolute left-[75%] -translate-x-1/2 top-[52%] -translate-y-1/2">
+          {/* 右侧对手 — 右半屏水平居中 + 垂直居中 */}
+          <div className="absolute left-[75%] -translate-x-1/2 top-1/2 -translate-y-1/2">
             {rightOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
                 confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
