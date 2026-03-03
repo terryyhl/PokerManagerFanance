@@ -71,6 +71,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [showGhostPicker, setShowGhostPicker] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
 
+  // 密码门禁
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [passwordPin, setPasswordPin] = useState<string[]>(['', '', '', '', '', '']);
+  const [passwordError, setPasswordError] = useState('');
+  const [joiningGame, setJoiningGame] = useState(false);
+
   // 同名互踢
   const sessionIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
 
@@ -172,7 +178,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     } catch { /* silent */ }
   }, [id, user]);
 
-  // ─── 进入房间: 自动入座 + 同步进度 ────────────────────────
+  // ─── 进入房间: 检查是否已在房间，不在则要求输入密码 ────────
   useEffect(() => {
     if (!id || !user) return;
     let cancelled = false;
@@ -182,20 +188,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
       const alreadyIn = res.players.some((p: Player) => p.user_id === user.id);
       if (!alreadyIn) {
-        const max = res.game.thirteen_max_players || 4;
-        if (res.players.length >= max) {
-          showToast(`房间已满（${max}人）`, 'error');
-        } else {
-          try {
-            await gamesApi.join(res.game.room_code, user.id);
-            const updated = await gamesApi.get(id);
-            if (!cancelled) {
-              setGame(updated.game);
-              setPlayers(updated.players);
-              showToast('已入座', 'success');
-            }
-          } catch { showToast('入座失败', 'error'); }
-        }
+        // 首次进入需要密码验证
+        setNeedsPassword(true);
+        setIsSyncing(false);
+        return;
       }
       if (!cancelled) {
         await syncGameState();
@@ -455,6 +451,36 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const me = players.find(p => p.user_id === user?.id);
   const opponents = players.filter(p => p.user_id !== user?.id);
 
+  // ─── 密码键盘 ──────────────────────────────────────────────
+  const handlePinKey = (key: string) => {
+    if (key === 'backspace') {
+      const p = [...passwordPin];
+      for (let i = 5; i >= 0; i--) { if (p[i] !== '') { p[i] = ''; setPasswordPin(p); return; } }
+    } else {
+      const p = [...passwordPin];
+      for (let i = 0; i < 6; i++) { if (p[i] === '') { p[i] = key; setPasswordPin(p); return; } }
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    const code = passwordPin.join('');
+    if (code.length !== 6 || !user || !id) return;
+    setJoiningGame(true); setPasswordError('');
+    try {
+      await gamesApi.join(code, user.id);
+      setNeedsPassword(false);
+      // 重新拉取房间数据 + 同步游戏状态
+      const updated = await gamesApi.get(id);
+      setGame(updated.game);
+      setPlayers(updated.players);
+      showToast('已入座', 'success');
+      await syncGameState();
+    } catch {
+      setPasswordError('密码错误或房间不存在');
+      setPasswordPin(['', '', '', '', '', '']);
+    } finally { setJoiningGame(false); }
+  };
+
   // ─── Header 组件（等待页面用） ──────────────────────────────
   const RoomHeader: React.FC<{ showBack?: boolean; onBack?: () => void }> = ({ showBack = true, onBack }) => (
     <div className="flex items-center px-4 h-14 border-b border-white/5 shrink-0">
@@ -496,6 +522,58 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       <p>房间不存在</p>
       <button onClick={() => navigate('/lobby')} className="text-primary font-bold">返回大厅</button>
     </div>);
+  }
+
+  // ─── 密码门禁 ──────────────────────────────────────────────
+  if (needsPassword) {
+    const pinFull = passwordPin.join('').length === 6;
+    return (
+      <div className="relative flex h-screen min-h-screen w-full flex-col bg-background-dark text-white">
+        <div className="absolute top-6 left-4 z-50">
+          <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
+            <span className="material-symbols-outlined text-[24px] text-white">close</span>
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-12">
+          <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-6">
+            <span className="material-symbols-outlined text-primary text-[32px]">lock</span>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">输入房间密码</h2>
+          <p className="text-slate-400 text-sm mb-8">需要6位密码才能进入此房间</p>
+          <div className="flex gap-3 mb-8">
+            {passwordPin.map((d, i) => (
+              <div key={i} className={`w-11 h-14 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
+                {d ? '\u2022' : ''}
+              </div>
+            ))}
+          </div>
+          {passwordError && (
+            <div className="flex items-center gap-2 text-red-400 text-sm mb-6">
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span>{passwordError}</span>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace'].map((key, i) => (
+              key === '' ? <div key={i} /> :
+                key === 'backspace' ? (
+                  <button key={i} onClick={() => handlePinKey('backspace')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors">
+                    <span className="material-symbols-outlined text-slate-400 text-[22px]">backspace</span>
+                  </button>
+                ) : (
+                  <button key={i} onClick={() => handlePinKey(key)} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors text-2xl font-bold">
+                    {key}
+                  </button>
+                )
+            ))}
+          </div>
+          <button onClick={handlePasswordSubmit} disabled={!pinFull || joiningGame}
+            className="mt-6 w-full max-w-[280px] py-4 rounded-2xl bg-primary hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-base transition-all">
+            {joiningGame ? '验证中...' : '进入房间'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // ─── 等待页面 ──────────────────────────────────────────────
