@@ -1024,16 +1024,23 @@ export const CompareAnimation: React.FC<{
 
         <div className="flex-1 px-3 pt-2 pb-4 space-y-3">
           {/* 公共牌 */}
-          {publicCards.length > 0 && (
-            <div className="flex items-center justify-center gap-1.5 py-1">
-              <span className="text-[11px] text-slate-500 font-medium">公共牌</span>
+          <div className="flex items-center justify-center gap-1.5 py-1">
+            <span className="text-[11px] text-slate-500 font-medium">公共牌</span>
+            {publicCards.length > 0 ? (
               <div className="flex gap-1">
                 {publicCards.map((card, i) => (
                   <PokerCard key={i} card={card} faceUp small />
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <span className="text-[11px] text-slate-600">无</span>
+            )}
+            {ghostCount > 0 && (
+              <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded font-bold ml-1">
+                {ghostMultiplier}倍
+              </span>
+            )}
+          </div>
           {/* 逐对比牌 — 每对一次性展开3道 */}
           {pairs.map(([pA, pB], pairIdx) => {
             const pairVisible = phase >= pairIdx || replay;
