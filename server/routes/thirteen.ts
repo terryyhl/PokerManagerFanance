@@ -518,11 +518,13 @@ router.post('/:gameId/settle', async (req, res) => {
     try {
         const { gameId } = req.params;
         const { userId, roundId } = req.body;
+        console.log('[settle] 开始, gameId=', gameId, 'roundId=', roundId, 'userId=', userId);
 
         if (!userId || !roundId) return res.status(400).json({ error: '缺少必要参数' });
 
         // 验证是房间成员
         const memberIds = await getGamePlayers(gameId);
+        console.log('[settle] memberIds=', memberIds.length, memberIds);
         if (!memberIds.includes(userId)) {
             return res.status(403).json({ error: '你不是该房间的成员' });
         }
@@ -539,10 +541,15 @@ router.post('/:gameId/settle', async (req, res) => {
             .eq('game_id', gameId)
             .single();
 
-        if (roundErr || !round) return res.status(404).json({ error: '轮次不存在' });
+        if (roundErr || !round) {
+            console.error('[settle] 轮次不存在, roundErr=', roundErr);
+            return res.status(404).json({ error: '轮次不存在' });
+        }
+        console.log('[settle] round.status=', round.status);
 
         // 已完成的轮次：直接返回已有结算结果（支持重连恢复）
         if (round.status === 'finished') {
+            console.log('[settle] 轮次已完成，返回已有结果');
             const { data: totals } = await supabase
                 .from('thirteen_totals')
                 .select('*')
@@ -565,28 +572,31 @@ router.post('/:gameId/settle', async (req, res) => {
         }
 
         // 乐观锁: 用 CAS 抢占结算权，防止并发重复结算
-        // 先尝试 arranging → settling（正常路径）
         let locked = false;
-        const { data: lock1 } = await supabase
-            .from('thirteen_rounds')
-            .update({ status: 'settling' })
-            .eq('id', roundId)
-            .eq('status', 'arranging')
-            .select('id')
-            .single();
-
-        if (lock1) {
-            locked = true;
+        if (round.status === 'arranging') {
+            const { data: lock1 } = await supabase
+                .from('thirteen_rounds')
+                .update({ status: 'settling' })
+                .eq('id', roundId)
+                .eq('status', 'arranging')
+                .select('id')
+                .single();
+            if (lock1) locked = true;
+            console.log('[settle] CAS arranging→settling:', locked);
         } else if (round.status === 'settling') {
-            // settling 卡住（上次结算中断），允许恢复继续
+            // settling 卡住（上次结算中断），允许恢复：先清理残留数据
+            console.log('[settle] 从 settling 状态恢复，清理残留数据...');
+            await supabase.from('thirteen_scores').delete().eq('round_id', roundId);
+            await supabase.from('thirteen_totals').delete().eq('round_id', roundId);
             locked = true;
         }
 
         if (!locked) {
+            console.log('[settle] 未获得锁, round.status=', round.status);
             return res.json({ settlement: null, alreadySettling: true });
         }
 
-        const players = memberIds; // 已在上方获取
+        const players = memberIds;
 
         // 获取所有已确认的手牌
         const { data: hands, error: handsErr } = await supabase
@@ -595,9 +605,16 @@ router.post('/:gameId/settle', async (req, res) => {
             .eq('round_id', roundId)
             .eq('is_confirmed', true);
 
-        if (handsErr || !hands) return res.status(500).json({ error: '获取手牌数据失败' });
+        if (handsErr || !hands) {
+            console.error('[settle] 获取手牌失败:', handsErr);
+            return res.status(500).json({ error: '获取手牌数据失败' });
+        }
+        console.log('[settle] confirmed hands=', hands.length, '/', players.length);
 
         if (hands.length < players.length) {
+            console.warn('[settle] 未全员确认:', hands.length, '<', players.length);
+            // 回滚状态到 arranging，避免永远卡在 settling
+            await supabase.from('thirteen_rounds').update({ status: 'arranging' }).eq('id', roundId);
             return res.status(400).json({
                 error: `还有${players.length - hands.length}位玩家未确认摆牌`,
                 confirmed: hands.length,
@@ -614,13 +631,16 @@ router.post('/:gameId/settle', async (req, res) => {
             tailCards: h.tail_cards || [],
             isFoul: h.is_foul || false,
         }));
+        console.log('[settle] playerHands 构建完成, count=', playerHands.length);
 
         // 执行结算
         const ghostMultiplier = round.ghost_multiplier || 1;
         const baseScore = config.thirteen_base_score || 1;
         const compareSuit = config.thirteen_compare_suit !== false;
 
+        console.log('[settle] 执行 settleRound, ghostMultiplier=', ghostMultiplier, 'baseScore=', baseScore);
         const settlement = settleRound(playerHands, ghostMultiplier, baseScore, compareSuit);
+        console.log('[settle] settleRound 完成, players=', settlement.players.length);
 
         // 写入 thirteen_scores（明细）
         const scoreRecords = settlement.players.flatMap(p =>
@@ -639,10 +659,11 @@ router.post('/:gameId/settle', async (req, res) => {
                 .from('thirteen_scores')
                 .insert(scoreRecords);
             if (scoreErr) {
-                console.error('[thirteen/settle] 写入明细失败:', scoreErr);
-                return res.status(500).json({ error: '写入结算明细失败' });
+                console.error('[settle] 写入明细失败:', scoreErr);
+                return res.status(500).json({ error: '写入结算明细失败', detail: scoreErr.message });
             }
         }
+        console.log('[settle] scores 写入成功, count=', scoreRecords.length);
 
         // 写入 thirteen_totals（汇总）
         const totalRecords = settlement.players.map(p => ({
@@ -659,20 +680,22 @@ router.post('/:gameId/settle', async (req, res) => {
             .upsert(totalRecords, { onConflict: 'round_id,user_id' });
 
         if (totalErr) {
-            console.error('[thirteen/settle] 写入汇总失败:', totalErr);
-            return res.status(500).json({ error: '写入结算汇总失败' });
+            console.error('[settle] 写入汇总失败:', totalErr);
+            return res.status(500).json({ error: '写入结算汇总失败', detail: totalErr.message });
         }
+        console.log('[settle] totals 写入成功');
 
         // 更新轮次状态为完成
         await supabase
             .from('thirteen_rounds')
             .update({ status: 'finished', finished_at: new Date().toISOString() })
             .eq('id', roundId);
+        console.log('[settle] round 状态更新为 finished');
 
         return res.json({ settlement });
     } catch (err) {
-        console.error('[thirteen/settle] Unhandled:', err);
-        return res.status(500).json({ error: '服务器内部错误' });
+        console.error('[settle] Unhandled:', err);
+        return res.status(500).json({ error: '服务器内部错误', detail: String(err) });
     }
 });
 

@@ -282,11 +282,14 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           body: JSON.stringify({ userId: user.id, roundId }),
         });
         const data = await res.json();
-        console.log('[doSettle] /settle 响应:', res.status, data.settlement ? '有结果' : '无结果', data.error || '');
+        console.log('[doSettle] /settle 响应:', res.status, JSON.stringify(data).slice(0, 200));
         if (res.ok && data.settlement) {
           settlement = data.settlement;
+        } else if (!res.ok) {
+          console.error('[doSettle] /settle 返回错误:', res.status, data.error, data.detail);
+          showToast(data.error || `结算失败(${res.status})`, 'error');
         }
-      } catch (err) { console.error('[doSettle] /settle 请求失败:', err); }
+      } catch (err) { console.error('[doSettle] /settle 请求失败:', err); showToast('结算请求失败', 'error'); }
 
       // /settle 没返回结果时，直接查轮次详情（兜底）
       if (!settlement) {
