@@ -926,6 +926,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [showGhostPicker, setShowGhostPicker] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
 
+  // 同名互踢：每个客户端有唯一 sessionId
+  const sessionIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
+
   const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -1103,9 +1106,17 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // ─── Supabase Realtime ──────────────────────────────────────
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return;
 
-    const channel = supabase.channel(`thirteen-room:${id}`)
+    const channel = supabase.channel(`thirteen-room:${id}`, { config: { broadcast: { self: true } } })
+      // ── 同名互踢：收到同 userId 不同 sessionId 的广播 → 被踢 ──
+      .on('broadcast', { event: 'session-claim' }, (payload) => {
+        const msg = payload.payload as { userId: string; sessionId: string };
+        if (msg.userId === user.id && msg.sessionId !== sessionIdRef.current) {
+          showToast('该账号已在其他设备登录，即将退出', 'error');
+          setTimeout(() => navigate('/lobby'), 2000);
+        }
+      })
       // 新轮次 → 切换摆牌
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'thirteen_rounds', filter: `game_id=eq.${id}` },
         (payload) => {
@@ -1176,10 +1187,19 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             setTimeout(() => navigate('/lobby'), 1500);
           }
         })
-      .subscribe();
+      .subscribe((status) => {
+        // 订阅成功后广播 session-claim，踢掉同名旧会话
+        if (status === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'session-claim',
+            payload: { userId: user.id, sessionId: sessionIdRef.current },
+          });
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
-  }, [id, fetchGame, navigate, showCompare]);
+  }, [id, user, fetchGame, navigate, showCompare]);
 
   // ─── 全员确认后自动结算 ─────────────────────────────────────
   useEffect(() => {
@@ -1514,8 +1534,11 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button onClick={() => setShowScoreBoard(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => setShowInvite(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors" title="房间密码">
+            <span className="material-symbols-outlined text-[18px] text-slate-400">key</span>
+          </button>
+          <button onClick={() => setShowScoreBoard(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
             <span className="material-symbols-outlined text-[18px] text-slate-400">receipt_long</span>
           </button>
         </div>
@@ -1749,6 +1772,32 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       {showScoreBoard && (
         <ScoreBoard gameId={id} players={players} playerTotals={playerTotals} finishedRounds={finishedRounds}
           isHost={isHost} userId={user?.id} onClose={() => setShowScoreBoard(false)} onCloseRoom={handleCloseRoom} />
+      )}
+
+      {/* 邀请弹窗（密码+二维码） */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowInvite(false)}>
+          <div className="bg-surface-dark rounded-2xl p-6 w-full max-w-sm border border-white/10" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white text-center mb-4">邀请玩家</h3>
+            <p className="text-[11px] text-slate-500 text-center uppercase tracking-widest font-bold mb-3">房间密码</p>
+            <div className="flex justify-center gap-2 mb-4">
+              {game.room_code.split('').map((d, i) => (
+                <span key={i} className="w-10 h-12 flex items-center justify-center bg-background-dark rounded-xl text-xl font-black text-white border border-white/10">{d}</span>
+              ))}
+            </div>
+            <button onClick={() => { navigator.clipboard.writeText(game.room_code); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-medium mb-4 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">{inviteCopied ? 'check' : 'content_copy'}</span>
+              {inviteCopied ? '已复制！' : '复制密码'}
+            </button>
+            <div className="flex justify-center mb-3">
+              <div className="bg-white p-3 rounded-xl">
+                <QRCodeSVG value={`${window.location.origin}/join/${game.room_code}`} size={140} level="M" bgColor="#ffffff" fgColor="#101922" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 text-center">扫码直接加入房间</p>
+          </div>
+        </div>
       )}
 
       {/* 公共牌选牌器 */}
