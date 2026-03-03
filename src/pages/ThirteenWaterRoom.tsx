@@ -382,8 +382,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   const handleSubmitHand = async () => {
     if (!game || !user || !currentRoundId || isSubmitting) return;
-    if (myHeadCards.length !== 3 || myMidCards.length !== 5 || myTailCards.length !== 5) {
-      showToast('请先摆满13张牌', 'error'); return;
+    const totalCards = myHeadCards.length + myMidCards.length + myTailCards.length;
+    if (totalCards === 0) {
+      showToast('请至少选1张牌', 'error'); return;
     }
     setIsSubmitting(true);
     try {
