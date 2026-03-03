@@ -540,7 +540,29 @@ router.post('/:gameId/settle', async (req, res) => {
             .single();
 
         if (roundErr || !round) return res.status(404).json({ error: '轮次不存在' });
-        if (round.status === 'finished') return res.status(400).json({ error: '该轮次已结算' });
+
+        // 已完成的轮次：直接返回已有结算结果（支持重连恢复）
+        if (round.status === 'finished') {
+            const { data: totals } = await supabase
+                .from('thirteen_totals')
+                .select('*')
+                .eq('round_id', roundId);
+            const { data: scores } = await supabase
+                .from('thirteen_scores')
+                .select('*')
+                .eq('round_id', roundId);
+            const settlementPlayers = (totals || []).map((t: any) => ({
+                userId: t.user_id,
+                rawScore: t.raw_score,
+                finalScore: t.final_score,
+                gunsFired: t.guns_fired,
+                homerun: t.homerun,
+                laneScores: (scores || [])
+                    .filter((s: any) => s.user_id === t.user_id)
+                    .map((s: any) => ({ lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail })),
+            }));
+            return res.json({ settlement: { players: settlementPlayers }, alreadyFinished: true });
+        }
 
         // 乐观锁: 用 CAS 抢占结算权，防止并发重复结算
         // 先尝试 arranging → settling（正常路径）
@@ -811,8 +833,9 @@ router.get('/:gameId/state', async (req, res) => {
     try {
         const { gameId } = req.params;
 
-        // 获取当前未结束的轮次（最多1个）
-        const { data: activeRound } = await supabase
+        // 获取当前活跃轮次（未结束的），如果没有则取最近一轮（可能刚结算完）
+        let activeRound: any = null;
+        const { data: pendingRound } = await supabase
             .from('thirteen_rounds')
             .select('*')
             .eq('game_id', gameId)
@@ -820,6 +843,20 @@ router.get('/:gameId/state', async (req, res) => {
             .order('round_number', { ascending: false })
             .limit(1)
             .single();
+        if (pendingRound) {
+            activeRound = pendingRound;
+        } else {
+            // 没有活跃轮次，取最近 finished 的（支持重连看到结算结果）
+            const { data: lastRound } = await supabase
+                .from('thirteen_rounds')
+                .select('*')
+                .eq('game_id', gameId)
+                .eq('status', 'finished')
+                .order('round_number', { ascending: false })
+                .limit(1)
+                .single();
+            if (lastRound) activeRound = lastRound;
+        }
 
         let hands: any[] = [];
         if (activeRound) {

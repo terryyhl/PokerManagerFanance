@@ -141,21 +141,23 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           setIsConfirmed(myHand.is_confirmed);
         }
 
-        if (round.status === 'arranging' || round.status === 'settling') {
+        // 判断是否需要进入结算流程
+        const needsSettle =
+          round.status === 'settling' ||
+          round.status === 'finished' ||
+          (round.status === 'arranging' && stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
+
+        if (needsSettle) {
+          // 调 /settle: 未结算→执行结算, 已结算→返回已有结果, settling卡住→恢复结算
           setGamePhase('arranging');
-          // 重连时: settling 卡住 或 全员已确认 → 直接触发结算
-          const needsSettle = round.status === 'settling' || (stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
-          console.log('[syncGameState] round.status:', round.status, 'confirmed:', confirmed.size, 'totalPlayers:', stateTotalPlayers, 'needsSettle:', needsSettle, 'settlingRef:', settlingRef.current);
-          if (needsSettle && !settlingRef.current) {
+          if (!settlingRef.current) {
             settlingRef.current = true;
             try {
-              console.log('[syncGameState] 触发结算...');
               const settleRes = await fetch(`/api/thirteen/${id}/settle`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: user.id, roundId: round.id }),
               });
               const settleData = await settleRes.json();
-              console.log('[syncGameState] settle 响应:', settleRes.status, settleData);
               if (settleRes.ok && settleData.settlement) {
                 const detailRes2 = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
                 const detailData2 = await detailRes2.json();
@@ -168,34 +170,13 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 });
                 setShowCompare(true);
               }
-            } catch (err) { console.error('[syncGameState] settle 异常:', err); }
+            } catch { /* silent */ }
             finally { settlingRef.current = false; }
           }
+        } else if (round.status === 'arranging') {
+          setGamePhase('arranging');
         } else if (round.status === 'revealing') {
           setGamePhase('revealing');
-        } else if (round.status === 'settled' || round.status === 'finished') {
-          setGamePhase('arranging');
-          try {
-            const detailRes = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
-            const detailData = await detailRes.json();
-            if (detailData.totals?.length > 0) {
-              const settlementPlayers: SettlementPlayer[] = (detailData.totals || []).map((t: any) => ({
-                userId: t.user_id, rawScore: t.raw_score, finalScore: t.final_score,
-                gunsFired: t.guns_fired, homerun: t.homerun,
-                laneScores: (detailData.scores || []).filter((s: any) => s.user_id === t.user_id).map((s: any) => ({
-                  lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail,
-                })),
-              }));
-              setRoundResult({
-                settlement: { players: settlementPlayers },
-                hands: detailData.hands || [],
-                ghostCount: round.ghost_count || 0,
-                ghostMultiplier: round.ghost_multiplier || 1,
-                roundNumber: round.round_number || 0,
-              });
-              setShowCompare(true);
-            }
-          } catch { /* silent */ }
         }
       } else {
         setGamePhase('waiting');
