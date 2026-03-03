@@ -3,7 +3,6 @@ import Avatar from '../../components/Avatar';
 import {
   TableProps, PokerCard, CardBack, PublicCardsCenter, MyHandArea, BottomActionBar, SpectatorBar, GameModals,
   OpponentArea,
-  cardToUrl,
 } from './shared';
 
 /** 2人桌布局 — 上对手(放大) → 公共牌(中间放大) → 自己(放大) */

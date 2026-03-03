@@ -171,16 +171,20 @@ export const PokerCard: React.FC<{
     );
   }
 
-  const url = cardToUrl(card);
-  if (url) {
-    return (
-      <div onClick={onClick}
-        className={`${w} rounded-lg overflow-hidden shadow-sm bg-white ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
-        <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
-      </div>
-    );
+  // 鬼牌(大小王)用 CDN 图片
+  if (card.startsWith('JK')) {
+    const url = cardToUrl(card);
+    if (url) {
+      return (
+        <div onClick={onClick}
+          className={`${w} rounded-lg overflow-hidden shadow-sm bg-white ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
+          <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
+        </div>
+      );
+    }
   }
 
+  // 标准牌用纯文字渲染
   const rank = card.slice(0, -1);
   const suit = card.slice(-1);
   const displayRank = RANK_DISPLAY[rank] || rank;
@@ -282,11 +286,21 @@ export const PublicCardPickerModal: React.FC<{
         </div>
         <div className="flex gap-1.5 items-center justify-center flex-wrap">
           {selected.map((card, i) => {
-            const url = cardToUrl(card);
             const isJoker = card.startsWith('JK');
+            if (isJoker) {
+              const url = cardToUrl(card);
+              return (
+                <div key={i} onClick={() => toggle(card)} className="w-[38px] h-[52px] rounded-md overflow-hidden bg-white shadow-md cursor-pointer active:scale-90 transition-transform ring-2 ring-purple-400/50">
+                  {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+                </div>
+              );
+            }
+            const rank = card.slice(0, -1);
+            const suit = card.slice(-1);
             return (
-              <div key={i} onClick={() => toggle(card)} className={`w-[38px] h-[52px] rounded-md overflow-hidden bg-white shadow-md cursor-pointer active:scale-90 transition-transform ${isJoker ? 'ring-2 ring-purple-400/50' : ''}`}>
-                {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+              <div key={i} onClick={() => toggle(card)} className="w-[38px] h-[52px] rounded-md bg-white border border-slate-200 shadow-md cursor-pointer active:scale-90 transition-transform flex flex-col items-center justify-center">
+                <span className={`text-sm font-black ${SUIT_COLOR[suit]} leading-none`}>{RANK_DISPLAY[rank] || rank}</span>
+                <span className={`text-[10px] ${SUIT_COLOR[suit]} leading-none`}>{SUIT_SYMBOL[suit]}</span>
               </div>
             );
           })}
@@ -312,12 +326,15 @@ export const PublicCardPickerModal: React.FC<{
               {RANKS.map(rank => {
                 const card = `${rank}${suit}`;
                 const isSelected = selectedSet.has(card);
-                const url = cardToUrl(card);
+                const displayRank = RANK_DISPLAY[rank] || rank;
+                const suitSymbol = SUIT_SYMBOL[suit] || '?';
+                const suitColor = SUIT_COLOR[suit] || '';
                 return (
                   <button key={card} onClick={() => toggle(card)}
-                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all
+                    className={`aspect-[2/3] rounded-lg border-2 transition-all bg-white flex flex-col items-center justify-center
                       ${isSelected ? 'border-primary ring-2 ring-primary/60 scale-[0.92]' : isFull ? 'border-transparent opacity-30 cursor-not-allowed' : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer'}`}>
-                    {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                    <span className={`text-sm font-black ${suitColor} leading-none`}>{displayRank}</span>
+                    <span className={`text-[11px] ${suitColor} leading-none`}>{suitSymbol}</span>
                   </button>
                 );
               })}
@@ -453,17 +470,20 @@ export const CardPickerModal: React.FC<{
                 const inOtherLane = otherLaneCards.has(card);
                 const isPublic = publicSet.has(card);
                 const isDisabled = isPublic || inOtherLane || (!inCurrentLane && currentLaneFull);
-                const url = cardToUrl(card);
+                const displayRank = RANK_DISPLAY[rank] || rank;
+                const suitSymbol = SUIT_SYMBOL[suit] || '?';
+                const suitColor = SUIT_COLOR[suit] || '';
                 return (
                   <button key={card} disabled={isDisabled && !inCurrentLane}
                     onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? handleSelect(card) : undefined}
-                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative
+                    className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative bg-white flex flex-col items-center justify-center
                       ${inCurrentLane ? 'border-primary ring-2 ring-primary/60 shadow-lg shadow-primary/20 scale-[0.92]'
                         : isPublic ? 'border-amber-500/30 opacity-25 cursor-not-allowed'
                         : inOtherLane ? 'border-transparent opacity-20 cursor-not-allowed grayscale'
                         : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed'
                         : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
-                    {url && <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />}
+                    <span className={`text-sm font-black ${suitColor} leading-none`}>{displayRank}</span>
+                    <span className={`text-[11px] ${suitColor} leading-none`}>{suitSymbol}</span>
                     {isPublic && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                         <span className="text-[8px] text-amber-400 font-bold">公</span>
@@ -1123,11 +1143,21 @@ export const PublicCardsThumbnail: React.FC<{
     <div className="flex items-center gap-1.5 cursor-pointer" onClick={isHost ? onEdit : undefined}>
       <div className="flex gap-1 items-center">
         {publicCards.map((card, i) => {
-          const url = cardToUrl(card);
           const isJoker = card.startsWith('JK');
+          if (isJoker) {
+            const url = cardToUrl(card);
+            return (
+              <div key={i} className="w-[29px] h-[40px] rounded-[3px] overflow-hidden bg-white shadow-sm ring-1 ring-purple-400/40">
+                {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+              </div>
+            );
+          }
+          const rank = card.slice(0, -1);
+          const suit = card.slice(-1);
           return (
-            <div key={i} className={`w-[29px] h-[40px] rounded-[3px] overflow-hidden bg-white shadow-sm ${isJoker ? 'ring-1 ring-purple-400/40' : ''}`}>
-              {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+            <div key={i} className="w-[29px] h-[40px] rounded-[3px] bg-white border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+              <span className={`text-[10px] font-black ${SUIT_COLOR[suit]} leading-none`}>{RANK_DISPLAY[rank] || rank}</span>
+              <span className={`text-[8px] ${SUIT_COLOR[suit]} leading-none`}>{SUIT_SYMBOL[suit]}</span>
             </div>
           );
         })}
@@ -1158,11 +1188,22 @@ export const PublicCardsCenter: React.FC<{
         <>
           <div className="flex gap-1.5 items-center">
             {publicCards.map((card, i) => {
-              const url = cardToUrl(card);
               const isJoker = card.startsWith('JK');
+              if (isJoker) {
+                const url = cardToUrl(card);
+                return (
+                  <div key={i} className={`${cardW} rounded-md overflow-hidden bg-white shadow-md ring-2 ring-purple-400/50`}>
+                    {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+                  </div>
+                );
+              }
+              const rank = card.slice(0, -1);
+              const suit = card.slice(-1);
+              const isLarge = size === 'large';
               return (
-                <div key={i} className={`${cardW} rounded-md overflow-hidden bg-white shadow-md ${isJoker ? 'ring-2 ring-purple-400/50' : 'ring-1 ring-white/10'}`}>
-                  {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
+                <div key={i} className={`${cardW} rounded-md bg-white border border-slate-200 shadow-md ring-1 ring-white/10 flex flex-col items-center justify-center`}>
+                  <span className={`${isLarge ? 'text-base' : 'text-sm'} font-black ${SUIT_COLOR[suit]} leading-none`}>{RANK_DISPLAY[rank] || rank}</span>
+                  <span className={`${isLarge ? 'text-[12px]' : 'text-[10px]'} ${SUIT_COLOR[suit]} leading-none`}>{SUIT_SYMBOL[suit]}</span>
                 </div>
               );
             })}
