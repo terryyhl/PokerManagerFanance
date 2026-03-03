@@ -143,6 +143,8 @@ export interface TableProps {
   setShowCompare: (v: boolean) => void;
   handleSelectCard: (card: string) => void;
   handleRemoveCard: (card: string) => void;
+  handleCardTap: (card: string) => void;
+  selectedCard: string | null;
   handleRearrange: () => void;
   handleAutoArrange: () => void;
   isAutoArranging: boolean;
@@ -399,7 +401,7 @@ export const CardPickerModal: React.FC<{
   const publicSet = new Set(publicCards);
 
   const autoSwitchLane = () => {
-    const order: Array<'head' | 'mid' | 'tail'> = ['tail', 'mid', 'head'];
+    const order: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
     for (const l of order) {
       if (l !== activeLane && laneCards[l].length < laneMax[l]) {
         onSwitchLane(l);
@@ -1294,11 +1296,13 @@ export const MyHandArea: React.FC<{
   setActiveLane: (lane: 'head' | 'mid' | 'tail') => void;
   setShowPicker: (v: boolean) => void;
   handleRemoveCard: (card: string) => void;
+  handleCardTap?: (card: string) => void;
+  selectedCard?: string | null;
   showToast: (msg: string, type: 'info' | 'error' | 'success') => void;
   cardSize?: 'small' | 'default' | 'large';
   avatarSize?: string;
   textSize?: string;
-}> = ({ me, gameCreatedBy, playerTotals, myHeadCards, myMidCards, myTailCards, isConfirmed, publicCardsSet, activeLane, setActiveLane, setShowPicker, handleRemoveCard, showToast, cardSize = 'small', avatarSize = 'w-8 h-8', textSize = 'text-xs' }) => {
+}> = ({ me, gameCreatedBy, playerTotals, myHeadCards, myMidCards, myTailCards, isConfirmed, publicCardsSet, activeLane, setActiveLane, setShowPicker, handleRemoveCard, handleCardTap, selectedCard, showToast, cardSize = 'small', avatarSize = 'w-8 h-8', textSize = 'text-xs' }) => {
   const score = me ? (playerTotals[me.user_id] || 0) : 0;
 
   return (
@@ -1327,7 +1331,9 @@ export const MyHandArea: React.FC<{
                 {Array(count).fill(null).map((_, i) => {
                   const card = cards[i];
                   return card
-                    ? <PokerCard key={card} card={card} faceUp small={isSmall} large={isLarge} onClick={() => !isConfirmed && handleRemoveCard(card)} />
+                    ? <PokerCard key={card} card={card} faceUp small={isSmall} large={isLarge}
+                        selected={selectedCard === card}
+                        onClick={() => !isConfirmed && (handleCardTap ? handleCardTap(card) : handleRemoveCard(card))} />
                     : <PokerCard key={`${lane}-${i}`} small={isSmall} large={isLarge} onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && !publicCardsSet ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
                 })}
               </div>

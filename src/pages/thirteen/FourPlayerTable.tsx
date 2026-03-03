@@ -83,8 +83,8 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
               playerTotals={p.playerTotals} myHeadCards={p.myHeadCards} myMidCards={p.myMidCards} myTailCards={p.myTailCards}
               isConfirmed={p.isConfirmed} publicCardsSet={p.publicCardsSet} activeLane={p.activeLane}
               setActiveLane={p.setActiveLane} setShowPicker={p.setShowPicker}
-              handleRemoveCard={p.handleRemoveCard} showToast={p.showToast}
-              cardSize="small"
+              handleRemoveCard={p.handleRemoveCard} handleCardTap={p.handleCardTap} selectedCard={p.selectedCard}
+              showToast={p.showToast} cardSize="small"
             />
           </div>
         )}

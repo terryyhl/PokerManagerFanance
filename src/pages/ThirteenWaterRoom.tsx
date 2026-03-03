@@ -61,11 +61,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const [isAutoArranging, setIsAutoArranging] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const settlingRef = useRef(false);
 
   // 弹层
   const [showPicker, setShowPicker] = useState(false);
-  const [activeLane, setActiveLane] = useState<'head' | 'mid' | 'tail'>('tail');
+  const [activeLane, setActiveLane] = useState<'head' | 'mid' | 'tail'>('head');
   const [showInvite, setShowInvite] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showScoreBoard, setShowScoreBoard] = useState(false);
@@ -552,11 +553,54 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setMyHeadCards(prev => prev.filter(c => c !== card));
     setMyMidCards(prev => prev.filter(c => c !== card));
     setMyTailCards(prev => prev.filter(c => c !== card));
+    setSelectedCard(null);
+  };
+
+  // 点击已摆好的牌：选中 / 交换
+  const handleCardTap = (card: string) => {
+    if (isConfirmed) return;
+    if (!selectedCard) {
+      // 没有选中牌 → 选中当前牌
+      setSelectedCard(card);
+      return;
+    }
+    if (selectedCard === card) {
+      // 点击同一张 → 取消选中
+      setSelectedCard(null);
+      return;
+    }
+    // 两张不同牌 → 交换位置
+    const findLane = (c: string): 'head' | 'mid' | 'tail' | null => {
+      if (myHeadCards.includes(c)) return 'head';
+      if (myMidCards.includes(c)) return 'mid';
+      if (myTailCards.includes(c)) return 'tail';
+      return null;
+    };
+    const laneA = findLane(selectedCard);
+    const laneB = findLane(card);
+    if (!laneA || !laneB) { setSelectedCard(null); return; }
+
+    const swap = (cards: string[], from: string, to: string) =>
+      cards.map(c => c === from ? to : c === to ? from : c);
+
+    if (laneA === laneB) {
+      // 同道内交换
+      const setter = laneA === 'head' ? setMyHeadCards : laneA === 'mid' ? setMyMidCards : setMyTailCards;
+      setter(prev => swap(prev, selectedCard, card));
+    } else {
+      // 跨道交换：从各自道中移除，加到对方道中（保持原位置）
+      const setterA = laneA === 'head' ? setMyHeadCards : laneA === 'mid' ? setMyMidCards : setMyTailCards;
+      const setterB = laneB === 'head' ? setMyHeadCards : laneB === 'mid' ? setMyMidCards : setMyTailCards;
+      setterA(prev => prev.map(c => c === selectedCard ? card : c));
+      setterB(prev => prev.map(c => c === card ? selectedCard : c));
+    }
+    setSelectedCard(null);
   };
 
   const handleRearrange = () => {
     setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
     setIsConfirmed(false);
+    setSelectedCard(null);
     showToast('已清空，重新摆牌', 'info');
   };
 
@@ -568,6 +612,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       return;
     }
     setIsAutoArranging(true);
+    setSelectedCard(null);
     try {
       const res = await fetch(`/api/thirteen/${game.id}/auto-arrange`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -939,6 +984,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setShowCompare,
     handleSelectCard,
     handleRemoveCard,
+    handleCardTap,
+    selectedCard,
     handleRearrange,
     handleAutoArrange,
     isAutoArranging,
