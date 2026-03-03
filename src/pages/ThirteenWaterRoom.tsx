@@ -437,7 +437,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const laneMax = { head: 3, mid: 5, tail: 5 };
 
   const handleSelectCard = (card: string) => {
-    if (allSelectedCards.length >= 13) return;
     const laneCards = activeLane === 'head' ? myHeadCards : activeLane === 'mid' ? myMidCards : myTailCards;
     if (laneCards.length >= laneMax[activeLane]) return;
     if (allSelectedCards.includes(card)) return;
@@ -458,6 +457,25 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setIsConfirmed(false);
     showToast('已清空，重新摆牌', 'info');
   };
+
+  // ─── 自动保存草稿（debounce 1秒） ──────────────────────────
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!game || !user || !currentRoundId || isConfirmed) return;
+    const totalCards = myHeadCards.length + myMidCards.length + myTailCards.length;
+    if (totalCards === 0) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      fetch(`/api/thirteen/${game.id}/save-draft`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id, roundId: currentRoundId,
+          headCards: myHeadCards, midCards: myMidCards, tailCards: myTailCards,
+        }),
+      }).catch(() => {});
+    }, 1000);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [myHeadCards, myMidCards, myTailCards, game, user, currentRoundId, isConfirmed]);
 
   const me = players.find(p => p.user_id === user?.id);
   const opponents = players.filter(p => p.user_id !== user?.id);

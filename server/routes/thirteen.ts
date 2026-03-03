@@ -250,6 +250,77 @@ router.post('/:gameId/set-public-cards', async (req, res) => {
     }
 });
 
+// ─── POST /save-draft ───────────────────────────────────────────
+
+/**
+ * 自动保存摆牌草稿（未确认）
+ * Body: { userId, roundId, headCards: string[], midCards: string[], tailCards: string[] }
+ * 轻量接口，不做乌龙/牌型检测，只做基本校验后写入 is_confirmed=false
+ */
+router.post('/:gameId/save-draft', async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { userId, roundId, headCards, midCards, tailCards } = req.body;
+
+        if (!userId || !roundId || !Array.isArray(headCards) || !Array.isArray(midCards) || !Array.isArray(tailCards)) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        // 基本上限校验
+        if (headCards.length > 3 || midCards.length > 5 || tailCards.length > 5) {
+            return res.status(400).json({ error: '牌数量超限' });
+        }
+
+        // 验证轮次存在且状态为 arranging
+        const { data: round } = await supabase
+            .from('thirteen_rounds')
+            .select('id, status')
+            .eq('id', roundId)
+            .eq('game_id', gameId)
+            .single();
+
+        if (!round || round.status !== 'arranging') {
+            return res.status(400).json({ error: '当前不在摆牌阶段' });
+        }
+
+        // 如果该玩家已确认，不允许覆盖草稿
+        const { data: existing } = await supabase
+            .from('thirteen_hands')
+            .select('is_confirmed')
+            .eq('round_id', roundId)
+            .eq('user_id', userId)
+            .single();
+
+        if (existing?.is_confirmed) {
+            return res.json({ ok: true, skipped: true });
+        }
+
+        // Upsert 草稿
+        const { error: upsertError } = await supabase
+            .from('thirteen_hands')
+            .upsert({
+                round_id: roundId,
+                user_id: userId,
+                head_cards: headCards,
+                mid_cards: midCards,
+                tail_cards: tailCards,
+                is_confirmed: false,
+                is_foul: false,
+                special_hand: null,
+            }, { onConflict: 'round_id,user_id' });
+
+        if (upsertError) {
+            console.error('[thirteen/save-draft]', upsertError);
+            return res.status(500).json({ error: '保存草稿失败' });
+        }
+
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('[thirteen/save-draft] Unhandled:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
 // ─── POST /submit-hand ──────────────────────────────────────────
 
 /**
