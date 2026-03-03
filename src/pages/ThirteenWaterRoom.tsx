@@ -1533,8 +1533,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         {/* 顶部中央: 4人显示公共牌缩略，2-3人显示房间名 */}
         {is4Player ? (
-          /* 4人: 顶部栏显示公共牌(缩略) */
-          <div className="flex items-center gap-1 flex-1 justify-center min-w-0 cursor-pointer"
+          /* 4人: 顶部栏显示公共牌(靠左紧跟返回箭头) */
+          <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0 cursor-pointer"
             onClick={isHost ? () => setShowGhostPicker(true) : undefined}>
             {publicCardsSet ? (
               <>
@@ -1805,46 +1805,44 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </>
         )}
 
-        {/* ===== 4人桌布局: 上 → 中间行(左+中心+右) → 自己 (公共牌在标题栏) ===== */}
+        {/* ===== 4人桌布局: 上对手 → 左右对手(并排) → 状态信息 → 自己 (公共牌在标题栏) ===== */}
         {is4Player && (
           <>
             {/* 上方对手 */}
-            <div className="flex justify-center items-start pt-2 shrink-0" style={{ minHeight: topOpponents.length > 0 ? 100 : 8 }}>
+            <div className="flex justify-center items-start pt-2 pb-1 shrink-0">
               {topOpponents.map(opp => (
                 <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="top" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
               ))}
             </div>
 
-            {/* 中间行 */}
-            <div className="flex items-center flex-1 min-h-0 px-0.5">
-              <div className="w-[56px] flex justify-center shrink-0">
-                {leftOpponents.map(opp => (
-                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" compact confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-                ))}
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center gap-1.5 min-w-0">
-                {!publicCardsSet && (
-                  <div className="flex flex-col items-center gap-1">
-                    {isHost ? (
-                      <button onClick={() => setShowGhostPicker(true)}
-                        className="text-xs text-amber-400 bg-amber-500/10 px-4 py-2 rounded-xl font-bold animate-pulse transition-all active:scale-95">
-                        请先设置公共牌
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-[9px] text-slate-500">
-                  <span>{game.name}</span>
-                  <span>·</span>
-                  <span>{confirmedUsers.size}/{currentPlayers} 已确认</span>
+            {/* 左右对手并排 — 统一横向布局 */}
+            <div className="flex justify-around items-start px-2 py-1 shrink-0">
+              {leftOpponents.map(opp => (
+                <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="top" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+              ))}
+              {rightOpponents.map(opp => (
+                <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="top" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+              ))}
+            </div>
+
+            {/* 中间状态信息 (不含公共牌，公共牌在标题栏) */}
+            <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+              {!publicCardsSet && (
+                <div className="flex flex-col items-center gap-1 mb-2">
+                  {isHost ? (
+                    <button onClick={() => setShowGhostPicker(true)}
+                      className="text-xs text-amber-400 bg-amber-500/10 px-4 py-2 rounded-xl font-bold animate-pulse transition-all active:scale-95">
+                      请先设置公共牌
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-amber-400/70">等待房主设置公共牌...</span>
+                  )}
                 </div>
-              </div>
-              <div className="w-[56px] flex justify-center shrink-0">
-                {rightOpponents.map(opp => (
-                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="right" compact confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-                ))}
+              )}
+              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                <span>{game.name}</span>
+                <span>·</span>
+                <span>{confirmedUsers.size}/{currentPlayers} 已确认</span>
               </div>
             </div>
 
@@ -1852,9 +1850,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
               {me && (
                 <div className="flex items-center gap-2 mb-1.5">
-                  <Avatar username={me.users?.username || '?'} isAdmin={me.user_id === game.created_by} className="w-7 h-7" />
-                  <span className="text-[11px] font-bold text-white">{me.users?.username || '?'}</span>
-                  <span className={`text-[11px] font-black ${(playerTotals[me.user_id] || 0) > 0 ? 'text-emerald-400' : (playerTotals[me.user_id] || 0) < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                  <Avatar username={me.users?.username || '?'} isAdmin={me.user_id === game.created_by} className="w-8 h-8" />
+                  <span className="text-xs font-bold text-white">{me.users?.username || '?'}</span>
+                  <span className={`text-xs font-black ${(playerTotals[me.user_id] || 0) > 0 ? 'text-emerald-400' : (playerTotals[me.user_id] || 0) < 0 ? 'text-red-400' : 'text-amber-400'}`}>
                     {(playerTotals[me.user_id] || 0) > 0 ? `+${playerTotals[me.user_id]}` : playerTotals[me.user_id] || 0}
                   </span>
                 </div>
@@ -1867,7 +1865,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                   const canPick = !isConfirmed && publicCardsSet;
                   return (
                     <div key={lane} className="flex items-center gap-1">
-                      <span className="text-[8px] text-slate-500 w-7 text-right">{label}</span>
+                      <span className="text-[9px] text-slate-500 w-7 text-right">{label}</span>
                       <div className="flex gap-0.5">
                         {Array(count).fill(null).map((_, i) => {
                           const card = cards[i];
