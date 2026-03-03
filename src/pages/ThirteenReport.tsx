@@ -95,6 +95,7 @@ export default function ThirteenReport() {
             setReplayResult({
                 settlement: { players: settlementPlayers },
                 hands: handStates,
+                publicCards: data.round.public_cards || [],
                 ghostCount: data.round.ghost_count || 0,
                 ghostMultiplier: data.round.ghost_multiplier || 1,
                 roundNumber: data.round.round_number,

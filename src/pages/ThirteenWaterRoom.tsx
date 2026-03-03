@@ -199,6 +199,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 setRoundResult({
                   settlement,
                   hands: detailData2.hands || [],
+                  publicCards: detailData2.round?.public_cards || [],
                   ghostCount: detailData2.round?.ghost_count || 0,
                   ghostMultiplier: detailData2.round?.ghost_multiplier || 1,
                   roundNumber: detailData2.round?.round_number || 0,
@@ -323,6 +324,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       setRoundResult({
         settlement,
         hands: detailData.hands || [],
+        publicCards: detailData.round?.public_cards || [],
         ghostCount: detailData.round?.ghost_count || 0,
         ghostMultiplier: detailData.round?.ghost_multiplier || 1,
         roundNumber: detailData.round?.round_number || 0,
@@ -378,6 +380,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                   setRoundResult({
                     settlement: { players: settlementPlayers },
                     hands: detailData.hands || [],
+                    publicCards: round.public_cards || [],
                     ghostCount: round.ghost_count || 0,
                     ghostMultiplier: round.ghost_multiplier || 1,
                     roundNumber: round.round_number || 0,

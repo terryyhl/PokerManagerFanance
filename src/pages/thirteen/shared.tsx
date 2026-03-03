@@ -98,6 +98,7 @@ export interface SettlementResult {
 export interface RoundResult {
   settlement: SettlementResult;
   hands: HandState[];
+  publicCards: string[];
   ghostCount: number;
   ghostMultiplier: number;
   roundNumber: number;
@@ -614,6 +615,7 @@ export const ScoreBoard: React.FC<{
       setReplayResult({
         settlement: { players: settlementPlayers },
         hands: handStates,
+        publicCards: data.round.public_cards || [],
         ghostCount: data.round.ghost_count || 0,
         ghostMultiplier: data.round.ghost_multiplier || 1,
         roundNumber: data.round.round_number,
@@ -883,7 +885,7 @@ export const ScoreBoard: React.FC<{
 export const CompareAnimation: React.FC<{
   result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean; gameName?: string;
 }> = ({ result, players, userId, onClose, replay = false, gameName }) => {
-  const { settlement, hands, ghostCount, ghostMultiplier, roundNumber } = result;
+  const { settlement, hands, publicCards, ghostCount, ghostMultiplier, roundNumber } = result;
   const playerMap: Record<string, Player> = {};
   for (const p of players) playerMap[p.user_id] = p;
 
@@ -1021,6 +1023,17 @@ export const CompareAnimation: React.FC<{
         </div>
 
         <div className="flex-1 px-3 pt-2 pb-4 space-y-3">
+          {/* 公共牌 */}
+          {publicCards.length > 0 && (
+            <div className="flex items-center justify-center gap-1.5 py-1">
+              <span className="text-[11px] text-slate-500 font-medium">公共牌</span>
+              <div className="flex gap-1">
+                {publicCards.map((card, i) => (
+                  <PokerCard key={i} card={card} faceUp small />
+                ))}
+              </div>
+            </div>
+          )}
           {/* 逐对比牌 — 每对一次性展开3道 */}
           {pairs.map(([pA, pB], pairIdx) => {
             const pairVisible = phase >= pairIdx || replay;
