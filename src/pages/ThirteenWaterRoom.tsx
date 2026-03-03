@@ -891,8 +891,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   // 游戏状态
   const [gamePhase, setGamePhase] = useState<'waiting' | 'arranging' | 'revealing' | 'settled'>('waiting');
   const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [isStarting, setIsStarting] = useState(false);
 
   // 当前玩家的手牌
@@ -1190,21 +1189,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     }
   }, [confirmedUsers.size, currentPlayers, gamePhase, doSettle]);
 
-  // ─── 倒计时 ────────────────────────────────────────────────
-  useEffect(() => {
-    if (gamePhase === 'arranging' && game?.thirteen_time_limit) {
-      setCountdown(game.thirteen_time_limit);
-      countdownRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev === null || prev <= 1) { if (countdownRef.current) clearInterval(countdownRef.current); return 0; }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      setCountdown(null);
-    }
-    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
-  }, [gamePhase, game?.thirteen_time_limit]);
+
 
   // ─── 操作 ──────────────────────────────────────────────────
   const handleStartRound = async () => {
@@ -1419,7 +1404,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             <span className="bg-white/5 px-2 py-1 rounded">{game.thirteen_base_score || 1}分/水</span>
             <span className="bg-white/5 px-2 py-1 rounded">{game.thirteen_ghost_count || 6}鬼牌</span>
             {game.thirteen_compare_suit && <span className="bg-white/5 px-2 py-1 rounded">花色比较</span>}
-            <span className="bg-white/5 px-2 py-1 rounded">{game.thirteen_time_limit || 90}s倒计时</span>
           </div>
         </div>
 
@@ -1534,9 +1518,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           <button onClick={() => setShowScoreBoard(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors">
             <span className="material-symbols-outlined text-[18px] text-slate-400">receipt_long</span>
           </button>
-          {countdown !== null && countdown > 0 ? (
-            <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-black text-xs ${countdown <= 10 ? 'border-red-500 text-red-400' : countdown <= 30 ? 'border-amber-400 text-amber-400' : 'border-emerald-400 text-emerald-400'}`}>{countdown}</div>
-          ) : <div className="w-9" />}
         </div>
       </div>
 
