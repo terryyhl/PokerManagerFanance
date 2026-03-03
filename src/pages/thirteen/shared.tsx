@@ -907,9 +907,9 @@ export const CompareAnimation: React.FC<{
   const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
   const laneLabels: Record<string, string> = { head: '头道', mid: '中道', tail: '尾道' };
 
-  // 总阶段数: 每对3道 + 最终汇总
-  const totalPairPhases = pairs.length * 3;
-  const summaryPhase = totalPairPhases;
+  // 阶段: 每对为一个阶段（一次性展开3道），最后一个阶段为汇总
+  // phase: -1=等待, 0..pairs.length-1=逐对展示, pairs.length=最终汇总
+  const summaryPhase = pairs.length;
 
   const [phase, setPhase] = useState(replay ? summaryPhase : -1);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -926,14 +926,14 @@ export const CompareAnimation: React.FC<{
 
   useEffect(() => {
     if (replay) return;
-    timerRef.current = setTimeout(() => setPhase(0), 500);
+    timerRef.current = setTimeout(() => setPhase(0), 300);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [replay]);
 
   useEffect(() => {
     if (replay) return;
     if (phase < 0 || phase >= summaryPhase) return;
-    timerRef.current = setTimeout(() => setPhase(phase + 1), 1500);
+    timerRef.current = setTimeout(() => setPhase(phase + 1), 800);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [phase, replay, summaryPhase]);
 
@@ -1004,12 +1004,12 @@ export const CompareAnimation: React.FC<{
         </div>
 
         <div className="flex-1 px-3 pt-2 pb-4 space-y-3">
-          {/* 逐对比牌 */}
+          {/* 逐对比牌 — 每对一次性展开3道 */}
           {pairs.map(([pA, pB], pairIdx) => {
-            const pairStartPhase = pairIdx * 3;
-            const pairVisible = phase >= pairStartPhase || replay;
+            const pairVisible = phase >= pairIdx || replay;
             if (!pairVisible) return null;
 
+            const isCurrentPair = phase === pairIdx;
             const handA = hands.find(h => h.user_id === pA);
             const handB = hands.find(h => h.user_id === pB);
             const nameA = getName(pA);
@@ -1023,10 +1023,8 @@ export const CompareAnimation: React.FC<{
               pairTotalA += pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
             }
 
-            const pairDone = phase >= pairStartPhase + 3 || replay;
-
             return (
-              <div key={pairKey} className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+              <div key={pairKey} className={`rounded-2xl border overflow-hidden transition-all duration-300 ${isCurrentPair ? 'border-primary/30 bg-primary/[0.03]' : 'border-white/10 bg-white/[0.02]'}`}>
                 {/* 对战标题 */}
                 <div className="flex items-center justify-between px-3 py-2 bg-white/[0.03] border-b border-white/5">
                   <div className="flex items-center gap-2">
@@ -1034,64 +1032,47 @@ export const CompareAnimation: React.FC<{
                     <span className="text-[10px] text-slate-500">VS</span>
                     <span className={`text-xs font-bold ${isMe(pB) ? 'text-primary' : 'text-white'}`}>{nameB}</span>
                   </div>
-                  {pairDone && (
-                    <div className="flex items-center gap-2">
-                      {gun?.gunner && <span className="text-[10px] text-orange-400 font-bold">{getName(gun.gunner)} 打枪!</span>}
-                      <span className={`text-xs font-black ${pairTotalA > 0 ? 'text-emerald-400' : pairTotalA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                        {pairTotalA > 0 ? `+${pairTotalA}` : pairTotalA} : {-pairTotalA > 0 ? `+${-pairTotalA}` : -pairTotalA}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {gun?.gunner && <span className="text-[10px] text-orange-400 font-bold">{getName(gun.gunner)} 打枪!</span>}
+                    <span className={`text-xs font-black ${pairTotalA > 0 ? 'text-emerald-400' : pairTotalA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                      {pairTotalA > 0 ? `+${pairTotalA}` : pairTotalA} : {-pairTotalA > 0 ? `+${-pairTotalA}` : -pairTotalA}
+                    </span>
+                  </div>
                 </div>
-                {/* 三道对比 */}
+                {/* 三道一次性展开 */}
                 <div className="p-2 space-y-1.5">
-                  {laneNames.map((lane, laneIdx) => {
-                    const lanePhase = pairStartPhase + laneIdx;
-                    const revealed = phase >= lanePhase || replay;
-                    const isActive = phase === lanePhase;
+                  {laneNames.map((lane) => {
                     const cardCount = lane === 'head' ? 3 : 5;
                     const cardsA = handA ? (lane === 'head' ? handA.head_cards : lane === 'mid' ? handA.mid_cards : handA.tail_cards) : null;
                     const cardsB = handB ? (lane === 'head' ? handB.head_cards : lane === 'mid' ? handB.mid_cards : handB.tail_cards) : null;
                     const scoreA = pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
 
                     return (
-                      <div key={lane} className={`rounded-xl p-2 transition-all duration-300 ${isActive ? 'bg-primary/5 ring-1 ring-primary/30' : revealed ? 'bg-white/[0.01]' : 'opacity-30'}`}>
+                      <div key={lane} className="rounded-xl p-2 bg-white/[0.01]">
                         <div className="flex items-center gap-1 mb-1">
-                          <span className={`text-[10px] font-bold ${isActive ? 'text-primary' : 'text-slate-500'}`}>{laneLabels[lane]}</span>
-                          {revealed && isActive && <span className="text-[9px] text-primary animate-pulse">比牌中</span>}
+                          <span className="text-[10px] font-bold text-slate-500">{laneLabels[lane]}</span>
                         </div>
-                        {/* 两行: A 的牌 和 B 的牌 */}
                         <div className="space-y-1">
-                          {/* 玩家 A */}
                           <div className="flex items-center gap-1.5">
                             <span className={`text-[9px] font-bold w-10 truncate ${isMe(pA) ? 'text-primary' : 'text-slate-400'}`}>{nameA}</span>
                             <div className="flex gap-0.5 flex-1">
-                              {revealed && cardsA
-                                ? cardsA.map((c, i) => <PokerCard key={i} card={c} faceUp small />)
-                                : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
+                              {cardsA ? cardsA.map((c, i) => <PokerCard key={i} card={c} faceUp small />) : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
                             </div>
                             <div className="w-10 text-right">
-                              {revealed && (
-                                <span className={`text-xs font-black ${scoreA > 0 ? 'text-emerald-400' : scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                                  {scoreA > 0 ? `+${scoreA}` : scoreA}
-                                </span>
-                              )}
+                              <span className={`text-xs font-black ${scoreA > 0 ? 'text-emerald-400' : scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                                {scoreA > 0 ? `+${scoreA}` : scoreA}
+                              </span>
                             </div>
                           </div>
-                          {/* 玩家 B */}
                           <div className="flex items-center gap-1.5">
                             <span className={`text-[9px] font-bold w-10 truncate ${isMe(pB) ? 'text-primary' : 'text-slate-400'}`}>{nameB}</span>
                             <div className="flex gap-0.5 flex-1">
-                              {revealed && cardsB
-                                ? cardsB.map((c, i) => <PokerCard key={i} card={c} faceUp small />)
-                                : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
+                              {cardsB ? cardsB.map((c, i) => <PokerCard key={i} card={c} faceUp small />) : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
                             </div>
                             <div className="w-10 text-right">
-                              {revealed && (
-                                <span className={`text-xs font-black ${-scoreA > 0 ? 'text-emerald-400' : -scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                                  {-scoreA > 0 ? `+${-scoreA}` : -scoreA}
-                                </span>
-                              )}
+                              <span className={`text-xs font-black ${-scoreA > 0 ? 'text-emerald-400' : -scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                                {-scoreA > 0 ? `+${-scoreA}` : -scoreA}
+                              </span>
                             </div>
                           </div>
                         </div>
