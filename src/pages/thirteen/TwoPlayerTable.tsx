@@ -36,30 +36,30 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
 
       {/* 游戏主区域 */}
       <div className="flex-1 flex flex-col relative min-h-0">
-        {/* 对手区域 (放大) */}
+        {/* 对手区域 */}
         {topOpponent && (() => {
           const oppName = topOpponent.users?.username || '?';
           const oppScore = p.playerTotals[topOpponent.user_id] || 0;
           const oppConfirmed = p.confirmedUsers.has(topOpponent.user_id);
           return (
-            <div className="flex flex-col items-center pt-3 pb-2 shrink-0">
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2.5">
-                  <Avatar username={oppName} isAdmin={topOpponent.user_id === p.game.created_by} className="w-10 h-10" />
+            <div className="flex flex-col items-center pt-2 pb-1 shrink-0">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex items-center gap-2">
+                  <Avatar username={oppName} isAdmin={topOpponent.user_id === p.game.created_by} className="w-8 h-8" />
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-white">{oppName}</span>
-                    <span className={`text-sm font-black ${oppScore > 0 ? 'text-emerald-400' : oppScore < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                    <span className="text-xs font-bold text-white">{oppName}</span>
+                    <span className={`text-xs font-black ${oppScore > 0 ? 'text-emerald-400' : oppScore < 0 ? 'text-red-400' : 'text-amber-400'}`}>
                       {oppScore > 0 ? `+${oppScore}` : oppScore}
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1 relative">
-                  <div className="flex gap-1">{Array(3).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
-                  <div className="flex gap-1">{Array(5).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
-                  <div className="flex gap-1">{Array(5).fill(null).map((_, i) => <CardBack key={i} large />)}</div>
+                <div className="flex flex-col gap-0.5 relative">
+                  <div className="flex gap-0.5">{Array(3).fill(null).map((_, i) => <CardBack key={i} />)}</div>
+                  <div className="flex gap-0.5">{Array(5).fill(null).map((_, i) => <CardBack key={i} />)}</div>
+                  <div className="flex gap-0.5">{Array(5).fill(null).map((_, i) => <CardBack key={i} />)}</div>
                   {oppConfirmed && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg backdrop-blur-[1px]">
-                      <span className="text-3xl font-black text-blue-400 drop-shadow-lg">OK</span>
+                      <span className="text-2xl font-black text-blue-400 drop-shadow-lg">OK</span>
                     </div>
                   )}
                 </div>
@@ -68,31 +68,30 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
           );
         })()}
 
-        {/* 公共牌区域 (中间放大) */}
+        {/* 公共牌区域 (中间) */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <PublicCardsCenter
             publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
             isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
-            onEdit={() => p.setShowGhostPicker(true)} size="large"
+            onEdit={() => p.setShowGhostPicker(true)} size="normal"
           />
         </div>
 
-        {/* 自己区域 (放大) — 旁观者显示第二个对手 */}
+        {/* 自己区域 — 旁观者显示第二个对手 */}
         {p.isSpectator ? (
           bottomOpponent && (
-            <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+            <div className="flex flex-col items-center pb-1 pt-1 border-t border-white/5 shrink-0">
               <OpponentArea player={bottomOpponent} isPlayerHost={bottomOpponent.user_id === p.game.created_by}
                 confirmed={p.confirmedUsers.has(bottomOpponent.user_id)} score={p.playerTotals[bottomOpponent.user_id] || 0} />
             </div>
           )
         ) : (
-          <div className="flex flex-col items-center pb-2 pt-2 border-t border-white/5 shrink-0">
+          <div className="flex flex-col items-center pb-1 pt-1 border-t border-white/5 shrink-0">
             <MyHandArea me={p.me} isHost={p.isHost} gameCreatedBy={p.game.created_by}
               playerTotals={p.playerTotals} myHeadCards={p.myHeadCards} myMidCards={p.myMidCards} myTailCards={p.myTailCards}
               isConfirmed={p.isConfirmed} publicCardsSet={p.publicCardsSet} activeLane={p.activeLane}
               setActiveLane={p.setActiveLane} setShowPicker={p.setShowPicker}
               handleRemoveCard={p.handleRemoveCard} showToast={p.showToast}
-              cardSize="large" avatarSize="w-10 h-10" textSize="text-sm"
             />
           </div>
         )}

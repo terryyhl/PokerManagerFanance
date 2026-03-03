@@ -14,6 +14,14 @@ body {
   min-height: 100dvh;
 }
 
+/* 禁用卡牌图片的长按保存和拖拽（移动端） */
+img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

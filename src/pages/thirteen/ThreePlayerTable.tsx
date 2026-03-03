@@ -55,8 +55,8 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
             ))}
           </div>
 
-          {/* 公共牌区域 — 上对手和左右对手之间 */}
-          <div className="absolute top-[28%] left-1/2 -translate-x-1/2">
+          {/* 公共牌区域 — 紧跟上方对手，靠上显示 */}
+          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 mt-1">
             <PublicCardsCenter
               publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
               isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
@@ -64,16 +64,16 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
             />
           </div>
 
-          {/* 左侧对手 */}
-          <div className="absolute left-0 top-[55%] -translate-y-1/2">
+          {/* 左侧对手 — 左半屏居中 */}
+          <div className="absolute left-[25%] -translate-x-1/2 top-[52%] -translate-y-1/2">
             {leftOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
                 confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
             ))}
           </div>
 
-          {/* 右侧对手 */}
-          <div className="absolute right-0 top-[55%] -translate-y-1/2">
+          {/* 右侧对手 — 右半屏居中 */}
+          <div className="absolute left-[75%] -translate-x-1/2 top-[52%] -translate-y-1/2">
             {rightOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
                 confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />

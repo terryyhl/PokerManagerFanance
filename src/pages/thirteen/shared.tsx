@@ -173,7 +173,7 @@ export const PokerCard: React.FC<{
     return (
       <div onClick={onClick}
         className={`${w} rounded-lg overflow-hidden shadow-sm bg-white ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
-        <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" />
+        <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
       </div>
     );
   }
@@ -197,7 +197,7 @@ export const CardBack: React.FC<{ small?: boolean; large?: boolean }> = ({ small
   const w = large ? 'w-[52px] h-[72px]' : small ? 'w-8 h-[44px]' : 'w-[46px] h-[64px]';
   return (
     <div className={`${w} rounded-lg overflow-hidden shadow-sm bg-red-900/20`}>
-      <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill rounded-lg" loading="lazy" />
+      <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
     </div>
   );
 };
@@ -624,14 +624,14 @@ export const ScoreBoard: React.FC<{
 // ─── 逐道比牌动画 ──────────────────────────────────────────
 
 export const CompareAnimation: React.FC<{
-  result: RoundResult; players: Player[]; userId?: string; onClose: () => void;
-}> = ({ result, players, userId, onClose }) => {
+  result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean;
+}> = ({ result, players, userId, onClose, replay = false }) => {
   const { settlement, hands, ghostCount, ghostMultiplier, roundNumber } = result;
   const playerMap: Record<string, Player> = {};
   for (const p of players) playerMap[p.user_id] = p;
 
-  const [phase, setPhase] = useState(-1);
-  const [laneRevealed, setLaneRevealed] = useState<boolean[]>([false, false, false]);
+  const [phase, setPhase] = useState(replay ? 3 : -1);
+  const [laneRevealed, setLaneRevealed] = useState<boolean[]>(replay ? [true, true, true] : [false, false, false]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
@@ -648,11 +648,13 @@ export const CompareAnimation: React.FC<{
   }
 
   useEffect(() => {
+    if (replay) return;
     timerRef.current = setTimeout(() => setPhase(0), 500);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
+  }, [replay]);
 
   useEffect(() => {
+    if (replay) return;
     if (phase < 0 || phase > 2) return;
     setLaneRevealed(prev => { const n = [...prev]; n[phase] = true; return n; });
     if (phase < 2) {
@@ -661,7 +663,7 @@ export const CompareAnimation: React.FC<{
       timerRef.current = setTimeout(() => setPhase(3), 2000);
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [phase]);
+  }, [phase, replay]);
 
   const sorted = [...settlement.players].sort((a, b) => b.finalScore - a.finalScore);
 
@@ -679,7 +681,7 @@ export const CompareAnimation: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={phase < 3 ? skipToEnd : undefined}>
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={!replay && phase < 3 ? skipToEnd : undefined}>
       <div className="flex-1 flex flex-col overflow-y-auto">
         <div className="flex items-center justify-between px-4 h-12 shrink-0">
           <div className="flex items-center gap-2">
@@ -690,7 +692,7 @@ export const CompareAnimation: React.FC<{
               </span>
             )}
           </div>
-          {phase >= 3 && (
+          {(phase >= 3 || replay) && (
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
               <span className="material-symbols-outlined text-white">close</span>
             </button>

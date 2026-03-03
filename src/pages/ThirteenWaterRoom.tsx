@@ -69,7 +69,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showScoreBoard, setShowScoreBoard] = useState(false);
   const [showGhostPicker, setShowGhostPicker] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
+  const [showCompare, _setShowCompare] = useState(false);
+  const setShowCompare = useCallback((v: boolean) => { showCompareRef.current = v; _setShowCompare(v); }, []);
 
   // 密码门禁 & 旁观模式
   const [needsPassword, setNeedsPassword] = useState(false);
@@ -80,6 +81,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // 同名互踢
   const sessionIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
+  const showCompareRef = useRef(false);
 
   const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     setToast({ msg, type });
@@ -272,7 +274,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           setPublicCards(round.public_cards || []);
           setGhostCount(round.ghost_count || 0);
           if (round.status === 'finished') {
-            if (!showCompare && !settlingRef.current) {
+             if (!showCompareRef.current && !settlingRef.current) {
               (async () => {
                 try {
                   const detailRes = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
@@ -329,7 +331,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       });
 
     return () => { supabase.removeChannel(channel); };
-  }, [id, user, fetchGame, navigate, showCompare]);
+  }, [id, user, fetchGame, navigate]);
 
   // ─── 全员确认后自动结算 ─────────────────────────────────────
   useEffect(() => {
@@ -396,6 +398,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       if (data.isFoul) showToast('注意：你的摆牌被判定为乌龙！', 'error');
       else if (data.specialHand) showToast(`报到牌型: ${SPECIAL_HAND_NAMES[data.specialHand] || data.specialHand}!`, 'success');
       else showToast('已确认摆牌', 'success');
+      // 如果 API 告知全员已确认，直接触发结算（不依赖 Realtime）
+      if (data.allConfirmed) {
+        doSettle();
+      }
     } catch { showToast('网络错误', 'error'); }
     finally { setIsSubmitting(false); }
   };
