@@ -150,6 +150,9 @@ export interface TableProps {
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void;
   handleCloseRoom: () => void;
+  handleCloseRoomConfirm: () => void;
+  showCloseConfirm: boolean;
+  setShowCloseConfirm: (v: boolean) => void;
   handleForceSettle: () => void;
   showToast: (msg: string, type: 'info' | 'error' | 'success') => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
@@ -1414,6 +1417,7 @@ export const GameModals: React.FC<{
   handleSelectCard: (card: string) => void; handleRemoveCard: (card: string) => void;
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void; handleCloseRoom: () => void;
+  handleCloseRoomConfirm: () => void; showCloseConfirm: boolean; setShowCloseConfirm: (v: boolean) => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
 }> = (p) => (
   <>
@@ -1456,6 +1460,23 @@ export const GameModals: React.FC<{
       onConfirm={p.handleSetPublicCards} onClose={() => p.setShowGhostPicker(false)} />}
     {p.showCompare && p.roundResult && (
       <CompareAnimation result={p.roundResult} players={p.players} userId={p.userId} onClose={p.handleCompareClose} />
+    )}
+    {p.showCloseConfirm && (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => p.setShowCloseConfirm(false)}>
+        <div className="bg-surface-dark rounded-2xl p-6 w-full max-w-xs border border-white/10" onClick={e => e.stopPropagation()}>
+          <div className="flex justify-center mb-4">
+            <span className="material-symbols-outlined text-4xl text-red-400">warning</span>
+          </div>
+          <h3 className="text-lg font-bold text-white text-center mb-2">关闭房间</h3>
+          <p className="text-sm text-slate-400 text-center mb-6">确定要关闭房间吗？关闭后所有玩家将退出。</p>
+          <div className="flex gap-3">
+            <button onClick={() => p.setShowCloseConfirm(false)}
+              className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-bold transition-colors">取消</button>
+            <button onClick={p.handleCloseRoomConfirm}
+              className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-colors active:scale-[0.97]">确定关闭</button>
+          </div>
+        </div>
+      </div>
     )}
     {p.toast && (
       <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg ${p.toast.type === 'error' ? 'bg-red-500 text-white' : p.toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'}`}>{p.toast.msg}</div>

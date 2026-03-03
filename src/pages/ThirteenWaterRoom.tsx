@@ -70,6 +70,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showScoreBoard, setShowScoreBoard] = useState(false);
   const [showGhostPicker, setShowGhostPicker] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showCompare, _setShowCompare] = useState(false);
   const setShowCompare = useCallback((v: boolean) => { showCompareRef.current = v; _setShowCompare(v); }, []);
 
@@ -500,9 +501,14 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     finally { setIsSubmitting(false); }
   };
 
-  const handleCloseRoom = async () => {
+  const handleCloseRoom = () => {
     if (!game || !user) return;
-    if (!confirm('确定要关闭房间吗？关闭后所有玩家将退出。')) return;
+    setShowCloseConfirm(true);
+  };
+
+  const handleCloseRoomConfirm = async () => {
+    if (!game || !user) return;
+    setShowCloseConfirm(false);
     try {
       await gamesApi.finish(game.id, user.id);
       showToast('房间已关闭', 'success');
@@ -865,6 +871,24 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             isHost={isHost} userId={user?.id} onClose={() => setShowScoreBoard(false)} onCloseRoom={handleCloseRoom} />
         )}
 
+        {showCloseConfirm && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowCloseConfirm(false)}>
+            <div className="bg-surface-dark rounded-2xl p-6 w-full max-w-xs border border-white/10" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-center mb-4">
+                <span className="material-symbols-outlined text-4xl text-red-400">warning</span>
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">关闭房间</h3>
+              <p className="text-sm text-slate-400 text-center mb-6">确定要关闭房间吗？关闭后所有玩家将退出。</p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowCloseConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-bold transition-colors">取消</button>
+                <button onClick={handleCloseRoomConfirm}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-colors active:scale-[0.97]">确定关闭</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {toast && (
           <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-40 px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg ${toast.type === 'error' ? 'bg-red-500 text-white' : toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'}`}>{toast.msg}</div>
         )}
@@ -922,6 +946,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleSetPublicCards,
     handleCompareClose,
     handleCloseRoom,
+    handleCloseRoomConfirm,
+    showCloseConfirm,
+    setShowCloseConfirm,
     handleForceSettle,
     showToast,
     toast,

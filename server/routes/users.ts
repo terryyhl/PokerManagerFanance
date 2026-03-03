@@ -324,7 +324,7 @@ router.get('/:id/thirteen-history', async (req, res) => {
             .eq('user_id', id);
 
         const thirteenGames = (playerGames || [])
-            .filter((pg: any) => pg.games?.room_type === 'thirteen_water' && pg.games?.status === 'finished')
+            .filter((pg: any) => pg.games?.room_type === 'thirteen' && pg.games?.status === 'finished')
             .map((pg: any) => pg.games);
 
         if (thirteenGames.length === 0) {

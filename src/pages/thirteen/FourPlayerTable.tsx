@@ -113,6 +113,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
+        handleCloseRoomConfirm={p.handleCloseRoomConfirm} showCloseConfirm={p.showCloseConfirm} setShowCloseConfirm={p.setShowCloseConfirm}
         toast={p.toast} />
     </div>
   );
