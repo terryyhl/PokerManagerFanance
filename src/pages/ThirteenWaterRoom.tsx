@@ -148,21 +148,46 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           (round.status === 'arranging' && stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
 
         if (needsSettle) {
-          // 调 /settle: 未结算→执行结算, 已结算→返回已有结果, settling卡住→恢复结算
           setGamePhase('arranging');
           if (!settlingRef.current) {
             settlingRef.current = true;
             try {
-              const settleRes = await fetch(`/api/thirteen/${id}/settle`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, roundId: round.id }),
-              });
-              const settleData = await settleRes.json();
-              if (settleRes.ok && settleData.settlement) {
+              // 尝试调 /settle（未结算→执行, 已结算→返回结果, settling→恢复）
+              let settlement: any = null;
+              try {
+                const settleRes = await fetch(`/api/thirteen/${id}/settle`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id, roundId: round.id }),
+                });
+                const settleData = await settleRes.json();
+                if (settleRes.ok && settleData.settlement) {
+                  settlement = settleData.settlement;
+                }
+              } catch { /* settle 失败，尝试直接拿数据 */ }
+
+              // 如果 /settle 没返回结果（可能后端旧版还在报错），直接查轮次详情
+              if (!settlement) {
+                const detailRes3 = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
+                const detailData3 = await detailRes3.json();
+                if (detailData3.totals?.length > 0) {
+                  settlement = {
+                    players: (detailData3.totals || []).map((t: any) => ({
+                      userId: t.user_id, rawScore: t.raw_score, finalScore: t.final_score,
+                      gunsFired: t.guns_fired, homerun: t.homerun,
+                      laneScores: (detailData3.scores || []).filter((s: any) => s.user_id === t.user_id).map((s: any) => ({
+                        lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail,
+                      })),
+                    })),
+                  };
+                }
+              }
+
+              // 有结算结果 → 显示比牌动画
+              if (settlement) {
                 const detailRes2 = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
                 const detailData2 = await detailRes2.json();
                 setRoundResult({
-                  settlement: settleData.settlement,
+                  settlement,
                   hands: detailData2.hands || [],
                   ghostCount: detailData2.round?.ghost_count || 0,
                   ghostMultiplier: detailData2.round?.ghost_multiplier || 1,
@@ -230,24 +255,44 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     settlingRef.current = true;
     setIsSettling(true);
     try {
-      const res = await fetch(`/api/thirteen/${game.id}/settle`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, roundId: currentRoundId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.error?.includes('已结算')) return;
-        showToast(data.error || '结算失败', 'error');
-        return;
+      let settlement: any = null;
+
+      // 尝试调 /settle
+      try {
+        const res = await fetch(`/api/thirteen/${game.id}/settle`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, roundId: currentRoundId }),
+        });
+        const data = await res.json();
+        if (res.ok && data.settlement) {
+          settlement = data.settlement;
+        }
+      } catch { /* settle 失败 */ }
+
+      // /settle 没返回结果时，直接查轮次详情（兜底）
+      if (!settlement) {
+        const fallbackRes = await fetch(`/api/thirteen/${game.id}/round/${currentRoundId}?_t=${Date.now()}`);
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData.totals?.length > 0) {
+          settlement = {
+            players: (fallbackData.totals || []).map((t: any) => ({
+              userId: t.user_id, rawScore: t.raw_score, finalScore: t.final_score,
+              gunsFired: t.guns_fired, homerun: t.homerun,
+              laneScores: (fallbackData.scores || []).filter((s: any) => s.user_id === t.user_id).map((s: any) => ({
+                lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail,
+              })),
+            })),
+          };
+        }
       }
-      // 另一个客户端已抢占结算，等待 Realtime 通知即可
-      if (data.alreadySettling || !data.settlement) return;
+
+      if (!settlement) return;
 
       const detailRes = await fetch(`/api/thirteen/${game.id}/round/${currentRoundId}?_t=${Date.now()}`);
       const detailData = await detailRes.json();
 
       setRoundResult({
-        settlement: data.settlement,
+        settlement,
         hands: detailData.hands || [],
         ghostCount: detailData.round?.ghost_count || 0,
         ghostMultiplier: detailData.round?.ghost_multiplier || 1,
