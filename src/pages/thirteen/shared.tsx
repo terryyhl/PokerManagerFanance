@@ -712,6 +712,7 @@ export const ScoreBoard: React.FC<{
           userId={userId}
           onClose={() => setReplayResult(null)}
           replay
+          gameName={gameName}
         />
       )}
       {/* 分享海报弹层 */}
@@ -838,8 +839,8 @@ export const ScoreBoard: React.FC<{
 // ─── 逐道比牌动画 ──────────────────────────────────────────
 
 export const CompareAnimation: React.FC<{
-  result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean;
-}> = ({ result, players, userId, onClose, replay = false }) => {
+  result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean; gameName?: string;
+}> = ({ result, players, userId, onClose, replay = false, gameName }) => {
   const { settlement, hands, ghostCount, ghostMultiplier, roundNumber } = result;
   const playerMap: Record<string, Player> = {};
   for (const p of players) playerMap[p.user_id] = p;
@@ -847,6 +848,10 @@ export const CompareAnimation: React.FC<{
   const [phase, setPhase] = useState(replay ? 3 : -1);
   const [laneRevealed, setLaneRevealed] = useState<boolean[]>(replay ? [true, true, true] : [false, false, false]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 分享截图
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
   const laneLabels = ['头道', '中道', '尾道'];
@@ -894,9 +899,27 @@ export const CompareAnimation: React.FC<{
     setPhase(3);
   };
 
+  const handleCapture = useCallback(async () => {
+    if (!contentRef.current || isCapturing) return;
+    setIsCapturing(true);
+    try {
+      const dataUrl = await toPng(contentRef.current, { pixelRatio: 3, backgroundColor: '#0a0a0a' });
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const fileName = `十三水_第${roundNumber}局${gameName ? '_' + gameName : ''}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ title: `第${roundNumber}局对比`, files: [file] }); setIsCapturing(false); return; } catch { /* cancelled */ }
+      }
+      const a = document.createElement('a');
+      a.href = dataUrl; a.download = fileName; a.click();
+    } catch (err) { console.error('截图失败:', err); }
+    setIsCapturing(false);
+  }, [isCapturing, roundNumber, gameName]);
+
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={!replay && phase < 3 ? skipToEnd : undefined}>
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-y-auto" ref={contentRef}>
         <div className="flex items-center justify-between px-4 h-12 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-white">第 {roundNumber} 局</span>
@@ -906,11 +929,20 @@ export const CompareAnimation: React.FC<{
               </span>
             )}
           </div>
-          {(phase >= 3 || replay) && (
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
-              <span className="material-symbols-outlined text-white">close</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {(phase >= 3 || replay) && (
+              <button onClick={(e) => { e.stopPropagation(); handleCapture(); }} className="p-1.5 rounded-lg hover:bg-white/10" title="分享">
+                {isCapturing
+                  ? <span className="material-symbols-outlined text-white animate-spin text-[20px]">progress_activity</span>
+                  : <span className="material-symbols-outlined text-white text-[20px]">share</span>}
+              </button>
+            )}
+            {(phase >= 3 || replay) && (
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10">
+                <span className="material-symbols-outlined text-white">close</span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex-1 px-3 pt-2 pb-4 space-y-4">
           {laneNames.map((lane, laneIdx) => {
