@@ -6,7 +6,7 @@ import { gamesApi, Player } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
 import {
-    SettlementPlayer, HandState, RoundResult, CompareAnimation,
+    SettlementPlayer, HandState, RoundResult, CompareAnimation, PokerCard,
 } from './thirteen/shared';
 
 export default function ThirteenReport() {
@@ -192,14 +192,26 @@ export default function ThirteenReport() {
                                                 className="bg-surface-dark rounded-xl border border-white/5 p-3 active:bg-white/[0.06] transition-colors cursor-pointer"
                                                 onClick={() => handleViewRound(round.id)}>
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs font-bold text-slate-400">第 {round.round_number} 局</span>
                                                     <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-slate-400">第 {round.round_number} 局</span>
                                                         {round.ghost_count > 0 && <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">鬼x{round.ghost_count} ({round.ghost_multiplier}倍)</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
                                                         {loadingRoundId === round.id
                                                             ? <span className="material-symbols-outlined animate-spin text-sm text-slate-500">progress_activity</span>
                                                             : <span className="material-symbols-outlined text-sm text-slate-600">chevron_right</span>}
                                                     </div>
                                                 </div>
+                                                {(round.public_cards || []).length > 0 && (
+                                                    <div className="flex items-center gap-1 mb-2">
+                                                        <span className="text-[10px] text-slate-500">公共牌:</span>
+                                                        <div className="flex gap-0.5">
+                                                            {(round.public_cards as string[]).map((card: string, ci: number) => (
+                                                                <PokerCard key={ci} card={card} faceUp small />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="space-y-1">
                                                     {(round.totals || []).sort((a: any, b: any) => b.final_score - a.final_score).map((t: any) => (
                                                         <div key={t.id} className="flex items-center justify-between text-xs">
