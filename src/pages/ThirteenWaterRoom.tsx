@@ -288,6 +288,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         } else if (!res.ok) {
           console.error('[doSettle] /settle 返回错误:', res.status, data.error, data.detail);
           showToast(data.error || `结算失败(${res.status})`, 'error');
+        } else if (res.ok && !data.settlement) {
+          console.warn('[doSettle] /settle 200但无结果:', JSON.stringify(data));
         }
       } catch (err) { console.error('[doSettle] /settle 请求失败:', err); showToast('结算请求失败', 'error'); }
 

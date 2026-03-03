@@ -571,30 +571,21 @@ router.post('/:gameId/settle', async (req, res) => {
             return res.json({ settlement: { players: settlementPlayers }, alreadyFinished: true });
         }
 
-        // 乐观锁: 用 CAS 抢占结算权，防止并发重复结算
-        let locked = false;
-        if (round.status === 'arranging') {
-            const { data: lock1 } = await supabase
-                .from('thirteen_rounds')
-                .update({ status: 'settling' })
-                .eq('id', roundId)
-                .eq('status', 'arranging')
-                .select('id')
-                .single();
-            if (lock1) locked = true;
-            console.log('[settle] CAS arranging→settling:', locked);
-        } else if (round.status === 'settling') {
-            // settling 卡住（上次结算中断），允许恢复：先清理残留数据
-            console.log('[settle] 从 settling 状态恢复，清理残留数据...');
-            await supabase.from('thirteen_scores').delete().eq('round_id', roundId);
-            await supabase.from('thirteen_totals').delete().eq('round_id', roundId);
-            locked = true;
-        }
+        // 非 finished 的轮次，统一执行结算（清理可能的残留数据后重新计算）
+        // 先尝试 CAS arranging → settling（防并发），如果状态已经不是 arranging 则强制进入
+        const { data: casResult } = await supabase
+            .from('thirteen_rounds')
+            .update({ status: 'settling' })
+            .eq('id', roundId)
+            .in('status', ['arranging', 'settling', 'revealing'])
+            .select('id')
+            .single();
+        console.log('[settle] CAS →settling:', !!casResult, 'from status=', round.status);
 
-        if (!locked) {
-            console.log('[settle] 未获得锁, round.status=', round.status);
-            return res.json({ settlement: null, alreadySettling: true });
-        }
+        // 清理可能的残留数据（上次结算中断或重复调用）
+        console.log('[settle] 清理残留 scores/totals...');
+        await supabase.from('thirteen_scores').delete().eq('round_id', roundId);
+        await supabase.from('thirteen_totals').delete().eq('round_id', roundId);
 
         const players = memberIds;
 
