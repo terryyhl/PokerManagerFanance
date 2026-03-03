@@ -123,6 +123,101 @@ router.get('/leaderboard', async (_req, res) => {
 });
 
 /**
+ * GET /api/users/thirteen-leaderboard
+ * 十三水全局排行榜 — 总积分、场次、局数、胜率、打枪、全垒打
+ */
+router.get('/thirteen-leaderboard', async (_req, res) => {
+    try {
+        // 获取所有十三水总分记录，join users 获取用户名
+        const { data: totals, error } = await supabase
+            .from('thirteen_totals')
+            .select(`
+                user_id,
+                final_score,
+                guns_fired,
+                homerun,
+                users ( id, username )
+            `);
+
+        if (error) {
+            console.error('[users/thirteen-leaderboard]', error);
+            return res.status(500).json({ error: '获取十三水排行榜失败' });
+        }
+
+        if (!totals || totals.length === 0) {
+            return res.json({ leaderboard: [] });
+        }
+
+        // 统计每个用户参与了多少个不同的游戏（通过 thirteen_rounds join）
+        const { data: roundGameMap } = await supabase
+            .from('thirteen_totals')
+            .select('user_id, thirteen_rounds!inner(game_id)')
+            .not('thirteen_rounds', 'is', null);
+
+        const userGames: Record<string, Set<string>> = {};
+        for (const r of (roundGameMap || [])) {
+            const uid = r.user_id as string;
+            const gid = (r.thirteen_rounds as any)?.game_id;
+            if (uid && gid) {
+                if (!userGames[uid]) userGames[uid] = new Set();
+                userGames[uid].add(gid);
+            }
+        }
+
+        // 按 user_id 聚合
+        const userMap = new Map<string, {
+            userId: string;
+            username: string;
+            totalGames: number;
+            totalRounds: number;
+            totalScore: number;
+            winRounds: number;
+            gunCount: number;
+            homerunCount: number;
+        }>();
+
+        for (const t of totals) {
+            const uid = t.user_id as string;
+            const username = (t.users as unknown as Record<string, unknown>)?.username as string || '未知';
+            const score = (t.final_score || 0) as number;
+
+            if (!userMap.has(uid)) {
+                userMap.set(uid, {
+                    userId: uid,
+                    username,
+                    totalGames: userGames[uid]?.size || 0,
+                    totalRounds: 0,
+                    totalScore: 0,
+                    winRounds: 0,
+                    gunCount: 0,
+                    homerunCount: 0,
+                });
+            }
+
+            const entry = userMap.get(uid)!;
+            entry.totalRounds += 1;
+            entry.totalScore += score;
+            if (score > 0) entry.winRounds += 1;
+            entry.gunCount += (t.guns_fired || 0) as number;
+            if (t.homerun) entry.homerunCount += 1;
+        }
+
+        const leaderboard = Array.from(userMap.values())
+            .map(e => ({
+                ...e,
+                winRate: e.totalRounds > 0 ? Math.round((e.winRounds / e.totalRounds) * 100) : 0,
+                avgScore: e.totalRounds > 0 ? Math.round((e.totalScore / e.totalRounds) * 10) / 10 : 0,
+            }))
+            .sort((a, b) => b.totalScore - a.totalScore);
+
+        return res.json({ leaderboard });
+    } catch (err) {
+        console.error('[users/thirteen-leaderboard] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+/**
  * GET /api/users/:id/stats
  * 获取指定用户的历史对局统计数据
  */

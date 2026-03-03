@@ -101,7 +101,17 @@ router.get('/:gameId', async (req, res) => {
             netProfit: p.finalChips - p.totalBuyin,
         }));
 
-        return res.json({ game, stats, hasSettlement: (settlements || []).length > 0 });
+        // 构建买入历史时间线（用于前端折线图）
+        const buyInHistory = (buyIns || [])
+            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
+            .map((b: BuyInRecord) => ({
+                userId: b.user_id,
+                amount: b.amount,
+                type: b.type,
+                createdAt: b.created_at,
+            }));
+
+        return res.json({ game, stats, hasSettlement: (settlements || []).length > 0, buyInHistory });
     } catch (err) {
         console.error('[settlement/get] Unhandled error:', err);
         return res.status(500).json({ error: '服务器内部错误' });

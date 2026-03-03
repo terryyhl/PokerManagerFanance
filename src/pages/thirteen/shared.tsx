@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toPng } from 'html-to-image';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
+import { evaluateLaneName } from '../../lib/handEval';
 
 // ─── 常量 ────────────────────────────────────────────────────────
 
@@ -690,6 +692,60 @@ export const ScoreBoard: React.FC<{
               })}
             </div>
           </div>
+          {/* 累计得分折线图 */}
+          {(() => {
+            const finishedHistory = history.filter((r: any) => r.status === 'finished');
+            if (finishedHistory.length < 2) return null;
+            // 按 round_number 排序
+            const sortedRounds = [...finishedHistory].sort((a: any, b: any) => a.round_number - b.round_number);
+            // 收集所有玩家ID和名称
+            const playerNames: Record<string, string> = {};
+            for (const p of players) playerNames[p.user_id] = p.users?.username || '?';
+            // 构建累计分数数据
+            const cumScores: Record<string, number> = {};
+            const chartData = sortedRounds.map((round: any) => {
+              const point: Record<string, any> = { round: `第${round.round_number}局` };
+              for (const t of (round.totals || [])) {
+                cumScores[t.user_id] = (cumScores[t.user_id] || 0) + t.final_score;
+                point[t.user_id] = cumScores[t.user_id];
+              }
+              return point;
+            });
+            // 玩家颜色
+            const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+            const playerIds = Object.keys(playerNames);
+            return (
+              <div className="px-4 pt-4 pb-1">
+                <h3 className="text-sm font-bold text-slate-400 mb-2">得分走势</h3>
+                <div className="bg-surface-dark rounded-xl border border-white/5 p-3">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                      <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <ReferenceLine y={0} stroke="#334155" strokeDasharray="3 3" />
+                      <Tooltip
+                        contentStyle={{ background: '#1a2632', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: '#94a3b8', fontWeight: 700, marginBottom: 4 }}
+                        itemStyle={{ padding: '1px 0' }}
+                      />
+                      {playerIds.map((uid, i) => (
+                        <Line key={uid} type="monotone" dataKey={uid} name={playerNames[uid]}
+                          stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-3 mt-2">
+                    {playerIds.map((uid, i) => (
+                      <div key={uid} className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
+                        <span className="text-[10px] text-slate-400">{playerNames[uid]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="px-4 pt-4 pb-2">
             <h3 className="text-sm font-bold text-slate-400 mb-3">每局明细</h3>
             {loadingHistory ? (
@@ -1074,6 +1130,9 @@ export const CompareAnimation: React.FC<{
                     const cardsB = handB ? (lane === 'head' ? handB.head_cards : lane === 'mid' ? handB.mid_cards : handB.tail_cards) : null;
                     const scoreA = pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
 
+                    const handNameA = cardsA ? evaluateLaneName(cardsA, lane) : null;
+                    const handNameB = cardsB ? evaluateLaneName(cardsB, lane) : null;
+
                     return (
                       <div key={lane} className="rounded-xl p-2 bg-white/[0.01]">
                         <div className="flex items-center gap-1 mb-1">
@@ -1085,6 +1144,7 @@ export const CompareAnimation: React.FC<{
                             <div className="flex gap-0.5 flex-1">
                               {cardsA ? cardsA.map((c, i) => <PokerCard key={i} card={c} faceUp small />) : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
                             </div>
+                            {handNameA && <span className={`text-[8px] font-bold ${handNameA === '含鬼' ? 'text-purple-400' : 'text-cyan-400'}`}>{handNameA}</span>}
                             <div className="w-10 text-right">
                               <span className={`text-xs font-black ${scoreA > 0 ? 'text-emerald-400' : scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
                                 {scoreA > 0 ? `+${scoreA}` : scoreA}
@@ -1096,6 +1156,7 @@ export const CompareAnimation: React.FC<{
                             <div className="flex gap-0.5 flex-1">
                               {cardsB ? cardsB.map((c, i) => <PokerCard key={i} card={c} faceUp small />) : Array(cardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
                             </div>
+                            {handNameB && <span className={`text-[8px] font-bold ${handNameB === '含鬼' ? 'text-purple-400' : 'text-cyan-400'}`}>{handNameB}</span>}
                             <div className="w-10 text-right">
                               <span className={`text-xs font-black ${-scoreA > 0 ? 'text-emerald-400' : -scoreA < 0 ? 'text-red-400' : 'text-amber-400'}`}>
                                 {-scoreA > 0 ? `+${-scoreA}` : -scoreA}
@@ -1346,9 +1407,13 @@ export const MyHandArea: React.FC<{
           const canPick = !isConfirmed && publicCardsSet;
           const isSmall = cardSize === 'small';
           const isLarge = cardSize === 'large';
+          const handName = evaluateLaneName(cards, lane);
           return (
             <div key={lane} className="flex items-center gap-1">
-              <span className={`${isSmall ? 'text-[9px] w-7' : 'text-[10px] w-8'} text-slate-500 text-right font-medium`}>{label}</span>
+              <div className={`${isSmall ? 'w-7' : 'w-8'} flex flex-col items-end`}>
+                <span className={`${isSmall ? 'text-[9px]' : 'text-[10px]'} text-slate-500 font-medium leading-tight`}>{label}</span>
+                {handName && <span className={`text-[8px] font-bold leading-tight ${handName === '含鬼' ? 'text-purple-400' : 'text-amber-400'}`}>{handName}</span>}
+              </div>
               <div className={`flex ${isSmall ? 'gap-0.5' : 'gap-1'}`}>
                 {Array(count).fill(null).map((_, i) => {
                   const card = cards[i];

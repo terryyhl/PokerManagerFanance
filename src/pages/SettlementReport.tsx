@@ -1,11 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import anime from 'animejs';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import AnimatedPage from '../components/AnimatedPage';
 import { settlementApi, PlayerStat, Game } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
 import SettlementSharePoster from '../components/SettlementSharePoster';
+
+interface BuyInEvent {
+  userId: string;
+  amount: number;
+  type: string;
+  createdAt: string;
+}
 
 export default function SettlementReport() {
   const navigate = useNavigate();
@@ -26,17 +34,20 @@ export default function SettlementReport() {
   const [rateInput, setRateInput] = useState<string>('1');
   // 分享海报
   const [showSharePoster, setShowSharePoster] = useState(false);
+  // 买入历史
+  const [buyInHistory, setBuyInHistory] = useState<BuyInEvent[]>([]);
 
   const fetchData = async () => {
     if (!id) return;
     try {
-      const { game, stats, hasSettlement } = await settlementApi.get(id);
-      setGame(game);
-      setStats(stats);
-      setIsFinished(hasSettlement || game.status === 'finished');
+      const res = await settlementApi.get(id);
+      setGame(res.game);
+      setStats(res.stats);
+      setIsFinished(res.hasSettlement || res.game.status === 'finished');
       const chips: Record<string, number> = {};
-      stats.forEach(s => { chips[s.userId] = s.finalChips; });
+      res.stats.forEach(s => { chips[s.userId] = s.finalChips; });
       setLocalChips(chips);
+      setBuyInHistory((res as any).buyInHistory || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -195,6 +206,63 @@ export default function SettlementReport() {
             </div>
 
             <div className="h-2 bg-slate-100 dark:bg-[#0b1218] opacity-0"></div>
+
+            {/* 成员买入走势折线图 */}
+            {buyInHistory.length >= 2 && (() => {
+              // 按时间排序
+              const sorted = [...buyInHistory].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+              // 收集玩家名称映射
+              const nameMap: Record<string, string> = {};
+              stats.forEach(s => { nameMap[s.userId] = s.username; });
+              const playerIds = [...new Set(sorted.map(e => e.userId))];
+              // 构建累计买入数据点：每次买入事件作为一个数据点
+              const cumBuyIn: Record<string, number> = {};
+              const chartData: Record<string, any>[] = [];
+              // 添加起点（全部0）
+              const startPoint: Record<string, any> = { label: '开始' };
+              playerIds.forEach(uid => { startPoint[uid] = 0; cumBuyIn[uid] = 0; });
+              chartData.push(startPoint);
+              // 逐条累加
+              sorted.forEach((e, i) => {
+                cumBuyIn[e.userId] = (cumBuyIn[e.userId] || 0) + e.amount;
+                const point: Record<string, any> = {
+                  label: `#${i + 1}`,
+                };
+                playerIds.forEach(uid => { point[uid] = cumBuyIn[uid] || 0; });
+                chartData.push(point);
+              });
+              const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+              return (
+                <div className="px-4 py-4 opacity-0">
+                  <div className="bg-white dark:bg-[#1a2632] rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">买入走势</h3>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={chartData} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{ background: '#1a2632', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
+                          labelStyle={{ color: '#94a3b8', fontWeight: 700, marginBottom: 4 }}
+                          itemStyle={{ padding: '1px 0' }}
+                        />
+                        {playerIds.map((uid, i) => (
+                          <Line key={uid} type="monotone" dataKey={uid} name={nameMap[uid] || '?'}
+                            stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap justify-center gap-3 mt-2">
+                      {playerIds.map((uid, i) => (
+                        <div key={uid} className="flex items-center gap-1">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">{nameMap[uid] || '?'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 汇率设置 */}
             <div className="px-4 py-4 opacity-0">
