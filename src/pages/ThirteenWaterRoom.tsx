@@ -1568,8 +1568,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             )}
           </div>
         ) : (
-          /* 2-3人: 顶部栏显示房间名 */
-          <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+          /* 2-3人: 顶部栏显示房间名(靠左紧跟返回箭头) */
+          <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
             <span className="text-sm font-bold text-white truncate">{game.name}</span>
           </div>
         )}
@@ -1701,7 +1701,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </>
         )}
 
-        {/* ===== 3人桌布局: 上对手 → 中间行(左+公共牌+右) → 自己 ===== */}
+        {/* ===== 3人桌布局: 上对手 → 公共牌 → 左右对手行 → 自己 ===== */}
         {is3Player && (
           <>
             {/* 上方对手 */}
@@ -1711,41 +1711,36 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               ))}
             </div>
 
-            {/* 中间行: 左对手 + 公共牌(占第4人空间) + 右对手 */}
-            <div className="flex items-center flex-1 min-h-0 px-1">
-              <div className="flex justify-center shrink-0">
-                {leftOpponents.map(opp => (
-                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
-                ))}
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center gap-2 min-w-0">
-                <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">公共牌</span>
-                <div className="flex gap-1.5 items-center">
-                  {Array(6).fill(null).map((_, i) => {
-                    const card = publicCards[i];
-                    if (card) {
-                      const url = cardToUrl(card);
-                      const isJoker = card.startsWith('JK');
-                      return (
-                        <div key={i} className={`w-[42px] h-[58px] rounded-md overflow-hidden shadow-md bg-white ${isJoker ? 'ring-2 ring-purple-400/50' : 'ring-1 ring-white/10'}`}>
-                          {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
-                        </div>
-                      );
-                    }
+            {/* 公共牌区域（单独一行，在左右对手上方） */}
+            <div className="flex flex-col items-center gap-1.5 py-2 shrink-0">
+              <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">公共牌</span>
+              <div className="flex gap-1.5 items-center">
+                {Array(6).fill(null).map((_, i) => {
+                  const card = publicCards[i];
+                  if (card) {
+                    const url = cardToUrl(card);
+                    const isJoker = card.startsWith('JK');
                     return (
-                      <div key={i} className={`w-[42px] h-[58px] rounded-md border-2 border-dashed flex items-center justify-center
-                        ${isHost && !publicCardsSet ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-                        <span className="text-white/15 text-xs">?</span>
+                      <div key={i} className={`w-[42px] h-[58px] rounded-md overflow-hidden shadow-md bg-white ${isJoker ? 'ring-2 ring-purple-400/50' : 'ring-1 ring-white/10'}`}>
+                        {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
                       </div>
                     );
-                  })}
-                </div>
+                  }
+                  return (
+                    <div key={i} className={`w-[42px] h-[58px] rounded-md border-2 border-dashed flex items-center justify-center
+                      ${isHost && !publicCardsSet ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
+                      <span className="text-white/15 text-xs">?</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2">
                 {ghostCount > 0 && (
                   <span className="text-[11px] text-purple-400 font-bold">鬼×{ghostCount} · {Math.pow(2, ghostCount)}倍</span>
                 )}
                 {isHost && (
                   <button onClick={() => setShowGhostPicker(true)}
-                    className={`text-[11px] font-bold px-4 py-1.5 rounded-lg transition-all active:scale-95
+                    className={`text-[11px] font-bold px-4 py-1 rounded-lg transition-all active:scale-95
                       ${!publicCardsSet
                         ? 'text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 animate-pulse'
                         : 'text-slate-400 bg-white/5 hover:bg-white/10'}`}>
@@ -1755,8 +1750,18 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 {!isHost && !publicCardsSet && (
                   <span className="text-[11px] text-amber-400/70">等待房主设置公共牌...</span>
                 )}
-                <span className="text-[10px] text-slate-500">{confirmedUsers.size}/{currentPlayers} 已确认</span>
               </div>
+              <span className="text-[10px] text-slate-500">{confirmedUsers.size}/{currentPlayers} 已确认</span>
+            </div>
+
+            {/* 左右对手行 */}
+            <div className="flex items-start justify-between flex-1 min-h-0 px-1">
+              <div className="flex justify-center shrink-0">
+                {leftOpponents.map(opp => (
+                  <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="left" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
+                ))}
+              </div>
+              <div className="flex-1" />
               <div className="flex justify-center shrink-0">
                 {rightOpponents.map(opp => (
                   <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === game.created_by} position="right" confirmed={confirmedUsers.has(opp.user_id)} score={playerTotals[opp.user_id] || 0} />
