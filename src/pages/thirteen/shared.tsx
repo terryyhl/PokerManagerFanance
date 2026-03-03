@@ -202,23 +202,16 @@ export const CardBack: React.FC<{ small?: boolean; large?: boolean }> = ({ small
   );
 };
 
-// ─── 微型牌背（4人桌紧凑布局用） ──────────────────────────────
-export const CardBackTiny: React.FC = () => (
-  <div className="w-4 h-[22px] rounded-[2px] overflow-hidden shadow-sm shrink-0 bg-red-900/20">
-    <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill" loading="lazy" />
-  </div>
-);
-
 // ─── 对手牌区 ──────────────────────────────────────────────────
 
 export const OpponentArea: React.FC<{
-  player: Player; isPlayerHost: boolean; confirmed: boolean; score: number; compact?: boolean;
-}> = ({ player, isPlayerHost, confirmed, score, compact = false }) => {
+  player: Player; isPlayerHost: boolean; confirmed: boolean; score: number;
+}> = ({ player, isPlayerHost, confirmed, score }) => {
   const name = player.users?.username || '?';
 
   const renderLane = (count: number) => (
     <div className="flex gap-0.5">
-      {Array(count).fill(null).map((_, i) => compact ? <CardBackTiny key={i} /> : <CardBack key={i} small />)}
+      {Array(count).fill(null).map((_, i) => <CardBack key={i} small />)}
     </div>
   );
 
@@ -228,10 +221,10 @@ export const OpponentArea: React.FC<{
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="flex items-center gap-1.5">
-        <Avatar username={name} isAdmin={isPlayerHost} className={compact ? 'w-6 h-6' : 'w-7 h-7'} />
+        <Avatar username={name} isAdmin={isPlayerHost} className="w-7 h-7" />
         <div className="flex flex-col">
-          <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-bold text-white truncate max-w-[60px]`}>{name}</span>
-          <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} font-black ${scoreColor}`}>{scoreText}</span>
+          <span className="text-[10px] font-bold text-white truncate max-w-[60px]">{name}</span>
+          <span className={`text-[10px] font-black ${scoreColor}`}>{scoreText}</span>
         </div>
       </div>
       <div className="flex flex-col gap-0.5 relative">
@@ -240,7 +233,7 @@ export const OpponentArea: React.FC<{
         {renderLane(5)}
         {confirmed && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg backdrop-blur-[1px]">
-            <span className={`${compact ? 'text-base' : 'text-xl'} font-black text-blue-400 drop-shadow-lg`}>OK</span>
+            <span className="text-xl font-black text-blue-400 drop-shadow-lg">OK</span>
           </div>
         )}
       </div>

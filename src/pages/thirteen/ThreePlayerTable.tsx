@@ -35,6 +35,9 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           {p.isSpectator && <span className="text-[10px] text-slate-400 bg-white/10 px-1.5 py-0.5 rounded font-bold">旁观</span>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={() => p.setShowInvite(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="邀请/密码">
+            <span className="material-symbols-outlined text-[20px] text-slate-400">vpn_key</span>
+          </button>
           <button onClick={() => p.setShowScoreBoard(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
             <span className="material-symbols-outlined text-[20px] text-slate-400">receipt_long</span>
           </button>
