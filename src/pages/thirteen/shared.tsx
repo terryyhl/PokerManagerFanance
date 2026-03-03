@@ -409,7 +409,7 @@ export const CardPickerModal: React.FC<{
           </button>
         </div>
         <div className="flex gap-1.5 mb-3">
-          {(['tail', 'mid', 'head'] as const).map(lane => {
+          {(['head', 'mid', 'tail'] as const).map(lane => {
             const isFull = laneCards[lane].length >= laneMax[lane];
             return (
               <button key={lane} onClick={() => onSwitchLane(lane)}
