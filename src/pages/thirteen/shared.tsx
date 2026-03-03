@@ -70,6 +70,7 @@ export interface GameState {
   hands: HandState[];
   finishedRounds: number;
   playerTotals: Record<string, number>;
+  totalPlayers: number;
 }
 
 export interface LaneScoreRecord {
@@ -158,7 +159,7 @@ export interface TableProps {
 export const PokerCard: React.FC<{
   card?: string; faceUp?: boolean; small?: boolean; large?: boolean; onClick?: () => void; selected?: boolean;
 }> = ({ card, faceUp = true, small = false, large = false, onClick, selected = false }) => {
-  const w = large ? 'w-[62px] h-[86px]' : small ? 'w-[43px] h-[60px]' : 'w-[55px] h-[77px]';
+  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-9 h-[50px]' : 'w-[46px] h-[64px]';
 
   if (!faceUp || !card) {
     return (
@@ -192,8 +193,8 @@ export const PokerCard: React.FC<{
   const color = SUIT_COLOR[suit] || '';
   return (
     <div onClick={onClick} className={`${w} rounded-lg bg-white border border-slate-200 shadow-sm flex flex-col items-center justify-center ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
-      <span className={`${small ? 'text-[10px]' : 'text-sm'} font-black ${color} leading-none`}>{displayRank}</span>
-      <span className={`${small ? 'text-[8px]' : 'text-[11px]'} ${color} leading-none`}>{symbol}</span>
+      <span className={`${small ? 'text-[12px]' : 'text-[17px]'} font-black ${color} leading-none`}>{displayRank}</span>
+      <span className={`${small ? 'text-[10px]' : 'text-[13px]'} ${color} leading-none`}>{symbol}</span>
     </div>
   );
 };
@@ -201,7 +202,7 @@ export const PokerCard: React.FC<{
 // ─── 牌背组件 ──────────────────────────────────────────────────
 
 export const CardBack: React.FC<{ small?: boolean; large?: boolean }> = ({ small = false, large = false }) => {
-  const w = large ? 'w-[62px] h-[86px]' : small ? 'w-[38px] h-[53px]' : 'w-[55px] h-[77px]';
+  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-8 h-[44px]' : 'w-[46px] h-[64px]';
   return (
     <div className={`${w} rounded-lg overflow-hidden shadow-sm bg-red-900/20`}>
       <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />

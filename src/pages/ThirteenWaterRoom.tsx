@@ -119,6 +119,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
       setPlayerTotals(state.playerTotals || {});
       setFinishedRounds(state.finishedRounds || 0);
+      const stateTotalPlayers = state.totalPlayers || 0;
 
       if (state.activeRound) {
         const round = state.activeRound;
@@ -142,17 +143,19 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         if (round.status === 'arranging' || round.status === 'settling') {
           setGamePhase('arranging');
-          // 断线重连时，如果全员已确认（或 settling 卡住），直接触发结算
-          const totalPlayers = players.length || (await fetchGame())?.players?.length || 0;
-          const needsSettle = round.status === 'settling' || (confirmed.size >= totalPlayers && totalPlayers >= 2);
+          // 重连时: settling 卡住 或 全员已确认 → 直接触发结算
+          const needsSettle = round.status === 'settling' || (stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
+          console.log('[syncGameState] round.status:', round.status, 'confirmed:', confirmed.size, 'totalPlayers:', stateTotalPlayers, 'needsSettle:', needsSettle, 'settlingRef:', settlingRef.current);
           if (needsSettle && !settlingRef.current) {
             settlingRef.current = true;
             try {
+              console.log('[syncGameState] 触发结算...');
               const settleRes = await fetch(`/api/thirteen/${id}/settle`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: user.id, roundId: round.id }),
               });
               const settleData = await settleRes.json();
+              console.log('[syncGameState] settle 响应:', settleRes.status, settleData);
               if (settleRes.ok && settleData.settlement) {
                 const detailRes2 = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
                 const detailData2 = await detailRes2.json();
@@ -165,7 +168,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 });
                 setShowCompare(true);
               }
-            } catch { /* silent */ }
+            } catch (err) { console.error('[syncGameState] settle 异常:', err); }
             finally { settlingRef.current = false; }
           }
         } else if (round.status === 'revealing') {

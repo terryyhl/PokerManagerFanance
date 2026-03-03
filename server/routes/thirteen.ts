@@ -857,11 +857,15 @@ router.get('/:gameId/state', async (req, res) => {
             }
         }
 
+        // 获取玩家总数
+        const playerIds = await getGamePlayers(gameId);
+
         return res.json({
             activeRound: activeRound || null,
             hands,
             finishedRounds: finishedCount || 0,
             playerTotals,
+            totalPlayers: playerIds.length,
         });
     } catch (err) {
         console.error('[thirteen/state] Unhandled:', err);
