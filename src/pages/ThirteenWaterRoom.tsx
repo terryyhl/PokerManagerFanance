@@ -329,53 +329,7 @@ const OpponentArea: React.FC<{
   const scoreColor = score > 0 ? 'text-emerald-400' : score < 0 ? 'text-red-400' : 'text-amber-400';
   const scoreText = score > 0 ? `+${score}` : `${score}`;
 
-  // 左侧：牌在左、头像名字在右（靠内侧）
-  if (position === 'left') {
-    return (
-      <div className="flex items-center gap-1.5">
-        <div className="flex flex-col gap-0.5 relative">
-          {renderLane(3)}
-          {renderLane(5)}
-          {renderLane(5)}
-          {confirmed && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded backdrop-blur-[1px]">
-              <span className="text-base font-black text-blue-400 drop-shadow-lg">OK</span>
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col items-center gap-0.5">
-          <Avatar username={name} isAdmin={isPlayerHost} className="w-7 h-7" />
-          <span className="text-[9px] font-bold text-white truncate max-w-[50px] leading-tight">{name}</span>
-          <span className={`text-[9px] font-black leading-tight ${scoreColor}`}>{scoreText}</span>
-        </div>
-      </div>
-    );
-  }
-
-  // 右侧：头像名字在左（靠内侧）、牌在右
-  if (position === 'right') {
-    return (
-      <div className="flex items-center gap-1.5">
-        <div className="flex flex-col items-center gap-0.5">
-          <Avatar username={name} isAdmin={isPlayerHost} className="w-7 h-7" />
-          <span className="text-[9px] font-bold text-white truncate max-w-[50px] leading-tight">{name}</span>
-          <span className={`text-[9px] font-black leading-tight ${scoreColor}`}>{scoreText}</span>
-        </div>
-        <div className="flex flex-col gap-0.5 relative">
-          {renderLane(3)}
-          {renderLane(5)}
-          {renderLane(5)}
-          {confirmed && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded backdrop-blur-[1px]">
-              <span className="text-base font-black text-blue-400 drop-shadow-lg">OK</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // 上方：头像+名字在上、牌在下（居中）
+  // 统一竖向布局：头像+名字在上、牌在下（所有方位一致）
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="flex items-center gap-1.5">
@@ -903,6 +857,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [game, setGame] = useState<Game | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(true); // 同步游戏状态中
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error' | 'success' } | null>(null);
 
   // 游戏状态
@@ -1074,7 +1029,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           } catch { showToast('入座失败', 'error'); }
         }
       }
-      if (!cancelled) await syncGameState();
+      if (!cancelled) {
+        await syncGameState();
+        if (!cancelled) setIsSyncing(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [id, user]);
@@ -1378,9 +1336,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     </div>
   );
 
-  if (isLoading) {
-    return (<div className="min-h-screen bg-background-dark flex items-center justify-center">
+  if (isLoading || isSyncing) {
+    return (<div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-3">
       <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
+      <span className="text-sm text-slate-400">{isLoading ? '加载房间...' : '同步游戏状态...'}</span>
     </div>);
   }
 
@@ -1513,7 +1472,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   return (
     <div className="h-screen bg-background-dark text-white flex flex-col overflow-hidden relative">
       {/* ── 顶部栏: 返回 + 公共牌 + 计分/倒计时 ── */}
-      <div className="flex items-center justify-between px-2 h-12 bg-black/30 border-b border-white/5 shrink-0">
+      <div className="flex items-center justify-between px-2 h-[58px] bg-black/30 border-b border-white/5 shrink-0">
         <button onClick={() => setGamePhase('waiting')} className="p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0">
           <span className="material-symbols-outlined text-[20px] text-slate-400">arrow_back</span>
         </button>
@@ -1523,42 +1482,42 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           onClick={isHost ? () => setShowGhostPicker(true) : undefined}>
           {publicCardsSet ? (
             <>
-              <div className="flex gap-[3px] items-center">
+              <div className="flex gap-1 items-center">
                 {publicCards.map((card, i) => {
                   const url = cardToUrl(card);
                   const isJoker = card.startsWith('JK');
                   return (
-                    <div key={i} className={`w-6 h-[34px] rounded-[3px] overflow-hidden bg-white shadow-sm ${isJoker ? 'ring-1 ring-purple-400/40' : ''}`}>
+                    <div key={i} className={`w-[29px] h-[40px] rounded-[3px] overflow-hidden bg-white shadow-sm ${isJoker ? 'ring-1 ring-purple-400/40' : ''}`}>
                       {url && <img src={url} alt={card} className="w-full h-full object-contain" />}
                     </div>
                   );
                 })}
               </div>
               {ghostCount > 0 && (
-                <span className="text-[10px] text-purple-400 font-black ml-1">{Math.pow(2, ghostCount)}x</span>
+                <span className="text-[11px] text-purple-400 font-black ml-1">{Math.pow(2, ghostCount)}x</span>
               )}
               {isHost && (
-                <span className="material-symbols-outlined text-[12px] text-slate-500 ml-0.5">edit</span>
+                <span className="material-symbols-outlined text-[14px] text-slate-500 ml-0.5">edit</span>
               )}
             </>
           ) : (
             isHost ? (
               <button onClick={() => setShowGhostPicker(true)}
-                className="text-[10px] text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg font-bold animate-pulse">
+                className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg font-bold animate-pulse">
                 设置公共牌
               </button>
             ) : (
-              <span className="text-[10px] text-slate-500">等待公共牌...</span>
+              <span className="text-xs text-slate-500">等待公共牌...</span>
             )
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setShowInvite(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors" title="房间密码">
-            <span className="material-symbols-outlined text-[18px] text-slate-400">key</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={() => setShowInvite(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="房间密码">
+            <span className="material-symbols-outlined text-[20px] text-slate-400">key</span>
           </button>
-          <button onClick={() => setShowScoreBoard(true)} className="p-1 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
-            <span className="material-symbols-outlined text-[18px] text-slate-400">receipt_long</span>
+          <button onClick={() => setShowScoreBoard(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
+            <span className="material-symbols-outlined text-[20px] text-slate-400">receipt_long</span>
           </button>
         </div>
       </div>
