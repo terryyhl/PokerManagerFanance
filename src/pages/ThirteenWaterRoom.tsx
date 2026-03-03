@@ -142,6 +142,34 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         if (round.status === 'arranging') {
           setGamePhase('arranging');
+          // 断线重连时，如果全员已确认但未结算，直接触发结算
+          if (confirmed.size >= (state.hands.length > 0 ? new Set(state.hands.map(h => h.user_id)).size : 0) && confirmed.size >= 2) {
+            const allPlayers = await fetchGame();
+            const totalPlayers = allPlayers?.players?.length || 0;
+            if (confirmed.size >= totalPlayers && totalPlayers >= 2 && !settlingRef.current) {
+              settlingRef.current = true;
+              try {
+                const settleRes = await fetch(`/api/thirteen/${id}/settle`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id, roundId: round.id }),
+                });
+                const settleData = await settleRes.json();
+                if (settleRes.ok && settleData.settlement && !settleData.alreadySettling) {
+                  const detailRes2 = await fetch(`/api/thirteen/${id}/round/${round.id}?_t=${Date.now()}`);
+                  const detailData2 = await detailRes2.json();
+                  setRoundResult({
+                    settlement: settleData.settlement,
+                    hands: detailData2.hands || [],
+                    ghostCount: detailData2.round?.ghost_count || 0,
+                    ghostMultiplier: detailData2.round?.ghost_multiplier || 1,
+                    roundNumber: detailData2.round?.round_number || 0,
+                  });
+                  setShowCompare(true);
+                }
+              } catch { /* silent */ }
+              finally { settlingRef.current = false; }
+            }
+          }
         } else if (round.status === 'revealing') {
           setGamePhase('revealing');
         } else if (round.status === 'settled' || round.status === 'finished') {
