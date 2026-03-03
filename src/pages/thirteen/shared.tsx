@@ -713,16 +713,6 @@ export const ScoreBoard: React.FC<{
                           : <span className="material-symbols-outlined text-sm text-slate-600">chevron_right</span>}
                       </div>
                     </div>
-                    {(round.public_cards || []).length > 0 && (
-                      <div className="flex items-center gap-1 mb-2">
-                        <span className="text-[10px] text-slate-500">公共牌:</span>
-                        <div className="flex gap-0.5">
-                          {(round.public_cards as string[]).map((card: string, ci: number) => (
-                            <PokerCard key={ci} card={card} faceUp small />
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <div className="space-y-1">
                       {(round.totals || []).sort((a: any, b: any) => b.final_score - a.final_score).map((t: any) => (
                         <div key={t.id} className="flex items-center justify-between text-xs">
