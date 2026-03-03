@@ -120,6 +120,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       setPlayerTotals(state.playerTotals || {});
       setFinishedRounds(state.finishedRounds || 0);
       const stateTotalPlayers = state.totalPlayers || 0;
+      console.log('[syncGameState] state:', {
+        activeRound: state.activeRound?.id, status: state.activeRound?.status,
+        totalPlayers: stateTotalPlayers, handsCount: state.hands.length,
+      });
 
       if (state.activeRound) {
         const round = state.activeRound;
@@ -147,6 +151,11 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           round.status === 'finished' ||
           (round.status === 'arranging' && stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
 
+        console.log('[syncGameState] needsSettle=', needsSettle, {
+          status: round.status, stateTotalPlayers, confirmed: confirmed.size,
+          settlingRef: settlingRef.current,
+        });
+
         if (needsSettle) {
           setGamePhase('arranging');
           if (!settlingRef.current) {
@@ -163,7 +172,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 if (settleRes.ok && settleData.settlement) {
                   settlement = settleData.settlement;
                 }
-              } catch { /* settle 失败，尝试直接拿数据 */ }
+              } catch (err) { console.error('[syncGameState] /settle 请求失败:', err); }
 
               // 如果 /settle 没返回结果（可能后端旧版还在报错），直接查轮次详情
               if (!settlement) {
@@ -195,7 +204,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                 });
                 setShowCompare(true);
               }
-            } catch { /* silent */ }
+            } catch (err) { console.error('[syncGameState] 结算流程异常:', err); }
             finally { settlingRef.current = false; }
           }
         } else if (round.status === 'arranging') {
@@ -214,7 +223,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         setMyTailCards([]);
         setIsConfirmed(false);
       }
-    } catch { /* silent */ }
+    } catch (err) { console.error('[syncGameState] 顶层异常:', err); }
   }, [id, user]);
 
   // ─── 进入房间: 检查是否已在房间，不在则要求输入密码 ────────
@@ -249,11 +258,20 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setMyTailCards(prev => prev.filter(c => !pubSet.has(c)));
   }, [publicCards]);
 
-  // ─── 结算函数 ─────────────────────────────────────────────
-  const doSettle = useCallback(async () => {
-    if (!game || !user || !currentRoundId || settlingRef.current) return;
+  // ─── 结算函数（支持外部传入 roundId，避免闭包陷阱） ──────────
+  const doSettle = useCallback(async (overrideRoundId?: string) => {
+    const roundId = overrideRoundId || currentRoundId;
+    if (!game || !user || !roundId) {
+      console.warn('[doSettle] 跳过: game=', !!game, 'user=', !!user, 'roundId=', roundId);
+      return;
+    }
+    if (settlingRef.current) {
+      console.warn('[doSettle] 跳过: 已在结算中');
+      return;
+    }
     settlingRef.current = true;
     setIsSettling(true);
+    console.log('[doSettle] 开始结算, roundId=', roundId);
     try {
       let settlement: any = null;
 
@@ -261,17 +279,19 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       try {
         const res = await fetch(`/api/thirteen/${game.id}/settle`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, roundId: currentRoundId }),
+          body: JSON.stringify({ userId: user.id, roundId }),
         });
         const data = await res.json();
+        console.log('[doSettle] /settle 响应:', res.status, data.settlement ? '有结果' : '无结果', data.error || '');
         if (res.ok && data.settlement) {
           settlement = data.settlement;
         }
-      } catch { /* settle 失败 */ }
+      } catch (err) { console.error('[doSettle] /settle 请求失败:', err); }
 
       // /settle 没返回结果时，直接查轮次详情（兜底）
       if (!settlement) {
-        const fallbackRes = await fetch(`/api/thirteen/${game.id}/round/${currentRoundId}?_t=${Date.now()}`);
+        console.log('[doSettle] /settle 无结果，尝试兜底查询...');
+        const fallbackRes = await fetch(`/api/thirteen/${game.id}/round/${roundId}?_t=${Date.now()}`);
         const fallbackData = await fallbackRes.json();
         if (fallbackData.totals?.length > 0) {
           settlement = {
@@ -283,12 +303,15 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               })),
             })),
           };
+          console.log('[doSettle] 兜底查询成功, players=', settlement.players.length);
+        } else {
+          console.warn('[doSettle] 兜底查询也无结果');
         }
       }
 
       if (!settlement) return;
 
-      const detailRes = await fetch(`/api/thirteen/${game.id}/round/${currentRoundId}?_t=${Date.now()}`);
+      const detailRes = await fetch(`/api/thirteen/${game.id}/round/${roundId}?_t=${Date.now()}`);
       const detailData = await detailRes.json();
 
       setRoundResult({
@@ -299,7 +322,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         roundNumber: detailData.round?.round_number || 0,
       });
       setShowCompare(true);
-    } catch { showToast('网络错误', 'error'); }
+      console.log('[doSettle] 结算完成，显示比牌动画');
+    } catch (err) { console.error('[doSettle] 结算异常:', err); showToast('网络错误', 'error'); }
     finally { setIsSettling(false); settlingRef.current = false; }
   }, [game, user, currentRoundId]);
 
@@ -353,7 +377,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
                     roundNumber: round.round_number || 0,
                   });
                   setShowCompare(true);
-                } catch { /* silent */ }
+                } catch (err) { console.error('[Realtime] round finished 处理异常:', err); }
               })();
             }
           }
@@ -361,10 +385,13 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'thirteen_hands' },
         (payload) => {
           const hand = payload.new as HandState;
-          if (hand && hand.is_confirmed) {
+          if (!hand) return;
+          console.log('[Realtime] thirteen_hands 事件:', payload.eventType, 'user=', hand.user_id, 'confirmed=', hand.is_confirmed, 'round=', hand.round_id);
+          if (hand.is_confirmed) {
             setConfirmedUsers(prev => {
               const next = new Set(prev);
               next.add(hand.user_id);
+              console.log('[Realtime] confirmedUsers 更新:', next.size, '/', '(players.length待检查)');
               return next;
             });
           }
@@ -394,10 +421,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // ─── 全员确认后自动结算 ─────────────────────────────────────
   useEffect(() => {
+    console.log('[useEffect autoSettle] gamePhase=', gamePhase, 'confirmed=', confirmedUsers.size, 'currentPlayers=', currentPlayers, 'settling=', settlingRef.current, 'roundId=', currentRoundId);
     if (gamePhase === 'arranging' && confirmedUsers.size >= currentPlayers && currentPlayers >= 2 && !settlingRef.current) {
-      doSettle();
+      console.log('[useEffect autoSettle] 触发自动结算!');
+      doSettle(currentRoundId || undefined);
     }
-  }, [confirmedUsers.size, currentPlayers, gamePhase, doSettle]);
+  }, [confirmedUsers.size, currentPlayers, gamePhase, doSettle, currentRoundId]);
 
   // ─── 操作 ──────────────────────────────────────────────────
   const handleStartRound = async () => {
@@ -458,9 +487,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       if (data.isFoul) showToast('注意：你的摆牌被判定为乌龙！', 'error');
       else if (data.specialHand) showToast(`报到牌型: ${SPECIAL_HAND_NAMES[data.specialHand] || data.specialHand}!`, 'success');
       else showToast('已确认摆牌', 'success');
-      // 如果 API 告知全员已确认，直接触发结算（不依赖 Realtime）
+      // 如果 API 告知全员已确认，直接触发结算（传入 roundId 避免闭包问题）
       if (data.allConfirmed) {
-        doSettle();
+        console.log('[handleSubmitHand] 全员已确认, 直接触发结算, roundId=', currentRoundId);
+        doSettle(currentRoundId || undefined);
       }
     } catch { showToast('网络错误', 'error'); }
     finally { setIsSubmitting(false); }
@@ -475,6 +505,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       setTimeout(() => navigate('/lobby'), 1000);
     } catch { showToast('关闭失败', 'error'); }
   };
+
+  const handleForceSettle = useCallback(() => {
+    console.log('[handleForceSettle] 手动强制结算, roundId=', currentRoundId);
+    settlingRef.current = false; // 重置 ref，允许重试
+    doSettle(currentRoundId || undefined);
+  }, [currentRoundId, doSettle]);
 
   const handleCompareClose = () => {
     setShowCompare(false);
@@ -882,6 +918,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleSetPublicCards,
     handleCompareClose,
     handleCloseRoom,
+    handleForceSettle,
     showToast,
     toast,
     isSpectator,

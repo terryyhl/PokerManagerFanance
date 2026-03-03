@@ -102,7 +102,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
         <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
           allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
           onRearrange={p.handleRearrange} onAutoArrange={p.handleAutoArrange} isAutoArranging={p.isAutoArranging}
-          onSubmit={p.handleSubmitHand} />
+          onSubmit={p.handleSubmitHand} onForceSettle={p.handleForceSettle} />
       )}
 
       {/* 弹层 */}

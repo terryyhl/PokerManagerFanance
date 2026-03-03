@@ -55,6 +55,7 @@ export interface RoundState {
 }
 
 export interface HandState {
+  round_id: string;
   user_id: string;
   head_cards: string[] | null;
   mid_cards: string[] | null;
@@ -149,6 +150,7 @@ export interface TableProps {
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void;
   handleCloseRoom: () => void;
+  handleForceSettle: () => void;
   showToast: (msg: string, type: 'info' | 'error' | 'success') => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
   isSpectator: boolean;
@@ -1300,7 +1302,8 @@ export const BottomActionBar: React.FC<{
   isConfirmed: boolean; isSubmitting: boolean; isSettling: boolean;
   allSelectedCount: number; confirmedCount: number; totalPlayers: number;
   onRearrange: () => void; onAutoArrange: () => void; isAutoArranging: boolean; onSubmit: () => void;
-}> = ({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit }) => (
+  onForceSettle?: () => void;
+}> = ({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit, onForceSettle }) => (
   <div className="p-3 pb-8 flex flex-col gap-2 shrink-0 bg-black/20 border-t border-white/5">
     {!isConfirmed ? (
       <>
@@ -1321,12 +1324,22 @@ export const BottomActionBar: React.FC<{
         </button>
       </>
     ) : (
-      <div className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/5 border border-white/10">
-        <span className="material-symbols-outlined text-emerald-400 text-xl">check_circle</span>
-        <span className="text-emerald-400 font-bold">
-          {isSettling ? '正在结算...' : `已确认，等待其他玩家... (${confirmedCount}/${totalPlayers})`}
-        </span>
-      </div>
+      <>
+        <div className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/5 border border-white/10">
+          <span className="material-symbols-outlined text-emerald-400 text-xl">check_circle</span>
+          <span className="text-emerald-400 font-bold">
+            {isSettling ? '正在结算...' : `已确认，等待其他玩家... (${confirmedCount}/${totalPlayers})`}
+          </span>
+        </div>
+        {/* 全员已确认但结算未触发时，显示强制结算按钮 */}
+        {!isSettling && confirmedCount >= totalPlayers && totalPlayers >= 2 && onForceSettle && (
+          <button onClick={onForceSettle}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-sm py-3 rounded-2xl shadow-lg shadow-red-600/30 transition-all active:scale-[0.98]">
+            <span className="material-symbols-outlined text-base">bolt</span>
+            强制结算
+          </button>
+        )}
+      </>
     )}
   </div>
 );
