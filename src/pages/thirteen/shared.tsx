@@ -158,7 +158,7 @@ export interface TableProps {
 export const PokerCard: React.FC<{
   card?: string; faceUp?: boolean; small?: boolean; large?: boolean; onClick?: () => void; selected?: boolean;
 }> = ({ card, faceUp = true, small = false, large = false, onClick, selected = false }) => {
-  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-9 h-[50px]' : 'w-[46px] h-[64px]';
+  const w = large ? 'w-[62px] h-[86px]' : small ? 'w-[43px] h-[60px]' : 'w-[55px] h-[77px]';
 
   if (!faceUp || !card) {
     return (
@@ -201,7 +201,7 @@ export const PokerCard: React.FC<{
 // ─── 牌背组件 ──────────────────────────────────────────────────
 
 export const CardBack: React.FC<{ small?: boolean; large?: boolean }> = ({ small = false, large = false }) => {
-  const w = large ? 'w-[52px] h-[72px]' : small ? 'w-8 h-[44px]' : 'w-[46px] h-[64px]';
+  const w = large ? 'w-[62px] h-[86px]' : small ? 'w-[38px] h-[53px]' : 'w-[55px] h-[77px]';
   return (
     <div className={`${w} rounded-lg overflow-hidden shadow-sm bg-red-900/20`}>
       <img src={CARD_BACK_URL} alt="back" className="w-full h-full object-fill rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />

@@ -543,7 +543,9 @@ router.post('/:gameId/settle', async (req, res) => {
         if (round.status === 'finished') return res.status(400).json({ error: '该轮次已结算' });
 
         // 乐观锁: 用 CAS 抢占结算权，防止并发重复结算
-        const { data: locked, error: lockErr } = await supabase
+        // 先尝试 arranging → settling（正常路径）
+        let locked = false;
+        const { data: lock1 } = await supabase
             .from('thirteen_rounds')
             .update({ status: 'settling' })
             .eq('id', roundId)
@@ -551,8 +553,14 @@ router.post('/:gameId/settle', async (req, res) => {
             .select('id')
             .single();
 
-        if (lockErr || !locked) {
-            // 另一个请求已抢占，直接返回成功（前端会通过 Realtime 收到结果）
+        if (lock1) {
+            locked = true;
+        } else if (round.status === 'settling') {
+            // settling 卡住（上次结算中断），允许恢复继续
+            locked = true;
+        }
+
+        if (!locked) {
             return res.json({ settlement: null, alreadySettling: true });
         }
 
