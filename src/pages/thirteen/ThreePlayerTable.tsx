@@ -114,7 +114,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
         isHost={p.isHost} userId={p.userId}
         setShowPicker={p.setShowPicker} setShowInvite={p.setShowInvite} setInviteCopied={p.setInviteCopied}
         setShowScoreBoard={p.setShowScoreBoard} setShowGhostPicker={p.setShowGhostPicker}
-        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
+        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard} handleDropCardToLane={p.handleDropCardToLane}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
         toast={p.toast} />

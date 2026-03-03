@@ -139,6 +139,7 @@ export interface TableProps {
   setActiveLane: (lane: 'head' | 'mid' | 'tail') => void;
   setShowCompare: (v: boolean) => void;
   handleSelectCard: (card: string) => void;
+  handleDropCardToLane: (card: string, lane: 'head' | 'mid' | 'tail') => void;
   handleRemoveCard: (card: string) => void;
   handleRearrange: () => void;
   handleSubmitHand: () => void;
@@ -358,9 +359,10 @@ export const CardPickerModal: React.FC<{
   ghostCount: number; selectedCards: string[]; activeLane: 'head' | 'mid' | 'tail';
   headCards: string[]; midCards: string[]; tailCards: string[];
   publicCards: string[];
-  onSelectCard: (card: string) => void; onRemoveCard: (card: string) => void;
+  onSelectCard: (card: string) => void; onDropCardToLane: (card: string, lane: 'head' | 'mid' | 'tail') => void;
+  onRemoveCard: (card: string) => void;
   onSwitchLane: (lane: 'head' | 'mid' | 'tail') => void; onClose: () => void;
-}> = ({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, publicCards, onSelectCard, onRemoveCard, onSwitchLane, onClose }) => {
+}> = ({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, publicCards, onSelectCard, onDropCardToLane, onRemoveCard, onSwitchLane, onClose }) => {
   const laneMax = { head: 3, mid: 5, tail: 5 };
   const laneCards = { head: headCards, mid: midCards, tail: tailCards };
   const laneLabels = { head: '头道', mid: '中道', tail: '尾道' };
@@ -371,6 +373,75 @@ export const CardPickerModal: React.FC<{
     (['head', 'mid', 'tail'] as const).filter(l => l !== activeLane).flatMap(l => laneCards[l])
   );
   const publicSet = new Set(publicCards);
+
+  // ─── 拖拽状态 ───
+  const [dragCard, setDragCard] = useState<string | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragOverLane, setDragOverLane] = useState<'head' | 'mid' | 'tail' | null>(null);
+  const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const laneTabRefs = useRef<Record<string, HTMLButtonElement | null>>({ tail: null, mid: null, head: null });
+  const isDraggingRef = useRef(false);
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (card: string, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    startPosRef.current = { x: touch.clientX, y: touch.clientY };
+    dragTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = true;
+      setDragCard(card);
+      setDragPos({ x: touch.clientX, y: touch.clientY });
+    }, 150);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    // 如果还没进入拖拽模式，检查是否有足够移动来取消长按
+    if (!isDraggingRef.current && startPosRef.current) {
+      const dx = Math.abs(touch.clientX - startPosRef.current.x);
+      const dy = Math.abs(touch.clientY - startPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        if (dragTimerRef.current) { clearTimeout(dragTimerRef.current); dragTimerRef.current = null; }
+      }
+      return;
+    }
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    setDragPos({ x: touch.clientX, y: touch.clientY });
+    // 检查手指是否在某个道次tab上
+    let hitLane: 'head' | 'mid' | 'tail' | null = null;
+    for (const lane of ['tail', 'mid', 'head'] as const) {
+      const el = laneTabRefs.current[lane];
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (touch.clientX >= rect.left && touch.clientX <= rect.right && touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          hitLane = lane;
+          break;
+        }
+      }
+    }
+    setDragOverLane(hitLane);
+  };
+
+  const handleTouchEnd = () => {
+    if (dragTimerRef.current) { clearTimeout(dragTimerRef.current); dragTimerRef.current = null; }
+    if (isDraggingRef.current && dragCard && dragOverLane) {
+      // 放下到目标道次
+      const targetCards = laneCards[dragOverLane];
+      const allSelected = new Set(selectedCards);
+      if (targetCards.length < laneMax[dragOverLane] && !allSelected.has(dragCard) && selectedCards.length < 13) {
+        onDropCardToLane(dragCard, dragOverLane);
+      }
+    }
+    isDraggingRef.current = false;
+    startPosRef.current = null;
+    setDragCard(null);
+    setDragPos(null);
+    setDragOverLane(null);
+  };
+
+  useEffect(() => {
+    return () => { if (dragTimerRef.current) clearTimeout(dragTimerRef.current); };
+  }, []);
 
   const autoSwitchLane = () => {
     const order: Array<'head' | 'mid' | 'tail'> = ['tail', 'mid', 'head'];
@@ -408,15 +479,27 @@ export const CardPickerModal: React.FC<{
         <div className="flex gap-1.5 mb-3">
           {(['tail', 'mid', 'head'] as const).map(lane => {
             const isFull = laneCards[lane].length >= laneMax[lane];
+            const isDragOver = dragOverLane === lane;
             return (
-              <button key={lane} onClick={() => onSwitchLane(lane)}
+              <button key={lane} ref={el => { laneTabRefs.current[lane] = el; }} onClick={() => onSwitchLane(lane)}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all relative
-                  ${activeLane === lane ? 'bg-primary text-white shadow-md shadow-primary/30'
+                  ${isDragOver ? 'bg-amber-500/30 text-amber-300 border-2 border-amber-400 scale-105 shadow-lg shadow-amber-500/20'
+                    : activeLane === lane ? 'bg-primary text-white shadow-md shadow-primary/30'
                     : isFull ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}>
                 <span>{laneLabels[lane]}</span>
                 <span className="ml-1 text-[10px] opacity-70">{laneCards[lane].length}/{laneMax[lane]}</span>
-                {isFull && activeLane !== lane && (
+                {isDragOver && !isFull && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center animate-pulse">
+                    <span className="material-symbols-outlined text-white text-[10px]">add</span>
+                  </span>
+                )}
+                {isDragOver && isFull && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-[10px]">close</span>
+                  </span>
+                )}
+                {!isDragOver && isFull && activeLane !== lane && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
                     <span className="material-symbols-outlined text-white text-[10px]">check</span>
                   </span>
@@ -434,7 +517,8 @@ export const CardPickerModal: React.FC<{
           })}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-8">
+      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-8"
+        onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         {SUITS.map(suit => (
           <div key={suit} className="mb-2.5">
             <div className="flex items-center gap-1.5 mb-1.5 px-1">
@@ -450,12 +534,15 @@ export const CardPickerModal: React.FC<{
                 const inOtherLane = otherLaneCards.has(card);
                 const isPublic = publicSet.has(card);
                 const isDisabled = isPublic || inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
+                const canDrag = !isPublic && !inOtherLane && !inCurrentLane && totalSelected < 13;
                 const url = cardToUrl(card);
                 return (
                   <button key={card} disabled={isDisabled && !inCurrentLane}
                     onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? handleSelect(card) : undefined}
+                    onTouchStart={canDrag ? (e) => handleTouchStart(card, e) : undefined}
                     className={`aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative
-                      ${inCurrentLane ? 'border-primary ring-2 ring-primary/60 shadow-lg shadow-primary/20 scale-[0.92]'
+                      ${dragCard === card ? 'border-amber-400 opacity-40 scale-90'
+                        : inCurrentLane ? 'border-primary ring-2 ring-primary/60 shadow-lg shadow-primary/20 scale-[0.92]'
                         : isPublic ? 'border-amber-500/30 opacity-25 cursor-not-allowed'
                         : inOtherLane ? 'border-transparent opacity-20 cursor-not-allowed grayscale'
                         : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed'
@@ -491,14 +578,17 @@ export const CardPickerModal: React.FC<{
                   const inCurrentLane = currentLaneSet.has(card);
                   const inOtherLane = otherLaneCards.has(card);
                   const isDisabled = inOtherLane || (!inCurrentLane && (totalSelected >= 13 || currentLaneFull));
+                  const canDrag = !inOtherLane && !inCurrentLane && totalSelected < 13;
                   const num = parseInt(card.slice(2));
                   const isBlack = num <= 3;
                   const url = cardToUrl(card);
                   return (
                     <button key={card} disabled={isDisabled && !inCurrentLane}
                       onClick={() => inCurrentLane ? onRemoveCard(card) : !isDisabled ? handleSelect(card) : undefined}
+                      onTouchStart={canDrag ? (e) => handleTouchStart(card, e) : undefined}
                       className={`aspect-[2/3] w-[calc((100%-6*6px)/7)] rounded-lg overflow-hidden border-2 transition-all relative
-                        ${inCurrentLane ? 'border-purple-400 ring-2 ring-purple-400/60 shadow-lg shadow-purple-500/20 scale-[0.92]'
+                        ${dragCard === card ? 'border-amber-400 opacity-40 scale-90'
+                          : inCurrentLane ? 'border-purple-400 ring-2 ring-purple-400/60 shadow-lg shadow-purple-500/20 scale-[0.92]'
                           : inOtherLane ? 'border-transparent opacity-20 cursor-not-allowed grayscale'
                           : isDisabled ? 'border-transparent opacity-30 cursor-not-allowed'
                           : 'border-transparent hover:scale-[1.06] active:scale-[0.92] cursor-pointer shadow-sm hover:shadow-md'}`}>
@@ -519,6 +609,17 @@ export const CardPickerModal: React.FC<{
           ) : null;
         })()}
       </div>
+      {/* 浮动拖拽卡牌 */}
+      {dragCard && dragPos && (() => {
+        const url = cardToUrl(dragCard);
+        return (
+          <div className="fixed z-[60] pointer-events-none" style={{ left: dragPos.x - 24, top: dragPos.y - 34 }}>
+            <div className="w-12 h-[68px] rounded-lg overflow-hidden border-2 border-amber-400 shadow-2xl shadow-amber-500/40 bg-white">
+              {url && <img src={url} alt={dragCard} className="w-full h-full object-contain" />}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -532,6 +633,8 @@ export const ScoreBoard: React.FC<{
 }> = ({ gameId, players, playerTotals, finishedRounds, isHost, userId, onClose, onCloseRoom }) => {
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [replayResult, setReplayResult] = useState<RoundResult | null>(null);
+  const [loadingRoundId, setLoadingRoundId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -543,6 +646,45 @@ export const ScoreBoard: React.FC<{
       setLoadingHistory(false);
     })();
   }, [gameId]);
+
+  const handleViewRound = async (roundId: string) => {
+    if (loadingRoundId) return;
+    setLoadingRoundId(roundId);
+    try {
+      const res = await fetch(`/api/thirteen/${gameId}/round/${roundId}?_t=${Date.now()}`);
+      const data = await res.json();
+      if (!data.round) return;
+      // 将后端数据转换为 RoundResult
+      const settlementPlayers: SettlementPlayer[] = (data.totals || []).map((t: any) => ({
+        userId: t.user_id,
+        rawScore: t.raw_score,
+        finalScore: t.final_score,
+        gunsFired: t.guns_fired,
+        homerun: t.homerun,
+        laneScores: (data.scores || [])
+          .filter((s: any) => s.user_id === t.user_id)
+          .map((s: any) => ({ lane: s.lane, userId: s.user_id, opponentId: s.opponent_id, score: s.score, detail: s.detail })),
+      }));
+      const handStates: HandState[] = (data.hands || []).map((h: any) => ({
+        user_id: h.user_id,
+        head_cards: h.head_cards,
+        mid_cards: h.mid_cards,
+        tail_cards: h.tail_cards,
+        is_confirmed: h.is_confirmed,
+        is_foul: h.is_foul,
+        special_hand: h.special_hand,
+        users: h.users,
+      }));
+      setReplayResult({
+        settlement: { players: settlementPlayers },
+        hands: handStates,
+        ghostCount: data.round.ghost_count || 0,
+        ghostMultiplier: data.round.ghost_multiplier || 1,
+        roundNumber: data.round.round_number,
+      });
+    } catch { /* ignore */ }
+    setLoadingRoundId(null);
+  };
 
   const sorted = players
     .map(p => ({ ...p, total: playerTotals[p.user_id] || 0 }))
@@ -586,10 +728,17 @@ export const ScoreBoard: React.FC<{
             ) : (
               <div className="space-y-2">
                 {history.filter((r: any) => r.status === 'finished').map((round: any) => (
-                  <div key={round.id} className="bg-surface-dark rounded-xl border border-white/5 p-3">
+                  <div key={round.id}
+                    className="bg-surface-dark rounded-xl border border-white/5 p-3 active:bg-white/[0.06] transition-colors cursor-pointer"
+                    onClick={() => handleViewRound(round.id)}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-400">第 {round.round_number} 局</span>
-                      {round.ghost_count > 0 && <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">鬼x{round.ghost_count} ({round.ghost_multiplier}倍)</span>}
+                      <div className="flex items-center gap-2">
+                        {round.ghost_count > 0 && <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">鬼x{round.ghost_count} ({round.ghost_multiplier}倍)</span>}
+                        {loadingRoundId === round.id
+                          ? <span className="material-symbols-outlined animate-spin text-sm text-slate-500">progress_activity</span>
+                          : <span className="material-symbols-outlined text-sm text-slate-600">chevron_right</span>}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {(round.totals || []).sort((a: any, b: any) => b.final_score - a.final_score).map((t: any) => (
@@ -617,6 +766,15 @@ export const ScoreBoard: React.FC<{
           </div>
         )}
       </div>
+      {replayResult && (
+        <CompareAnimation
+          result={replayResult}
+          players={players}
+          userId={userId}
+          onClose={() => setReplayResult(null)}
+          replay
+        />
+      )}
     </div>
   );
 };
@@ -1005,7 +1163,8 @@ export const GameModals: React.FC<{
   setShowPicker: (v: boolean) => void; setShowInvite: (v: boolean) => void;
   setInviteCopied: (v: boolean) => void; setShowScoreBoard: (v: boolean) => void;
   setShowGhostPicker: (v: boolean) => void; setActiveLane: (lane: 'head' | 'mid' | 'tail') => void;
-  handleSelectCard: (card: string) => void; handleRemoveCard: (card: string) => void;
+  handleSelectCard: (card: string) => void; handleDropCardToLane: (card: string, lane: 'head' | 'mid' | 'tail') => void;
+  handleRemoveCard: (card: string) => void;
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void; handleCloseRoom: () => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
@@ -1015,7 +1174,7 @@ export const GameModals: React.FC<{
       <CardPickerModal ghostCount={p.game.thirteen_ghost_count || 6} selectedCards={p.allSelectedCards}
         activeLane={p.activeLane} headCards={p.myHeadCards} midCards={p.myMidCards} tailCards={p.myTailCards}
         publicCards={p.publicCards}
-        onSelectCard={p.handleSelectCard} onRemoveCard={p.handleRemoveCard} onSwitchLane={p.setActiveLane} onClose={() => p.setShowPicker(false)} />
+        onSelectCard={p.handleSelectCard} onDropCardToLane={p.handleDropCardToLane} onRemoveCard={p.handleRemoveCard} onSwitchLane={p.setActiveLane} onClose={() => p.setShowPicker(false)} />
     )}
     {p.showScoreBoard && (
       <ScoreBoard gameId={p.game.id} players={p.players} playerTotals={p.playerTotals} finishedRounds={p.finishedRounds}
