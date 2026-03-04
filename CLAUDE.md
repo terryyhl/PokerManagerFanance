@@ -152,12 +152,21 @@
 41. 每局明细列表显示鬼牌倍率标签（不显示公共牌卡面）
 42. ThirteenReport 每局明细显示公共牌卡面
 
+### 性能优化
+43. React.memo 包装所有叶子组件（PokerCard/CardBack/OpponentArea）
+44. React.memo 包装中间层组件（MyHandArea/BottomActionBar/SpectatorBar/PublicCardsCenter/PublicCardsThumbnail/GameModals/RoomHeader/CompareAnimation/ScoreBoard/CardPickerModal/PublicCardPickerModal）
+45. ThirteenWaterRoom 12+ 个 handler 用 useCallback 包装
+46. 核心计算值 useMemo（allSelectedCards/me/opponents/tableProps/evaluateLaneName/sorted 等）
+47. confirmedUsers 从 Set<string> 改为 Record<string, boolean>（配合 memo 浅比较）
+48. 模块级常量提取（LANE_MAX/SLOTS_3/SLOTS_5/LANE_LABELS/粒子 style 预计算）
+49. CardPicker 内部 Set 创建用 useMemo 缓存
+
 ### 其他
-43. Score 0 显示黄色（`text-amber-400`）
-44. 非房主玩家不能点击空座（显示"等待加入"）
-45. 等待页面：回到游戏按钮 + 密码居中加亮
-46. 个人中心13水统计
-47. 选牌器道次按钮顺序：头道→中道→尾道
+50. Score 0 显示黄色（`text-amber-400`）
+51. 非房主玩家不能点击空座（显示"等待加入"）
+52. 等待页面：回到游戏按钮 + 密码居中加亮
+53. 个人中心13水统计
+54. 选牌器道次按钮顺序：头道→中道→尾道
 
 ## Architecture Notes
 
