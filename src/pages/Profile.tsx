@@ -138,18 +138,38 @@ export default function Profile() {
                         </div>
 
                         <div className="bg-gradient-to-br from-primary/10 to-blue-500/5 dark:from-primary/20 dark:to-blue-900/20 p-4 rounded-2xl shadow-sm border border-primary/20 flex flex-col justify-between col-span-2">
-                            <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1.5 text-primary">
-                                    <span className="material-symbols-outlined text-[16px]">payments</span>
-                                    <span className="text-xs font-bold uppercase tracking-wider">生涯总盈亏</span>
+                            <div className="flex items-center gap-1.5 text-primary mb-2">
+                                <span className="material-symbols-outlined text-[16px]">payments</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">生涯总盈亏</span>
+                            </div>
+                            {/* 总计 */}
+                            {(() => {
+                                const combined = stats.totalProfit + thirteenStats.totalScore;
+                                return (
+                                    <p className={`text-4xl font-black tracking-tighter ${combined >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                                        {isLoading ? '-' : `${combined > 0 ? '+' : ''}${combined} 积分`}
+                                    </p>
+                                );
+                            })()}
+                            {/* 明细 */}
+                            <div className="flex items-center gap-4 mt-2 pt-2 border-t border-primary/10 dark:border-blue-700/20">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap">德州</span>
+                                    <span className={`text-sm font-black ${stats.totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                                        {isLoading ? '-' : `${stats.totalProfit > 0 ? '+' : ''}${stats.totalProfit}`}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                                        (买入{isLoading ? '-' : stats.totalBuyIn})
+                                    </span>
                                 </div>
-                                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full bg-white dark:bg-slate-800">
-                                    总买入 {isLoading ? '-' : stats.totalBuyIn} 积分
+                                <div className="w-px h-3 bg-slate-200 dark:bg-slate-700" />
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap">13水</span>
+                                    <span className={`text-sm font-black ${thirteenStats.totalScore >= 0 ? 'text-violet-500' : 'text-red-500'}`}>
+                                        {isLoading ? '-' : `${thirteenStats.totalScore > 0 ? '+' : ''}${thirteenStats.totalScore}`}
+                                    </span>
                                 </div>
                             </div>
-                            <p className={`text-4xl font-black tracking-tighter mt-1 ${stats.totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
-                                {isLoading ? '-' : `${stats.totalProfit > 0 ? '+' : ''}${stats.totalProfit} 积分`}
-                            </p>
                         </div>
                     </div>
 
