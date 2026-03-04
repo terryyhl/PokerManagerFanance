@@ -91,6 +91,26 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimerEvent | null>(null);
   const [viewingTimer, setViewingTimer] = useState(false); // 是否正在查看广播来的计时器
 
+  // 被催促时的剩余秒数（用于全屏红色警告）
+  const [timerRemaining, setTimerRemaining] = useState(0);
+
+  // 追踪催促计时器剩余时间（判断是否被催促的我 + 是否 ≤10s 显示红色警告）
+  const isMeBeingTimed = !!activeTimer && activeTimer.targetUserId === user?.id;
+  useEffect(() => {
+    if (!activeTimer) { setTimerRemaining(0); return; }
+    const calc = () => {
+      const elapsed = Math.floor((Date.now() - activeTimer.startedAt) / 1000);
+      return Math.max(0, activeTimer.totalSeconds - elapsed);
+    };
+    setTimerRemaining(calc());
+    const iv = setInterval(() => {
+      const r = calc();
+      setTimerRemaining(r);
+      if (r <= 0) clearInterval(iv);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [activeTimer]);
+
   // 工具按钮展开面板
   const [showToolsFan, setShowToolsFan] = useState(false);
   const toolsBtnRef = useRef<HTMLButtonElement>(null);
@@ -755,6 +775,14 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   return (
     <AnimatedPage animationType="slide-left">
       <div className="bg-background-light dark:bg-background-dark min-h-full h-full text-slate-900 dark:text-slate-100 font-display antialiased overflow-hidden flex flex-col" onContextMenu={(e) => e.preventDefault()}>
+
+        {/* 被催促红色边缘警告（≤10秒） */}
+        {isMeBeingTimed && timerRemaining <= 10 && timerRemaining > 0 && (
+          <div className="fixed inset-0 z-[100] pointer-events-none animate-shame-edge-glow" />
+        )}
+        {isMeBeingTimed && timerRemaining === 0 && activeTimer && (
+          <div className="fixed inset-0 z-[100] pointer-events-none animate-shame-edge-glow-intense" />
+        )}
 
         {/* Toast 通知 */}
         {toast && (
