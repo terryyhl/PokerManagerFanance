@@ -5,6 +5,7 @@ import { gamesApi, Game, Player } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
+import TableErrorBoundary from '../components/TableErrorBoundary';
 
 // 导入拆分后的组件
 import {
@@ -1036,11 +1037,11 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleOpenGhostPicker, handleClosePicker, handleCloseScoreBoard, handleCloseGhostPicker,
   ]);
 
-  if (currentPlayers <= 2) {
-    return <TwoPlayerTable {...tableProps} />;
-  } else if (currentPlayers === 3) {
-    return <ThreePlayerTable {...tableProps} />;
-  } else {
-    return <FourPlayerTable {...tableProps} />;
-  }
+  const table = currentPlayers <= 2
+    ? <TwoPlayerTable {...tableProps} />
+    : currentPlayers === 3
+    ? <ThreePlayerTable {...tableProps} />
+    : <FourPlayerTable {...tableProps} />;
+
+  return <TableErrorBoundary>{table}</TableErrorBoundary>;
 }
