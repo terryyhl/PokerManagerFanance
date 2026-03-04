@@ -60,7 +60,7 @@
 ## Key Files
 
 ### 前端核心
-- `src/pages/ThirteenWaterRoom.tsx` — 13水房间主页面（~1015行），状态管理 + 游戏逻辑
+- `src/pages/ThirteenWaterRoom.tsx` — 13水房间主页面（~1025行），状态管理 + 游戏逻辑
 - `src/pages/thirteen/shared.tsx` — 共享组件（~1513行）：PokerCard、CardPickerModal、ScoreBoard、CompareAnimation、MyHandArea、BottomActionBar、GameModals
 - `src/pages/thirteen/TwoPlayerTable.tsx` — 2人桌布局（~127行）
 - `src/pages/thirteen/ThreePlayerTable.tsx` — 3人桌布局（~125行）
@@ -170,6 +170,10 @@
 55. 等待页面：回到游戏按钮 + 密码居中加亮
 56. 个人中心13水统计
 57. 选牌器道次按钮顺序：头道→中道→尾道
+
+### Bug 修复
+58. React Error #310 修复：tableProps useMemo 在 early return 之后调用导致 hooks 数量不一致，移至所有 early return 之前
+59. 清理所有 console.log 诊断日志（保留 error/warn）
 
 ## Architecture Notes
 

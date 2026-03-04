@@ -161,10 +161,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       setPlayerTotals(state.playerTotals || {});
       setFinishedRounds(state.finishedRounds || 0);
       const stateTotalPlayers = state.totalPlayers || 0;
-      console.log('[syncGameState] state:', {
-        activeRound: state.activeRound?.id, status: state.activeRound?.status,
-        totalPlayers: stateTotalPlayers, handsCount: state.hands.length,
-      });
 
       if (state.activeRound) {
         const round = state.activeRound;
@@ -190,11 +186,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         const needsSettle =
           round.status === 'settling' ||
           (round.status === 'arranging' && stateTotalPlayers >= 2 && Object.keys(confirmed).length >= stateTotalPlayers);
-
-        console.log('[syncGameState] needsSettle=', needsSettle, {
-          status: round.status, stateTotalPlayers, confirmed: Object.keys(confirmed).length,
-          settlingRef: settlingRef.current,
-        });
 
         if (needsSettle) {
           setGamePhase('arranging');
@@ -312,7 +303,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     }
     settlingRef.current = true;
     setIsSettling(true);
-    console.log('[doSettle] 开始结算, roundId=', roundId);
     try {
       let settlement: any = null;
 
@@ -323,7 +313,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           body: JSON.stringify({ userId: user.id, roundId }),
         });
         const data = await res.json();
-        console.log('[doSettle] /settle 响应:', res.status, JSON.stringify(data).slice(0, 200));
         if (res.ok && data.settlement) {
           settlement = data.settlement;
         } else if (!res.ok) {
@@ -336,7 +325,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
       // /settle 没返回结果时，直接查轮次详情（兜底）
       if (!settlement) {
-        console.log('[doSettle] /settle 无结果，尝试兜底查询...');
         const fallbackRes = await fetch(`/api/thirteen/${game.id}/round/${roundId}?_t=${Date.now()}`);
         const fallbackData = await fallbackRes.json();
         if (fallbackData.totals?.length > 0) {
@@ -349,7 +337,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
               })),
             })),
           };
-          console.log('[doSettle] 兜底查询成功, players=', settlement.players.length);
         } else {
           console.warn('[doSettle] 兜底查询也无结果');
         }
@@ -369,7 +356,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         roundNumber: detailData.round?.round_number || 0,
       });
       setShowCompare(true);
-      console.log('[doSettle] 结算完成，显示比牌动画');
     } catch (err) { console.error('[doSettle] 结算异常:', err); showToast('网络错误', 'error'); }
     finally { setIsSettling(false); settlingRef.current = false; }
   }, [game, user, currentRoundId]);
@@ -434,13 +420,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         (payload) => {
           const hand = payload.new as HandState;
           if (!hand) return;
-          console.log('[Realtime] thirteen_hands 事件:', payload.eventType, 'user=', hand.user_id, 'confirmed=', hand.is_confirmed, 'round=', hand.round_id);
           if (hand.is_confirmed) {
-            setConfirmedUsers(prev => {
-              const next = { ...prev, [hand.user_id]: true };
-              console.log('[Realtime] confirmedUsers 更新:', Object.keys(next).length, '/', '(players.length待检查)');
-              return next;
-            });
+            setConfirmedUsers(prev => ({ ...prev, [hand.user_id]: true }));
           }
         })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players', filter: `game_id=eq.${id}` },
@@ -469,9 +450,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   // ─── 全员确认后自动结算 ─────────────────────────────────────
   useEffect(() => {
     const confirmedCount = Object.keys(confirmedUsers).length;
-    console.log('[useEffect autoSettle] gamePhase=', gamePhase, 'confirmed=', confirmedCount, 'currentPlayers=', currentPlayers, 'settling=', settlingRef.current, 'roundId=', currentRoundId);
     if (gamePhase === 'arranging' && confirmedCount >= currentPlayers && currentPlayers >= 2 && !settlingRef.current) {
-      console.log('[useEffect autoSettle] 触发自动结算!');
       doSettle(currentRoundId || undefined);
     }
   }, [confirmedUsers, currentPlayers, gamePhase, doSettle, currentRoundId]);
@@ -537,7 +516,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       else showToast('已确认摆牌', 'success');
       // 如果 API 告知全员已确认，直接触发结算（传入 roundId 避免闭包问题）
       if (data.allConfirmed) {
-        console.log('[handleSubmitHand] 全员已确认, 直接触发结算, roundId=', currentRoundId);
         doSettle(currentRoundId || undefined);
       }
     } catch { showToast('网络错误', 'error'); }
@@ -560,7 +538,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   }, [game, user, navigate, showToast]);
 
   const handleForceSettle = useCallback(() => {
-    console.log('[handleForceSettle] 手动强制结算, roundId=', currentRoundId);
     settlingRef.current = false; // 重置 ref，允许重试
     doSettle(currentRoundId || undefined);
   }, [currentRoundId, doSettle]);
@@ -578,7 +555,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     syncGameState();
   }, [syncGameState]);
 
-  console.log('[render] useMemo#1 allSelectedCards');
   const allSelectedCards = useMemo(() => [...myHeadCards, ...myMidCards, ...myTailCards], [myHeadCards, myMidCards, myTailCards]);
 
   const handleSelectCard = useCallback((card: string) => {
@@ -695,10 +671,83 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
   }, [myHeadCards, myMidCards, myTailCards, game, user, currentRoundId, isConfirmed]);
 
-  console.log('[render] useMemo#2 me');
   const me = useMemo(() => players.find(p => p.user_id === user?.id), [players, user?.id]);
-  console.log('[render] useMemo#3 opponents');
   const opponents = useMemo(() => players.filter(p => p.user_id !== user?.id), [players, user?.id]);
+
+  // ─── tableProps（必须在所有 early return 之前调用，保证 hooks 数量恒定） ───
+  const publicCardsSet = publicCards.length > 0;
+
+  const tableProps: TableProps = useMemo(() => ({
+    game: game as Game,
+    me,
+    opponents,
+    isHost,
+    publicCards,
+    publicCardsSet,
+    ghostCount,
+    confirmedUsers,
+    currentPlayers,
+    playerTotals,
+    myHeadCards,
+    myMidCards,
+    myTailCards,
+    isConfirmed,
+    activeLane,
+    allSelectedCards,
+    isSubmitting,
+    isSettling,
+    showPicker,
+    showInvite,
+    inviteCopied,
+    showScoreBoard,
+    showGhostPicker,
+    showCompare,
+    roundResult,
+    finishedRounds,
+    players,
+    userId: user?.id,
+    setGamePhase,
+    setShowGhostPicker,
+    setShowInvite,
+    setInviteCopied,
+    setShowScoreBoard,
+    setShowPicker,
+    setActiveLane,
+    setShowCompare,
+    handleOpenGhostPicker,
+    handleClosePicker,
+    handleCloseScoreBoard,
+    handleCloseGhostPicker,
+    handleSelectCard,
+    handleRemoveCard,
+    handleCardTap,
+    selectedCard,
+    handleRearrange,
+    handleAutoArrange,
+    isAutoArranging,
+    handleSubmitHand,
+    handleSetPublicCards,
+    handleCompareClose,
+    handleCloseRoom,
+    handleCloseRoomConfirm,
+    showCloseConfirm,
+    setShowCloseConfirm,
+    handleForceSettle,
+    showToast,
+    toast,
+    isSpectator,
+  }), [
+    game, me, opponents, isHost, publicCards, publicCardsSet, ghostCount,
+    confirmedUsers, currentPlayers, playerTotals,
+    myHeadCards, myMidCards, myTailCards, isConfirmed, activeLane, allSelectedCards,
+    isSubmitting, isSettling, showPicker, showInvite, inviteCopied,
+    showScoreBoard, showGhostPicker, showCompare, roundResult, finishedRounds,
+    players, user?.id, selectedCard, isAutoArranging, showCloseConfirm, toast, isSpectator,
+    handleSelectCard, handleRemoveCard, handleCardTap,
+    handleRearrange, handleAutoArrange, handleSubmitHand, handleSetPublicCards,
+    handleCompareClose, handleCloseRoom, handleCloseRoomConfirm, handleForceSettle, showToast,
+    handleOpenGhostPicker, handleClosePicker, handleCloseScoreBoard, handleCloseGhostPicker,
+  ]);
 
   // ─── 密码键盘 ──────────────────────────────────────────────
   const handlePinKey = (key: string) => {
@@ -965,81 +1014,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   }
 
   // ─── 游戏进行中 — 根据人数渲染不同桌面组件 ──────────────────
-
-  const publicCardsSet = publicCards.length > 0;
-
-  console.log('[render] useMemo#4 tableProps, gamePhase=', gamePhase, 'game=', !!game, 'me=', !!me, 'opponents=', opponents.length, 'currentPlayers=', currentPlayers);
-  const tableProps: TableProps = useMemo(() => ({
-    game,
-    me,
-    opponents,
-    isHost,
-    publicCards,
-    publicCardsSet,
-    ghostCount,
-    confirmedUsers,
-    currentPlayers,
-    playerTotals,
-    myHeadCards,
-    myMidCards,
-    myTailCards,
-    isConfirmed,
-    activeLane,
-    allSelectedCards,
-    isSubmitting,
-    isSettling,
-    showPicker,
-    showInvite,
-    inviteCopied,
-    showScoreBoard,
-    showGhostPicker,
-    showCompare,
-    roundResult,
-    finishedRounds,
-    players,
-    userId: user?.id,
-    setGamePhase,
-    setShowGhostPicker,
-    setShowInvite,
-    setInviteCopied,
-    setShowScoreBoard,
-    setShowPicker,
-    setActiveLane,
-    setShowCompare,
-    handleOpenGhostPicker,
-    handleClosePicker,
-    handleCloseScoreBoard,
-    handleCloseGhostPicker,
-    handleSelectCard,
-    handleRemoveCard,
-    handleCardTap,
-    selectedCard,
-    handleRearrange,
-    handleAutoArrange,
-    isAutoArranging,
-    handleSubmitHand,
-    handleSetPublicCards,
-    handleCompareClose,
-    handleCloseRoom,
-    handleCloseRoomConfirm,
-    showCloseConfirm,
-    setShowCloseConfirm,
-    handleForceSettle,
-    showToast,
-    toast,
-    isSpectator,
-  }), [
-    game, me, opponents, isHost, publicCards, publicCardsSet, ghostCount,
-    confirmedUsers, currentPlayers, playerTotals,
-    myHeadCards, myMidCards, myTailCards, isConfirmed, activeLane, allSelectedCards,
-    isSubmitting, isSettling, showPicker, showInvite, inviteCopied,
-    showScoreBoard, showGhostPicker, showCompare, roundResult, finishedRounds,
-    players, user?.id, selectedCard, isAutoArranging, showCloseConfirm, toast, isSpectator,
-    handleSelectCard, handleRemoveCard, handleCardTap,
-    handleRearrange, handleAutoArrange, handleSubmitHand, handleSetPublicCards,
-    handleCompareClose, handleCloseRoom, handleCloseRoomConfirm, handleForceSettle, showToast,
-    handleOpenGhostPicker, handleClosePicker, handleCloseScoreBoard, handleCloseGhostPicker,
-  ]);
 
   const table = currentPlayers <= 2
     ? <TwoPlayerTable {...tableProps} />

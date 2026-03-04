@@ -2,8 +2,7 @@
 import React from 'react';
 
 /**
- * ErrorBoundary — 诊断 React #310 (Objects not valid as React child)
- * 捕获桌面组件的渲染错误并显示组件堆栈
+ * ErrorBoundary — 捕获桌面组件的渲染错误并显示组件堆栈
  */
 export default class TableErrorBoundary extends React.Component {
   state = { error: null, stack: '' };
