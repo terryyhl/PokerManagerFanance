@@ -42,7 +42,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         {topOpp && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2">
             <OpponentArea player={topOpp} isPlayerHost={topOpp.user_id === p.game.created_by}
-              confirmed={p.confirmedUsers.has(topOpp.user_id)} score={p.playerTotals[topOpp.user_id] || 0} />
+              confirmed={!!p.confirmedUsers[topOpp.user_id]} score={p.playerTotals[topOpp.user_id] || 0} />
           </div>
         )}
 
@@ -50,7 +50,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         {leftOpp && (
           <div className="absolute left-1 top-[45%] -translate-y-1/2">
             <OpponentArea player={leftOpp} isPlayerHost={leftOpp.user_id === p.game.created_by}
-              confirmed={p.confirmedUsers.has(leftOpp.user_id)} score={p.playerTotals[leftOpp.user_id] || 0} />
+              confirmed={!!p.confirmedUsers[leftOpp.user_id]} score={p.playerTotals[leftOpp.user_id] || 0} />
           </div>
         )}
 
@@ -58,14 +58,14 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         {rightOpp && (
           <div className="absolute right-1 top-[45%] -translate-y-1/2">
             <OpponentArea player={rightOpp} isPlayerHost={rightOpp.user_id === p.game.created_by}
-              confirmed={p.confirmedUsers.has(rightOpp.user_id)} score={p.playerTotals[rightOpp.user_id] || 0} />
+              confirmed={!!p.confirmedUsers[rightOpp.user_id]} score={p.playerTotals[rightOpp.user_id] || 0} />
           </div>
         )}
 
         {/* 中间状态信息 */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <div className="flex items-center gap-2 text-[10px] text-slate-500">
-            <span>{p.confirmedUsers.size}/{p.currentPlayers} 已确认</span>
+            <span>{Object.keys(p.confirmedUsers).length}/{p.currentPlayers} 已确认</span>
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
           bottomOpp && (
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center pb-1">
               <OpponentArea player={bottomOpp} isPlayerHost={bottomOpp.user_id === p.game.created_by}
-                confirmed={p.confirmedUsers.has(bottomOpp.user_id)} score={p.playerTotals[bottomOpp.user_id] || 0} />
+                confirmed={!!p.confirmedUsers[bottomOpp.user_id]} score={p.playerTotals[bottomOpp.user_id] || 0} />
             </div>
           )
         ) : (
@@ -92,10 +92,10 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
 
       {/* 底部操作 */}
       {p.isSpectator ? (
-        <SpectatorBar confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers} />
+        <SpectatorBar confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers} />
       ) : (
         <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
-          allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+          allSelectedCount={p.allSelectedCards.length} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
           onRearrange={p.handleRearrange} onAutoArrange={p.handleAutoArrange} isAutoArranging={p.isAutoArranging}
           onSubmit={p.handleSubmitHand} onForceSettle={p.handleForceSettle} />
       )}

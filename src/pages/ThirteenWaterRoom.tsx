@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { gamesApi, Game, Player } from '../lib/api';
@@ -19,6 +19,9 @@ import { FourPlayerTable } from './thirteen/FourPlayerTable';
 interface ThirteenWaterRoomProps {
   forcedId: string;
 }
+
+// ─── 模块级常量 ─────────────────────────────────────────────────
+const LANE_MAX = { head: 3, mid: 5, tail: 5 } as const;
 
 // ─── Header 组件（提取到函数体外避免每次渲染重建） ────────────────
 
@@ -81,7 +84,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const [isConfirmed, setIsConfirmed] = useState(false);
 
   // 对手确认状态
-  const [confirmedUsers, setConfirmedUsers] = useState<Set<string>>(new Set());
+  const [confirmedUsers, setConfirmedUsers] = useState<Record<string, boolean>>({});
 
   // 公共牌 & 鬼牌
   const [publicCards, setPublicCards] = useState<string[]>([]);
@@ -121,10 +124,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   const sessionIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
   const showCompareRef = useRef(false);
 
-  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
+  const showToast = useCallback((msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   const isHost = user?.id === game?.created_by;
   const maxPlayers = game?.thirteen_max_players || 4;
@@ -168,9 +171,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         setPublicCards(round.public_cards || []);
         setGhostCount(round.ghost_count || 0);
 
-        const confirmed = new Set<string>();
+        const confirmed: Record<string, boolean> = {};
         for (const h of state.hands) {
-          if (h.is_confirmed) confirmed.add(h.user_id);
+          if (h.is_confirmed) confirmed[h.user_id] = true;
         }
         setConfirmedUsers(confirmed);
 
@@ -185,10 +188,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         // 判断是否需要进入结算流程（finished 不再触发，结算完成即回到等待状态）
         const needsSettle =
           round.status === 'settling' ||
-          (round.status === 'arranging' && stateTotalPlayers >= 2 && confirmed.size >= stateTotalPlayers);
+          (round.status === 'arranging' && stateTotalPlayers >= 2 && Object.keys(confirmed).length >= stateTotalPlayers);
 
         console.log('[syncGameState] needsSettle=', needsSettle, {
-          status: round.status, stateTotalPlayers, confirmed: confirmed.size,
+          status: round.status, stateTotalPlayers, confirmed: Object.keys(confirmed).length,
           settlingRef: settlingRef.current,
         });
 
@@ -254,7 +257,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         setCurrentRoundId(null);
         setPublicCards([]);
         setGhostCount(0);
-        setConfirmedUsers(new Set());
+        setConfirmedUsers({});
         setMyHeadCards([]);
         setMyMidCards([]);
         setMyTailCards([]);
@@ -391,7 +394,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           setGamePhase('arranging');
           setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
           setIsConfirmed(false);
-          setConfirmedUsers(new Set());
+          setConfirmedUsers({});
           settlingRef.current = false;
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'thirteen_rounds', filter: `game_id=eq.${id}` },
@@ -433,9 +436,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           console.log('[Realtime] thirteen_hands 事件:', payload.eventType, 'user=', hand.user_id, 'confirmed=', hand.is_confirmed, 'round=', hand.round_id);
           if (hand.is_confirmed) {
             setConfirmedUsers(prev => {
-              const next = new Set(prev);
-              next.add(hand.user_id);
-              console.log('[Realtime] confirmedUsers 更新:', next.size, '/', '(players.length待检查)');
+              const next = { ...prev, [hand.user_id]: true };
+              console.log('[Realtime] confirmedUsers 更新:', Object.keys(next).length, '/', '(players.length待检查)');
               return next;
             });
           }
@@ -465,15 +467,16 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // ─── 全员确认后自动结算 ─────────────────────────────────────
   useEffect(() => {
-    console.log('[useEffect autoSettle] gamePhase=', gamePhase, 'confirmed=', confirmedUsers.size, 'currentPlayers=', currentPlayers, 'settling=', settlingRef.current, 'roundId=', currentRoundId);
-    if (gamePhase === 'arranging' && confirmedUsers.size >= currentPlayers && currentPlayers >= 2 && !settlingRef.current) {
+    const confirmedCount = Object.keys(confirmedUsers).length;
+    console.log('[useEffect autoSettle] gamePhase=', gamePhase, 'confirmed=', confirmedCount, 'currentPlayers=', currentPlayers, 'settling=', settlingRef.current, 'roundId=', currentRoundId);
+    if (gamePhase === 'arranging' && confirmedCount >= currentPlayers && currentPlayers >= 2 && !settlingRef.current) {
       console.log('[useEffect autoSettle] 触发自动结算!');
       doSettle(currentRoundId || undefined);
     }
-  }, [confirmedUsers.size, currentPlayers, gamePhase, doSettle, currentRoundId]);
+  }, [confirmedUsers, currentPlayers, gamePhase, doSettle, currentRoundId]);
 
   // ─── 操作 ──────────────────────────────────────────────────
-  const handleStartRound = async () => {
+  const handleStartRound = useCallback(async () => {
     if (!game || !user || isStarting) return;
     setIsStarting(true);
     try {
@@ -485,9 +488,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       if (!res.ok) showToast(data.error || '开始失败', 'error');
     } catch { showToast('网络错误', 'error'); }
     finally { setIsStarting(false); }
-  };
+  }, [game, user, isStarting, showToast]);
 
-  const handleSetPublicCards = async (cards: string[]) => {
+  const handleSetPublicCards = useCallback(async (cards: string[]) => {
     if (!game || !user || !currentRoundId) return;
     try {
       const res = await fetch(`/api/thirteen/${game.id}/set-public-cards`, {
@@ -507,9 +510,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
         showToast(`公共牌已设置: ${cards.length}张${gc > 0 ? `，含${gc}鬼(${Math.pow(2, gc)}倍)` : ''}`, 'success');
       }
     } catch { showToast('网络错误', 'error'); }
-  };
+  }, [game, user, currentRoundId, showToast]);
 
-  const handleSubmitHand = async () => {
+  const handleSubmitHand = useCallback(async () => {
     if (!game || !user || !currentRoundId || isSubmitting) return;
     const totalCards = myHeadCards.length + myMidCards.length + myTailCards.length;
     if (totalCards === 0) {
@@ -527,7 +530,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       const data = await res.json();
       if (!res.ok) { showToast(data.error || '提交失败', 'error'); return; }
       setIsConfirmed(true);
-      setConfirmedUsers(prev => new Set(prev).add(user.id));
+      setConfirmedUsers(prev => ({ ...prev, [user.id]: true }));
       if (data.isFoul) showToast('注意：你的摆牌被判定为乌龙！', 'error');
       else if (data.specialHand) showToast(`报到牌型: ${SPECIAL_HAND_NAMES[data.specialHand] || data.specialHand}!`, 'success');
       else showToast('已确认摆牌', 'success');
@@ -538,14 +541,14 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       }
     } catch { showToast('网络错误', 'error'); }
     finally { setIsSubmitting(false); }
-  };
+  }, [game, user, currentRoundId, isSubmitting, myHeadCards, myMidCards, myTailCards, showToast, doSettle]);
 
-  const handleCloseRoom = () => {
+  const handleCloseRoom = useCallback(() => {
     if (!game || !user) return;
     setShowCloseConfirm(true);
-  };
+  }, [game, user]);
 
-  const handleCloseRoomConfirm = async () => {
+  const handleCloseRoomConfirm = useCallback(async () => {
     if (!game || !user) return;
     setShowCloseConfirm(false);
     try {
@@ -553,7 +556,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       showToast('房间已关闭', 'success');
       setTimeout(() => navigate('/lobby'), 1000);
     } catch { showToast('关闭失败', 'error'); }
-  };
+  }, [game, user, navigate, showToast]);
 
   const handleForceSettle = useCallback(() => {
     console.log('[handleForceSettle] 手动强制结算, roundId=', currentRoundId);
@@ -561,41 +564,40 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     doSettle(currentRoundId || undefined);
   }, [currentRoundId, doSettle]);
 
-  const handleCompareClose = () => {
+  const handleCompareClose = useCallback(() => {
     setShowCompare(false);
     setRoundResult(null);
     setGamePhase('waiting');
     setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
     setIsConfirmed(false);
-    setConfirmedUsers(new Set());
+    setConfirmedUsers({});
     setPublicCards([]);
     setGhostCount(0);
     settlingRef.current = false;
     syncGameState();
-  };
+  }, [syncGameState]);
 
-  const allSelectedCards = [...myHeadCards, ...myMidCards, ...myTailCards];
-  const laneMax = { head: 3, mid: 5, tail: 5 };
+  const allSelectedCards = useMemo(() => [...myHeadCards, ...myMidCards, ...myTailCards], [myHeadCards, myMidCards, myTailCards]);
 
-  const handleSelectCard = (card: string) => {
+  const handleSelectCard = useCallback((card: string) => {
     const laneCards = activeLane === 'head' ? myHeadCards : activeLane === 'mid' ? myMidCards : myTailCards;
-    if (laneCards.length >= laneMax[activeLane]) return;
+    if (laneCards.length >= LANE_MAX[activeLane]) return;
     if (allSelectedCards.includes(card)) return;
     if (publicCards.includes(card)) return;
     if (activeLane === 'head') setMyHeadCards(prev => [...prev, card]);
     else if (activeLane === 'mid') setMyMidCards(prev => [...prev, card]);
     else setMyTailCards(prev => [...prev, card]);
-  };
+  }, [activeLane, myHeadCards, myMidCards, myTailCards, allSelectedCards, publicCards]);
 
-  const handleRemoveCard = (card: string) => {
+  const handleRemoveCard = useCallback((card: string) => {
     setMyHeadCards(prev => prev.filter(c => c !== card));
     setMyMidCards(prev => prev.filter(c => c !== card));
     setMyTailCards(prev => prev.filter(c => c !== card));
     setSelectedCard(null);
-  };
+  }, []);
 
   // 点击已摆好的牌：选中 / 交换
-  const handleCardTap = (card: string) => {
+  const handleCardTap = useCallback((card: string) => {
     if (isConfirmed) return;
     if (!selectedCard) {
       // 没有选中牌 → 选中当前牌
@@ -633,16 +635,16 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       setterB(prev => prev.map(c => c === card ? selectedCard : c));
     }
     setSelectedCard(null);
-  };
+  }, [isConfirmed, selectedCard, myHeadCards, myMidCards, myTailCards]);
 
-  const handleRearrange = () => {
+  const handleRearrange = useCallback(() => {
     setMyHeadCards([]); setMyMidCards([]); setMyTailCards([]);
     setIsConfirmed(false);
     setSelectedCard(null);
     showToast('已清空，重新摆牌', 'info');
-  };
+  }, [showToast]);
 
-  const handleAutoArrange = async () => {
+  const handleAutoArrange = useCallback(async () => {
     if (!game || isAutoArranging) return;
     const allCards = [...myHeadCards, ...myMidCards, ...myTailCards];
     if (allCards.length !== 13) {
@@ -664,7 +666,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
       showToast(`已自动摆牌: ${data.headName} / ${data.midName} / ${data.tailName}`, 'success');
     } catch { showToast('网络错误', 'error'); }
     finally { setIsAutoArranging(false); }
-  };
+  }, [game, isAutoArranging, myHeadCards, myMidCards, myTailCards, showToast]);
 
   // ─── 自动保存草稿（debounce 1秒） ──────────────────────────
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -685,8 +687,8 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
   }, [myHeadCards, myMidCards, myTailCards, game, user, currentRoundId, isConfirmed]);
 
-  const me = players.find(p => p.user_id === user?.id);
-  const opponents = players.filter(p => p.user_id !== user?.id);
+  const me = useMemo(() => players.find(p => p.user_id === user?.id), [players, user?.id]);
+  const opponents = useMemo(() => players.filter(p => p.user_id !== user?.id), [players, user?.id]);
 
   // ─── 密码键盘 ──────────────────────────────────────────────
   const handlePinKey = (key: string) => {
@@ -956,7 +958,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   const publicCardsSet = publicCards.length > 0;
 
-  const tableProps: TableProps = {
+  const tableProps: TableProps = useMemo(() => ({
     game,
     me,
     opponents,
@@ -1011,7 +1013,17 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     showToast,
     toast,
     isSpectator,
-  };
+  }), [
+    game, me, opponents, isHost, publicCards, publicCardsSet, ghostCount,
+    confirmedUsers, currentPlayers, playerTotals,
+    myHeadCards, myMidCards, myTailCards, isConfirmed, activeLane, allSelectedCards,
+    isSubmitting, isSettling, showPicker, showInvite, inviteCopied,
+    showScoreBoard, showGhostPicker, showCompare, roundResult, finishedRounds,
+    players, user?.id, selectedCard, isAutoArranging, showCloseConfirm, toast, isSpectator,
+    handleSelectCard, handleRemoveCard, handleCardTap,
+    handleRearrange, handleAutoArrange, handleSubmitHand, handleSetPublicCards,
+    handleCompareClose, handleCloseRoom, handleCloseRoomConfirm, handleForceSettle, showToast,
+  ]);
 
   if (currentPlayers <= 2) {
     return <TwoPlayerTable {...tableProps} />;

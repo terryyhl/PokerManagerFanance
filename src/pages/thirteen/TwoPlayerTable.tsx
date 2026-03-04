@@ -39,7 +39,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
         {topOpponent && (() => {
           const oppName = topOpponent.users?.username || '?';
           const oppScore = p.playerTotals[topOpponent.user_id] || 0;
-          const oppConfirmed = p.confirmedUsers.has(topOpponent.user_id);
+          const oppConfirmed = !!p.confirmedUsers[topOpponent.user_id];
           return (
             <div className="flex flex-col items-center pt-2 pb-1 shrink-0">
               <div className="flex flex-col items-center gap-1.5">
@@ -71,7 +71,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
           <PublicCardsCenter
             publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
-            isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+            isHost={p.isHost && !p.isSpectator} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
             onEdit={() => p.setShowGhostPicker(true)} size="normal"
           />
         </div>
@@ -81,7 +81,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
           bottomOpponent && (
             <div className="flex flex-col items-center pb-1 pt-1 border-t border-white/5 shrink-0">
               <OpponentArea player={bottomOpponent} isPlayerHost={bottomOpponent.user_id === p.game.created_by}
-                confirmed={p.confirmedUsers.has(bottomOpponent.user_id)} score={p.playerTotals[bottomOpponent.user_id] || 0} />
+                confirmed={!!p.confirmedUsers[bottomOpponent.user_id]} score={p.playerTotals[bottomOpponent.user_id] || 0} />
             </div>
           )
         ) : (
@@ -99,10 +99,10 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
 
       {/* 底部操作 */}
       {p.isSpectator ? (
-        <SpectatorBar confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers} />
+        <SpectatorBar confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers} />
       ) : (
         <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
-          allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+          allSelectedCount={p.allSelectedCards.length} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
           onRearrange={p.handleRearrange} onAutoArrange={p.handleAutoArrange} isAutoArranging={p.isAutoArranging}
           onSubmit={p.handleSubmitHand} onForceSettle={p.handleForceSettle} />
       )}

@@ -109,7 +109,7 @@ export interface TableProps {
   publicCards: string[];
   publicCardsSet: boolean;
   ghostCount: number;
-  confirmedUsers: Set<string>;
+  confirmedUsers: Record<string, boolean>;
   currentPlayers: number;
   playerTotals: Record<string, number>;
   myHeadCards: string[];

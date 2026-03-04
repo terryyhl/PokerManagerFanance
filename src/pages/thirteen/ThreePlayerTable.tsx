@@ -51,7 +51,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           <div className="absolute top-1 left-1/2 -translate-x-1/2">
             {topOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
-                confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
+                confirmed={!!p.confirmedUsers[opp.user_id]} score={p.playerTotals[opp.user_id] || 0} />
             ))}
           </div>
 
@@ -59,7 +59,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           <div className="absolute top-[10%] left-1/2 -translate-x-1/2">
             <PublicCardsCenter
               publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
-              isHost={p.isHost && !p.isSpectator} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+              isHost={p.isHost && !p.isSpectator} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
               onEdit={() => p.setShowGhostPicker(true)} size="normal"
             />
           </div>
@@ -68,7 +68,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           <div className="absolute left-[25%] -translate-x-1/2 top-1/2 -translate-y-1/2">
             {leftOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
-                confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
+                confirmed={!!p.confirmedUsers[opp.user_id]} score={p.playerTotals[opp.user_id] || 0} />
             ))}
           </div>
 
@@ -76,7 +76,7 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
           <div className="absolute left-[75%] -translate-x-1/2 top-1/2 -translate-y-1/2">
             {rightOpponents.map(opp => (
               <OpponentArea key={opp.id} player={opp} isPlayerHost={opp.user_id === p.game.created_by}
-                confirmed={p.confirmedUsers.has(opp.user_id)} score={p.playerTotals[opp.user_id] || 0} />
+                confirmed={!!p.confirmedUsers[opp.user_id]} score={p.playerTotals[opp.user_id] || 0} />
             ))}
           </div>
 
@@ -97,10 +97,10 @@ export const ThreePlayerTable: React.FC<TableProps> = (p) => {
 
       {/* 底部操作 */}
       {p.isSpectator ? (
-        <SpectatorBar confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers} />
+        <SpectatorBar confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers} />
       ) : (
         <BottomActionBar isConfirmed={p.isConfirmed} isSubmitting={p.isSubmitting} isSettling={p.isSettling}
-          allSelectedCount={p.allSelectedCards.length} confirmedCount={p.confirmedUsers.size} totalPlayers={p.currentPlayers}
+          allSelectedCount={p.allSelectedCards.length} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
           onRearrange={p.handleRearrange} onAutoArrange={p.handleAutoArrange} isAutoArranging={p.isAutoArranging}
           onSubmit={p.handleSubmitHand} onForceSettle={p.handleForceSettle} />
       )}

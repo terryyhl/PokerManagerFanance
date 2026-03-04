@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
@@ -9,12 +9,16 @@ import { CardPickerModal, PublicCardPickerModal } from './CardPicker';
 import { ScoreBoard } from './ScoreBoard';
 import { CompareAnimation } from './CompareAnimation';
 
+// ─── 常量：占位数组 ─────────────────────────────────────────────
+const SLOTS_3 = [null, null, null] as const;
+const SLOTS_5 = [null, null, null, null, null] as const;
+
 // ─── 公共牌缩略显示（用于标题栏） ──────────────────────────────
 
-export const PublicCardsThumbnail: React.FC<{
+export const PublicCardsThumbnail = memo<{
   publicCards: string[]; ghostCount: number; isHost: boolean;
   onEdit: () => void;
-}> = ({ publicCards, ghostCount, isHost, onEdit }) => {
+}>(function PublicCardsThumbnail({ publicCards, ghostCount, isHost, onEdit }) {
   if (publicCards.length === 0) {
     return isHost ? (
       <button onClick={onEdit}
@@ -53,19 +57,19 @@ export const PublicCardsThumbnail: React.FC<{
         <span className="text-[11px] text-purple-400 font-black ml-1">{Math.pow(2, ghostCount)}x</span>
       )}
       {isHost && (
-        <span className="material-symbols-outlined text-[14px] text-slate-500 ml-0.5">edit</span>
+         <span className="material-symbols-outlined text-[14px] text-slate-500 ml-0.5">edit</span>
       )}
     </div>
   );
-};
+});
 
 // ─── 公共牌中间区域显示（用于2/3人桌） ──────────────────────────
 
-export const PublicCardsCenter: React.FC<{
+export const PublicCardsCenter = memo<{
   publicCards: string[]; publicCardsSet: boolean; ghostCount: number;
   isHost: boolean; confirmedCount: number; totalPlayers: number;
   onEdit: () => void; size?: 'normal' | 'large';
-}> = ({ publicCards, publicCardsSet, ghostCount, isHost, confirmedCount, totalPlayers, onEdit, size = 'normal' }) => {
+}>(function PublicCardsCenter({ publicCards, publicCardsSet, ghostCount, isHost, confirmedCount, totalPlayers, onEdit, size = 'normal' }) {
   const cardW = size === 'large' ? 'w-[50px] h-[70px]' : 'w-[38px] h-[52px]';
 
   return (
@@ -117,11 +121,11 @@ export const PublicCardsCenter: React.FC<{
       <span className="text-[10px] text-slate-500">{confirmedCount}/{totalPlayers} 已确认</span>
     </div>
   );
-};
+});
 
 // ─── 自己的摆牌区域 ──────────────────────────────────────────
 
-export const MyHandArea: React.FC<{
+export const MyHandArea = memo<{
   me: Player | undefined;
   isHost: boolean;
   gameCreatedBy: string;
@@ -141,8 +145,15 @@ export const MyHandArea: React.FC<{
   cardSize?: 'small' | 'default' | 'large';
   avatarSize?: string;
   textSize?: string;
-}> = ({ me, gameCreatedBy, playerTotals, myHeadCards, myMidCards, myTailCards, isConfirmed, publicCardsSet, activeLane, setActiveLane, setShowPicker, handleRemoveCard, handleCardTap, selectedCard, showToast, cardSize = 'small', avatarSize = 'w-8 h-8', textSize = 'text-xs' }) => {
+}>(function MyHandArea({ me, gameCreatedBy, playerTotals, myHeadCards, myMidCards, myTailCards, isConfirmed, publicCardsSet, activeLane, setActiveLane, setShowPicker, handleRemoveCard, handleCardTap, selectedCard, showToast, cardSize = 'small', avatarSize = 'w-8 h-8', textSize = 'text-xs' }) {
   const score = me ? (playerTotals[me.user_id] || 0) : 0;
+
+  // 缓存牌型评估结果，避免每次渲染重复计算
+  const laneEvals = useMemo(() => ({
+    head: evaluateLaneName(myHeadCards, 'head'),
+    mid: evaluateLaneName(myMidCards, 'mid'),
+    tail: evaluateLaneName(myTailCards, 'tail'),
+  }), [myHeadCards, myMidCards, myTailCards]);
 
   return (
     <>
@@ -158,12 +169,12 @@ export const MyHandArea: React.FC<{
       <div className="flex flex-col gap-1 items-start">
         {(['head', 'mid', 'tail'] as const).map(lane => {
           const cards = lane === 'head' ? myHeadCards : lane === 'mid' ? myMidCards : myTailCards;
-          const count = lane === 'head' ? 3 : 5;
+          const slots = lane === 'head' ? SLOTS_3 : SLOTS_5;
           const label = lane === 'head' ? '头道' : lane === 'mid' ? '中道' : '尾道';
           const canPick = !isConfirmed && publicCardsSet;
           const isSmall = cardSize === 'small';
           const isLarge = cardSize === 'large';
-          const handName = evaluateLaneName(cards, lane);
+          const handName = laneEvals[lane];
           return (
             <div key={lane} className="flex items-center gap-1">
               <div className={`${isSmall ? 'w-7' : 'w-8'} flex flex-col items-end`}>
@@ -171,7 +182,7 @@ export const MyHandArea: React.FC<{
                 {handName && <span className={`text-[10px] font-bold leading-tight ${handName === '含鬼' ? 'text-purple-400' : 'text-amber-400'}`}>{handName}</span>}
               </div>
               <div className={`flex ${isSmall ? 'gap-0.5' : 'gap-1'}`}>
-                {Array(count).fill(null).map((_, i) => {
+                {slots.map((_, i) => {
                   const card = cards[i];
                   return card
                     ? <PokerCard key={card} card={card} faceUp small={isSmall} large={isLarge}
@@ -186,16 +197,16 @@ export const MyHandArea: React.FC<{
       </div>
     </>
   );
-};
+});
 
 // ─── 底部操作栏 ──────────────────────────────────────────────
 
-export const BottomActionBar: React.FC<{
+export const BottomActionBar = memo<{
   isConfirmed: boolean; isSubmitting: boolean; isSettling: boolean;
   allSelectedCount: number; confirmedCount: number; totalPlayers: number;
   onRearrange: () => void; onAutoArrange: () => void; isAutoArranging: boolean; onSubmit: () => void;
   onForceSettle?: () => void;
-}> = ({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit, onForceSettle }) => (
+}>(function BottomActionBar({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit, onForceSettle }) { return (
   <div className="p-3 pb-8 flex flex-col gap-2 shrink-0 bg-black/20 border-t border-white/5">
     {!isConfirmed ? (
       <>
@@ -234,24 +245,24 @@ export const BottomActionBar: React.FC<{
       </>
     )}
   </div>
-);
+); });
 
 // ─── 旁观者底部栏 ──────────────────────────────────────────────
 
-export const SpectatorBar: React.FC<{
+export const SpectatorBar = memo<{
   confirmedCount: number; totalPlayers: number;
-}> = ({ confirmedCount, totalPlayers }) => (
+}>(function SpectatorBar({ confirmedCount, totalPlayers }) { return (
   <div className="p-3 pb-8 flex gap-3 shrink-0 bg-black/20 border-t border-white/5">
     <div className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/5 border border-white/10">
       <span className="material-symbols-outlined text-slate-400 text-xl">visibility</span>
       <span className="text-slate-400 font-bold">旁观中 · {confirmedCount}/{totalPlayers} 已确认</span>
     </div>
   </div>
-);
+); });
 
 // ─── 弹层集合 ──────────────────────────────────────────────────
 
-export const GameModals: React.FC<{
+export const GameModals = memo<{
   game: { id: string; name: string; room_code: string; thirteen_ghost_count?: number };
   showPicker: boolean; showScoreBoard: boolean; showInvite: boolean;
   inviteCopied: boolean; showGhostPicker: boolean; showCompare: boolean;
@@ -268,7 +279,7 @@ export const GameModals: React.FC<{
   handleCompareClose: () => void; handleCloseRoom: () => void;
   handleCloseRoomConfirm: () => void; showCloseConfirm: boolean; setShowCloseConfirm: (v: boolean) => void;
   toast: { msg: string; type: 'info' | 'error' | 'success' } | null;
-}> = (p) => (
+}>(function GameModals(p) { return (
   <>
     {p.showPicker && (
       <CardPickerModal ghostCount={p.game.thirteen_ghost_count || 6} selectedCards={p.allSelectedCards}
@@ -331,4 +342,4 @@ export const GameModals: React.FC<{
       <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg ${p.toast.type === 'error' ? 'bg-red-500 text-white' : p.toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'}`}>{p.toast.msg}</div>
     )}
   </>
-);
+); });
