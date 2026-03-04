@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { SUITS, RANKS, SUIT_COLOR, SUIT_SYMBOL, RANK_DISPLAY, cardToUrl } from './types';
 import { PokerCard } from './PokerCard';
 
+// ─── 常量 ─────────────────────────────────────────────────────
+const LANE_MAX = { head: 3, mid: 5, tail: 5 } as const;
+const LANE_LABELS = { head: '头道', mid: '中道', tail: '尾道' } as const;
+const SLOTS_3 = [null, null, null] as const;
+const SLOTS_5 = [null, null, null, null, null] as const;
+const LANE_SLOTS = { head: SLOTS_3, mid: SLOTS_5, tail: SLOTS_5 } as const;
+
 // ─── 公共牌选牌器 ──────────────────────────────────────────────
 
-export const PublicCardPickerModal: React.FC<{
+export const PublicCardPickerModal = memo<{
   maxCards: number; maxGhosts: number; initialCards: string[];
   onConfirm: (cards: string[]) => void; onClose: () => void;
-}> = ({ maxCards, maxGhosts, initialCards, onConfirm, onClose }) => {
+}>(function PublicCardPickerModal({ maxCards, maxGhosts, initialCards, onConfirm, onClose }) {
   const [selected, setSelected] = useState<string[]>(initialCards);
-  const selectedSet = new Set(selected);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
   const ghostsInSelected = selected.filter(c => c.startsWith('JK')).length;
   const isFull = selected.length >= maxCards;
   const ghostMultiplier = Math.pow(2, ghostsInSelected);
@@ -124,32 +131,30 @@ export const PublicCardPickerModal: React.FC<{
       </div>
     </div>
   );
-};
+});
 
 // ─── 选牌弹层 ────────────────────────────────────────────────
 
-export const CardPickerModal: React.FC<{
+export const CardPickerModal = memo<{
   ghostCount: number; selectedCards: string[]; activeLane: 'head' | 'mid' | 'tail';
   headCards: string[]; midCards: string[]; tailCards: string[];
   publicCards: string[];
   onSelectCard: (card: string) => void; onRemoveCard: (card: string) => void;
   onSwitchLane: (lane: 'head' | 'mid' | 'tail') => void; onClose: () => void;
-}> = ({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, publicCards, onSelectCard, onRemoveCard, onSwitchLane, onClose }) => {
-  const laneMax = { head: 3, mid: 5, tail: 5 };
-  const laneCards = { head: headCards, mid: midCards, tail: tailCards };
-  const laneLabels = { head: '头道', mid: '中道', tail: '尾道' };
+}>(function CardPickerModal({ ghostCount, selectedCards, activeLane, headCards, midCards, tailCards, publicCards, onSelectCard, onRemoveCard, onSwitchLane, onClose }) {
+  const laneCards = useMemo(() => ({ head: headCards, mid: midCards, tail: tailCards }), [headCards, midCards, tailCards]);
   const currentLaneCards = laneCards[activeLane];
-  const currentLaneFull = currentLaneCards.length >= laneMax[activeLane];
-  const currentLaneSet = new Set(currentLaneCards);
-  const otherLaneCards = new Set(
+  const currentLaneFull = currentLaneCards.length >= LANE_MAX[activeLane];
+  const currentLaneSet = useMemo(() => new Set(currentLaneCards), [currentLaneCards]);
+  const otherLaneCards = useMemo(() => new Set(
     (['head', 'mid', 'tail'] as const).filter(l => l !== activeLane).flatMap(l => laneCards[l])
-  );
-  const publicSet = new Set(publicCards);
+  ), [activeLane, laneCards]);
+  const publicSet = useMemo(() => new Set(publicCards), [publicCards]);
 
   const autoSwitchLane = () => {
     const order: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
     for (const l of order) {
-      if (l !== activeLane && laneCards[l].length < laneMax[l]) {
+      if (l !== activeLane && laneCards[l].length < LANE_MAX[l]) {
         onSwitchLane(l);
         return;
       }
@@ -158,7 +163,7 @@ export const CardPickerModal: React.FC<{
 
   const handleSelect = (card: string) => {
     onSelectCard(card);
-    if (currentLaneCards.length + 1 >= laneMax[activeLane]) {
+    if (currentLaneCards.length + 1 >= LANE_MAX[activeLane]) {
       setTimeout(autoSwitchLane, 100);
     }
   };
@@ -181,15 +186,15 @@ export const CardPickerModal: React.FC<{
         </div>
         <div className="flex gap-1.5 mb-3">
           {(['head', 'mid', 'tail'] as const).map(lane => {
-            const isFull = laneCards[lane].length >= laneMax[lane];
+            const isFull = laneCards[lane].length >= LANE_MAX[lane];
             return (
               <button key={lane} onClick={() => onSwitchLane(lane)}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all relative
                   ${activeLane === lane ? 'bg-primary text-white shadow-md shadow-primary/30'
                     : isFull ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}>
-                <span>{laneLabels[lane]}</span>
-                <span className="ml-1 text-[10px] opacity-70">{laneCards[lane].length}/{laneMax[lane]}</span>
+                <span>{LANE_LABELS[lane]}</span>
+                <span className="ml-1 text-[10px] opacity-70">{laneCards[lane].length}/{LANE_MAX[lane]}</span>
                 {isFull && activeLane !== lane && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
                     <span className="material-symbols-outlined text-white text-[10px]">check</span>
@@ -200,7 +205,7 @@ export const CardPickerModal: React.FC<{
           })}
         </div>
         <div className="flex gap-1.5 justify-center min-h-[68px] items-center bg-white/[0.02] rounded-xl py-2 px-1">
-          {Array(laneMax[activeLane]).fill(null).map((_, i) => {
+          {LANE_SLOTS[activeLane].map((_, i) => {
             const card = currentLaneCards[i];
             return card
               ? <PokerCard key={card} card={card} faceUp onClick={() => onRemoveCard(card)} />
@@ -298,4 +303,4 @@ export const CardPickerModal: React.FC<{
       </div>
     </div>
   );
-};
+});

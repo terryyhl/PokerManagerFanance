@@ -11,6 +11,14 @@ import { PokerCard, CardBack } from './PokerCard';
 // ─── 常量 ─────────────────────────────────────────────────────
 const LANE_NAMES: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
 const LANE_LABELS: Record<string, string> = { head: '头道', mid: '中道', tail: '尾道' };
+const PARTICLE_BASE_STYLES = Array.from({ length: 12 }, (_, i) => ({
+  left: '50%' as const, top: '50%' as const,
+  animationDelay: `${i * 80}ms`,
+  transform: `rotate(${i * 30}deg) translateY(-40px)`,
+  opacity: 0 as const,
+}));
+const HOMERUN_PARTICLE_STYLES = PARTICLE_BASE_STYLES.map(s => ({ ...s, background: '#fbbf24' }));
+const GUN_PARTICLE_STYLES = PARTICLE_BASE_STYLES.map(s => ({ ...s, background: '#f97316' }));
 
 export const CompareAnimation = memo<{
   result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean; gameName?: string;
@@ -311,15 +319,9 @@ export const CompareAnimation = memo<{
           <div className={`absolute inset-0 ${effectType === 'homerun'
             ? 'bg-gradient-radial from-yellow-500/30 via-amber-600/10 to-transparent'
             : 'bg-gradient-radial from-orange-500/25 via-red-600/10 to-transparent'} animate-pulse`} />
-          {Array.from({ length: 12 }).map((_, i) => (
+          {(effectType === 'homerun' ? HOMERUN_PARTICLE_STYLES : GUN_PARTICLE_STYLES).map((style, i) => (
             <div key={i} className="absolute w-2 h-2 rounded-full animate-[particle_1.5s_ease-out_forwards]"
-              style={{
-                background: effectType === 'homerun' ? '#fbbf24' : '#f97316',
-                left: '50%', top: '50%',
-                animationDelay: `${i * 80}ms`,
-                transform: `rotate(${i * 30}deg) translateY(-40px)`,
-                opacity: 0,
-              }} />
+              style={style} />
           ))}
           <div className="relative flex flex-col items-center gap-3 animate-[effectBounce_0.6s_cubic-bezier(0.34,1.56,0.64,1)]">
             <span className="text-6xl">

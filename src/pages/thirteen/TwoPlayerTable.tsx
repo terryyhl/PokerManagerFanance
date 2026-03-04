@@ -5,6 +5,9 @@ import {
   OpponentArea,
 } from './shared';
 
+const SLOTS_3 = [null, null, null] as const;
+const SLOTS_5 = [null, null, null, null, null] as const;
+
 /** 2人桌布局 — 上对手(放大) → 公共牌(中间放大) → 自己(放大) */
 export const TwoPlayerTable: React.FC<TableProps> = (p) => {
   // 旁观者看到的对手 = 所有玩家；玩家看到的对手 = 除自己外
@@ -53,9 +56,9 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
                   </div>
                 </div>
                 <div className="flex flex-col gap-0.5 relative">
-                  <div className="flex gap-0.5">{Array(3).fill(null).map((_, i) => <CardBack key={i} />)}</div>
-                  <div className="flex gap-0.5">{Array(5).fill(null).map((_, i) => <CardBack key={i} />)}</div>
-                  <div className="flex gap-0.5">{Array(5).fill(null).map((_, i) => <CardBack key={i} />)}</div>
+                  <div className="flex gap-0.5">{SLOTS_3.map((_, i) => <CardBack key={i} />)}</div>
+                  <div className="flex gap-0.5">{SLOTS_5.map((_, i) => <CardBack key={i} />)}</div>
+                  <div className="flex gap-0.5">{SLOTS_5.map((_, i) => <CardBack key={i} />)}</div>
                   {oppConfirmed && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg backdrop-blur-[1px]">
                       <span className="text-2xl font-black text-blue-400 drop-shadow-lg">OK</span>
