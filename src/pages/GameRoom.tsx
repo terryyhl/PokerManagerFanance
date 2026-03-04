@@ -862,12 +862,33 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                             <span className="material-symbols-outlined text-white text-[10px]">check</span>
                           </div>
                         )}
-                        {isBeingTimed && (
+                        {isBeingTimed && activeTimer && (
                           <div
-                            className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background-dark cursor-pointer z-10"
+                            className="absolute -bottom-1.5 -right-1.5 cursor-pointer z-10"
                             onClick={(e) => { e.stopPropagation(); setViewingTimer(true); }}
                           >
-                            <span className="material-symbols-outlined text-white text-[10px]">timer</span>
+                            {/* 迷你进度环 */}
+                            {(() => {
+                              const timerProg = activeTimer.totalSeconds > 0 ? timerRemaining / activeTimer.totalSeconds : 0;
+                              const mr = 9; const mc = 2 * Math.PI * mr;
+                              const miniColor = timerRemaining <= 10 ? '#ef4444' : timerRemaining <= 30 ? '#f97316' : '#f59e0b';
+                              return (
+                                <svg width="24" height="24" viewBox="0 0 24 24" className="drop-shadow-md">
+                                  <circle cx="12" cy="12" r="11" fill="#101922" />
+                                  <circle cx="12" cy="12" r={mr} fill="none" strokeWidth="2.5" stroke="#334155" />
+                                  <circle cx="12" cy="12" r={mr} fill="none" strokeWidth="2.5"
+                                    strokeLinecap="round" stroke={miniColor}
+                                    strokeDasharray={mc} strokeDashoffset={mc * (1 - timerProg)}
+                                    transform="rotate(-90 12 12)"
+                                    style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s' }}
+                                  />
+                                  <text x="12" y="12.5" textAnchor="middle" dominantBaseline="central"
+                                    fill={miniColor} fontSize="8" fontWeight="900" fontFamily="monospace">
+                                    {timerRemaining}
+                                  </text>
+                                </svg>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
