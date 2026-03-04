@@ -668,6 +668,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     finally { setIsAutoArranging(false); }
   }, [game, isAutoArranging, myHeadCards, myMidCards, myTailCards, showToast]);
 
+  // ─── Modal 开关稳定回调（避免 Table/GameModals 内联函数击穿 memo）──
+  const handleOpenGhostPicker = useCallback(() => setShowGhostPicker(true), []);
+  const handleClosePicker = useCallback(() => setShowPicker(false), []);
+  const handleCloseScoreBoard = useCallback(() => setShowScoreBoard(false), []);
+  const handleCloseGhostPicker = useCallback(() => setShowGhostPicker(false), []);
+
   // ─── 自动保存草稿（debounce 1秒） ──────────────────────────
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -995,6 +1001,10 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     setShowPicker,
     setActiveLane,
     setShowCompare,
+    handleOpenGhostPicker,
+    handleClosePicker,
+    handleCloseScoreBoard,
+    handleCloseGhostPicker,
     handleSelectCard,
     handleRemoveCard,
     handleCardTap,
@@ -1023,6 +1033,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     handleSelectCard, handleRemoveCard, handleCardTap,
     handleRearrange, handleAutoArrange, handleSubmitHand, handleSetPublicCards,
     handleCompareClose, handleCloseRoom, handleCloseRoomConfirm, handleForceSettle, showToast,
+    handleOpenGhostPicker, handleClosePicker, handleCloseScoreBoard, handleCloseGhostPicker,
   ]);
 
   if (currentPlayers <= 2) {

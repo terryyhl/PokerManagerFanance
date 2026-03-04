@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
@@ -155,6 +155,26 @@ export const MyHandArea = memo<{
     tail: evaluateLaneName(myTailCards, 'tail'),
   }), [myHeadCards, myMidCards, myTailCards]);
 
+  // 统一的已摆牌点击处理：用 cardId + onCardClick 模式避免内联函数击穿 PokerCard memo
+  const handlePlacedCardClick = useCallback((cardId: string) => {
+    if (isConfirmed) return;
+    if (handleCardTap) {
+      handleCardTap(cardId);
+    } else {
+      handleRemoveCard(cardId);
+    }
+  }, [isConfirmed, handleCardTap, handleRemoveCard]);
+
+  // 每个道次的空槽位点击处理（稳定引用）
+  const handleHeadEmpty = useCallback(() => { setActiveLane('head'); setShowPicker(true); }, [setActiveLane, setShowPicker]);
+  const handleMidEmpty = useCallback(() => { setActiveLane('mid'); setShowPicker(true); }, [setActiveLane, setShowPicker]);
+  const handleTailEmpty = useCallback(() => { setActiveLane('tail'); setShowPicker(true); }, [setActiveLane, setShowPicker]);
+  const handleNoPublicCards = useCallback(() => showToast('请等待房主设置公共牌', 'info'), [showToast]);
+
+  const emptyClickByLane = useMemo(() => ({
+    head: handleHeadEmpty, mid: handleMidEmpty, tail: handleTailEmpty,
+  }), [handleHeadEmpty, handleMidEmpty, handleTailEmpty]);
+
   return (
     <>
       {me && (
@@ -175,6 +195,7 @@ export const MyHandArea = memo<{
           const isSmall = cardSize === 'small';
           const isLarge = cardSize === 'large';
           const handName = laneEvals[lane];
+          const emptyClick = canPick ? emptyClickByLane[lane] : (!isConfirmed && !publicCardsSet ? handleNoPublicCards : undefined);
           return (
             <div key={lane} className="flex items-center gap-1">
               <div className={`${isSmall ? 'w-7' : 'w-8'} flex flex-col items-end`}>
@@ -187,8 +208,8 @@ export const MyHandArea = memo<{
                   return card
                     ? <PokerCard key={card} card={card} faceUp small={isSmall} large={isLarge}
                         selected={selectedCard === card}
-                        onClick={() => !isConfirmed && (handleCardTap ? handleCardTap(card) : handleRemoveCard(card))} />
-                    : <PokerCard key={`${lane}-${i}`} small={isSmall} large={isLarge} onClick={canPick ? () => { setActiveLane(lane); setShowPicker(true); } : (!isConfirmed && !publicCardsSet ? () => showToast('请等待房主设置公共牌', 'info') : undefined)} />;
+                        cardId={card} onCardClick={!isConfirmed ? handlePlacedCardClick : undefined} />
+                    : <PokerCard key={`${lane}-${i}`} small={isSmall} large={isLarge} onClick={emptyClick} />;
                 })}
               </div>
             </div>
@@ -274,6 +295,7 @@ export const GameModals = memo<{
   setShowPicker: (v: boolean) => void; setShowInvite: (v: boolean) => void;
   setInviteCopied: (v: boolean) => void; setShowScoreBoard: (v: boolean) => void;
   setShowGhostPicker: (v: boolean) => void; setActiveLane: (lane: 'head' | 'mid' | 'tail') => void;
+  handleClosePicker: () => void; handleCloseScoreBoard: () => void; handleCloseGhostPicker: () => void;
   handleSelectCard: (card: string) => void; handleRemoveCard: (card: string) => void;
   handleSetPublicCards: (cards: string[]) => void;
   handleCompareClose: () => void; handleCloseRoom: () => void;
@@ -285,11 +307,11 @@ export const GameModals = memo<{
       <CardPickerModal ghostCount={p.game.thirteen_ghost_count || 6} selectedCards={p.allSelectedCards}
         activeLane={p.activeLane} headCards={p.myHeadCards} midCards={p.myMidCards} tailCards={p.myTailCards}
         publicCards={p.publicCards}
-        onSelectCard={p.handleSelectCard} onRemoveCard={p.handleRemoveCard} onSwitchLane={p.setActiveLane} onClose={() => p.setShowPicker(false)} />
+        onSelectCard={p.handleSelectCard} onRemoveCard={p.handleRemoveCard} onSwitchLane={p.setActiveLane} onClose={p.handleClosePicker} />
     )}
     {p.showScoreBoard && (
       <ScoreBoard gameId={p.game.id} gameName={p.game.name} players={p.players} playerTotals={p.playerTotals} finishedRounds={p.finishedRounds}
-        isHost={p.isHost} userId={p.userId} onClose={() => p.setShowScoreBoard(false)} onCloseRoom={p.handleCloseRoom} />
+        isHost={p.isHost} userId={p.userId} onClose={p.handleCloseScoreBoard} onCloseRoom={p.handleCloseRoom} />
     )}
     {p.showInvite && (
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => p.setShowInvite(false)}>
@@ -317,7 +339,7 @@ export const GameModals = memo<{
     )}
     {p.showGhostPicker && <PublicCardPickerModal
       maxCards={6} maxGhosts={p.game.thirteen_ghost_count || 6} initialCards={p.publicCards}
-      onConfirm={p.handleSetPublicCards} onClose={() => p.setShowGhostPicker(false)} />}
+      onConfirm={p.handleSetPublicCards} onClose={p.handleCloseGhostPicker} />}
     {p.showCompare && p.roundResult && (
       <CompareAnimation result={p.roundResult} players={p.players} userId={p.userId} onClose={p.handleCompareClose} />
     )}

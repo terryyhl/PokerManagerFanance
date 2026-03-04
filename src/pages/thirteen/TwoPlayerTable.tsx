@@ -75,7 +75,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
           <PublicCardsCenter
             publicCards={p.publicCards} publicCardsSet={p.publicCardsSet} ghostCount={p.ghostCount}
             isHost={p.isHost && !p.isSpectator} confirmedCount={Object.keys(p.confirmedUsers).length} totalPlayers={p.currentPlayers}
-            onEdit={() => p.setShowGhostPicker(true)} size="normal"
+            onEdit={p.handleOpenGhostPicker} size="normal"
           />
         </div>
 
@@ -120,7 +120,9 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
         isHost={p.isHost} userId={p.userId}
         setShowPicker={p.setShowPicker} setShowInvite={p.setShowInvite} setInviteCopied={p.setInviteCopied}
         setShowScoreBoard={p.setShowScoreBoard} setShowGhostPicker={p.setShowGhostPicker}
-        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
+        setActiveLane={p.setActiveLane}
+        handleClosePicker={p.handleClosePicker} handleCloseScoreBoard={p.handleCloseScoreBoard} handleCloseGhostPicker={p.handleCloseGhostPicker}
+        handleSelectCard={p.handleSelectCard}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
         handleCloseRoomConfirm={p.handleCloseRoomConfirm} showCloseConfirm={p.showCloseConfirm} setShowCloseConfirm={p.setShowCloseConfirm}

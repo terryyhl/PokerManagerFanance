@@ -160,13 +160,16 @@
 47. confirmedUsers 从 Set<string> 改为 Record<string, boolean>（配合 memo 浅比较）
 48. 模块级常量提取（LANE_MAX/SLOTS_3/SLOTS_5/LANE_LABELS/粒子 style 预计算）
 49. CardPicker 内部 Set 创建用 useMemo 缓存
+50. PokerCard 新增 cardId+onCardClick 模式，MyHandArea/CardPickerModal 消除内联 onClick 击穿 memo
+51. Table→PublicCardsCenter/Thumbnail 的 onEdit 改为 useCallback 稳定引用（handleOpenGhostPicker）
+52. GameModals 内联 onClose 改为 useCallback 稳定引用（handleClosePicker/handleCloseScoreBoard/handleCloseGhostPicker）
 
 ### 其他
-50. Score 0 显示黄色（`text-amber-400`）
-51. 非房主玩家不能点击空座（显示"等待加入"）
-52. 等待页面：回到游戏按钮 + 密码居中加亮
-53. 个人中心13水统计
-54. 选牌器道次按钮顺序：头道→中道→尾道
+53. Score 0 显示黄色（`text-amber-400`）
+54. 非房主玩家不能点击空座（显示"等待加入"）
+55. 等待页面：回到游戏按钮 + 密码居中加亮
+56. 个人中心13水统计
+57. 选牌器道次按钮顺序：头道→中道→尾道
 
 ## Architecture Notes
 

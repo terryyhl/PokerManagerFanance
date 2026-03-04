@@ -136,6 +136,10 @@ export interface TableProps {
   setInviteCopied: (v: boolean) => void;
   setShowScoreBoard: (v: boolean) => void;
   setShowPicker: (v: boolean) => void;
+  handleOpenGhostPicker: () => void;
+  handleClosePicker: () => void;
+  handleCloseScoreBoard: () => void;
+  handleCloseGhostPicker: () => void;
   setActiveLane: (lane: 'head' | 'mid' | 'tail') => void;
   setShowCompare: (v: boolean) => void;
   handleSelectCard: (card: string) => void;

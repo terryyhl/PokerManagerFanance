@@ -208,7 +208,7 @@ export const CardPickerModal = memo<{
           {LANE_SLOTS[activeLane].map((_, i) => {
             const card = currentLaneCards[i];
             return card
-              ? <PokerCard key={card} card={card} faceUp onClick={() => onRemoveCard(card)} />
+              ? <PokerCard key={card} card={card} faceUp cardId={card} onCardClick={onRemoveCard} />
               : <PokerCard key={`empty-${i}`} />;
           })}
         </div>

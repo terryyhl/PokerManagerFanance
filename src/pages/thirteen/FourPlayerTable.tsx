@@ -23,7 +23,7 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         </button>
         <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
           <PublicCardsThumbnail publicCards={p.publicCards} ghostCount={p.ghostCount}
-            isHost={p.isHost && !p.isSpectator} onEdit={() => p.setShowGhostPicker(true)} />
+            isHost={p.isHost && !p.isSpectator} onEdit={p.handleOpenGhostPicker} />
           {p.isSpectator && <span className="text-[10px] text-slate-400 bg-white/10 px-1.5 py-0.5 rounded font-bold ml-1">旁观</span>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -110,7 +110,9 @@ export const FourPlayerTable: React.FC<TableProps> = (p) => {
         isHost={p.isHost} userId={p.userId}
         setShowPicker={p.setShowPicker} setShowInvite={p.setShowInvite} setInviteCopied={p.setInviteCopied}
         setShowScoreBoard={p.setShowScoreBoard} setShowGhostPicker={p.setShowGhostPicker}
-        setActiveLane={p.setActiveLane} handleSelectCard={p.handleSelectCard}
+        setActiveLane={p.setActiveLane}
+        handleClosePicker={p.handleClosePicker} handleCloseScoreBoard={p.handleCloseScoreBoard} handleCloseGhostPicker={p.handleCloseGhostPicker}
+        handleSelectCard={p.handleSelectCard}
         handleRemoveCard={p.handleRemoveCard} handleSetPublicCards={p.handleSetPublicCards}
         handleCompareClose={p.handleCompareClose} handleCloseRoom={p.handleCloseRoom}
         handleCloseRoomConfirm={p.handleCloseRoomConfirm} showCloseConfirm={p.showCloseConfirm} setShowCloseConfirm={p.setShowCloseConfirm}

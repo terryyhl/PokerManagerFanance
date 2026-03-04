@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
 import { RANK_DISPLAY, SUIT_SYMBOL, SUIT_COLOR, CARD_BACK_URL, cardToUrl } from './types';
@@ -8,19 +8,35 @@ const SLOTS_3 = Array(3).fill(null);
 const SLOTS_5 = Array(5).fill(null);
 
 // ─── 牌面显示组件 ──────────────────────────────────────────────
+// 支持两种点击模式：
+// 1. onClick — 传统模式，直接回调（需注意内联函数会击穿 memo）
+// 2. cardId + onCardClick — 推荐模式，PokerCard 内部持有 cardId，调用 onCardClick(cardId)
+//    父组件可传入 useCallback 包装过的稳定引用，memo 生效
 
 export const PokerCard = memo<{
-  card?: string; faceUp?: boolean; small?: boolean; large?: boolean; onClick?: () => void; selected?: boolean;
-}>(function PokerCard({ card, faceUp = true, small = false, large = false, onClick, selected = false }) {
+  card?: string; faceUp?: boolean; small?: boolean; large?: boolean;
+  onClick?: () => void; onCardClick?: (cardId: string) => void; cardId?: string;
+  selected?: boolean;
+}>(function PokerCard({ card, faceUp = true, small = false, large = false, onClick, onCardClick, cardId, selected = false }) {
+  // 合并点击处理：优先使用 cardId + onCardClick 模式
+  const handleClick = useCallback(() => {
+    if (onCardClick && cardId) {
+      onCardClick(cardId);
+    } else if (onClick) {
+      onClick();
+    }
+  }, [onCardClick, cardId, onClick]);
+
+  const hasClick = !!(onClick || (onCardClick && cardId));
   const w = large ? 'w-[52px] h-[72px]' : small ? 'w-9 h-[50px]' : 'w-[46px] h-[64px]';
 
   if (!faceUp || !card) {
     return (
-      <div onClick={onClick}
+      <div onClick={hasClick ? handleClick : undefined}
         className={`${w} rounded-lg border-2 border-dashed flex items-center justify-center transition-all
-          ${onClick ? 'cursor-pointer hover:border-primary/60 hover:bg-primary/5 active:scale-95' : ''}
+          ${hasClick ? 'cursor-pointer hover:border-primary/60 hover:bg-primary/5 active:scale-95' : ''}
           ${selected ? 'border-primary bg-primary/10' : 'border-white/15 bg-white/[0.03]'}`}>
-        {onClick && <span className="material-symbols-outlined text-white/20 text-sm">add</span>}
+        {hasClick && <span className="material-symbols-outlined text-white/20 text-sm">add</span>}
       </div>
     );
   }
@@ -30,8 +46,8 @@ export const PokerCard = memo<{
     const url = cardToUrl(card);
     if (url) {
       return (
-        <div onClick={onClick}
-          className={`${w} rounded-lg overflow-hidden shadow-sm bg-white ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
+        <div onClick={hasClick ? handleClick : undefined}
+          className={`${w} rounded-lg overflow-hidden shadow-sm bg-white ${hasClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
           <img src={url} alt={card} className="w-full h-full object-contain" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
         </div>
       );
@@ -45,7 +61,7 @@ export const PokerCard = memo<{
   const symbol = SUIT_SYMBOL[suit] || '?';
   const color = SUIT_COLOR[suit] || '';
   return (
-    <div onClick={onClick} className={`${w} rounded-lg bg-white border border-slate-200 shadow-sm flex flex-col items-center justify-center ${onClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
+    <div onClick={hasClick ? handleClick : undefined} className={`${w} rounded-lg bg-white border border-slate-200 shadow-sm flex flex-col items-center justify-center ${hasClick ? 'cursor-pointer active:scale-95' : ''} ${selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-background-dark' : ''}`}>
       <span className={`${small ? 'text-[12px]' : 'text-[17px]'} font-black ${color} leading-none`}>{displayRank}</span>
       <span className={`${small ? 'text-[10px]' : 'text-[13px]'} ${color} leading-none`}>{symbol}</span>
     </div>
