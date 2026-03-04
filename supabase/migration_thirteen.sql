@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS thirteen_rounds (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   round_number INTEGER NOT NULL DEFAULT 1,
-  status      TEXT NOT NULL DEFAULT 'arranging' CHECK (status IN ('arranging', 'revealing', 'settled', 'finished')),
+  status      TEXT NOT NULL DEFAULT 'arranging' CHECK (status IN ('arranging', 'revealing', 'settling', 'settled', 'finished')),
   public_cards JSONB NOT NULL DEFAULT '[]',
   ghost_count  INTEGER NOT NULL DEFAULT 0,
   ghost_multiplier INTEGER NOT NULL DEFAULT 1,

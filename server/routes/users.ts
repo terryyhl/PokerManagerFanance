@@ -353,7 +353,7 @@ router.get('/:id/thirteen-stats', async (req, res) => {
             .eq('user_id', id);
 
         const thirteenGameIds = (playerGames || [])
-            .filter((pg: any) => pg.games?.room_type === 'thirteen_water')
+            .filter((pg: any) => pg.games?.room_type === 'thirteen')
             .map((pg: any) => pg.game_id);
 
         if (thirteenGameIds.length === 0) {

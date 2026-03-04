@@ -1214,7 +1214,7 @@ export const CompareAnimation: React.FC<{
       )}
       {/* 打枪/全垒打全屏特效 */}
       {showEffect && effectType && (
-        <div className="fixed inset-0 z-[70] pointer-events-none flex items-center justify-center animate-[effectIn_0.3s_ease-out]"
+        <div className="fixed inset-0 z-[70] pointer-events-auto flex items-center justify-center animate-[effectIn_0.3s_ease-out]"
           onClick={() => setShowEffect(false)}>
           <div className={`absolute inset-0 ${effectType === 'homerun'
             ? 'bg-gradient-radial from-yellow-500/30 via-amber-600/10 to-transparent'
