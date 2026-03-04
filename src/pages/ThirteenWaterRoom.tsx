@@ -20,6 +20,41 @@ interface ThirteenWaterRoomProps {
   forcedId: string;
 }
 
+// ─── Header 组件（提取到函数体外避免每次渲染重建） ────────────────
+
+const RoomHeader: React.FC<{
+  game: Game | null;
+  finishedRounds: number;
+  gamePhase: string;
+  onBack: () => void;
+  onShowScoreBoard: () => void;
+  showBack?: boolean;
+}> = ({ game, finishedRounds, gamePhase, onBack, onShowScoreBoard, showBack = true }) => (
+  <div className="flex items-center px-4 h-14 border-b border-white/5 shrink-0">
+    {showBack && (
+      <button onClick={onBack} className="mr-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+        <span className="material-symbols-outlined text-[22px] text-white">arrow_back</span>
+      </button>
+    )}
+    <div className="flex-1 min-w-0">
+      <h1 className="text-base font-bold truncate text-white">{game?.name}</h1>
+      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+        <span className="bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">十三水</span>
+        <span>底分{game?.thirteen_base_score || 1}</span>
+        <span>·</span>
+        <span>{game?.thirteen_ghost_count || 6}鬼</span>
+        {finishedRounds > 0 && <span>· 第{finishedRounds + (gamePhase !== 'waiting' ? 1 : 0)}局</span>}
+      </div>
+    </div>
+    <div className="flex items-center gap-1">
+      <button onClick={onShowScoreBoard} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
+        <span className="material-symbols-outlined text-[20px] text-slate-400">receipt_long</span>
+      </button>
+      <span className="text-[10px] font-mono text-slate-500">{game?.room_code}</span>
+    </div>
+  </div>
+);
+
 // ─── 主组件 ────────────────────────────────────────────────────
 
 export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) {
@@ -693,33 +728,6 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     } finally { setJoiningGame(false); }
   };
 
-  // ─── Header 组件（等待页面用） ──────────────────────────────
-  const RoomHeader: React.FC<{ showBack?: boolean; onBack?: () => void }> = ({ showBack = true, onBack }) => (
-    <div className="flex items-center px-4 h-14 border-b border-white/5 shrink-0">
-      {showBack && (
-        <button onClick={onBack || (() => navigate('/lobby'))} className="mr-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-          <span className="material-symbols-outlined text-[22px] text-white">arrow_back</span>
-        </button>
-      )}
-      <div className="flex-1 min-w-0">
-        <h1 className="text-base font-bold truncate text-white">{game?.name}</h1>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-          <span className="bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">十三水</span>
-          <span>底分{game?.thirteen_base_score || 1}</span>
-          <span>·</span>
-          <span>{game?.thirteen_ghost_count || 6}鬼</span>
-          {finishedRounds > 0 && <span>· 第{finishedRounds + (gamePhase !== 'waiting' ? 1 : 0)}局</span>}
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <button onClick={() => setShowScoreBoard(true)} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="积分账单">
-          <span className="material-symbols-outlined text-[20px] text-slate-400">receipt_long</span>
-        </button>
-        <span className="text-[10px] font-mono text-slate-500">{game?.room_code}</span>
-      </div>
-    </div>
-  );
-
   // ─── Loading / Error ───────────────────────────────────────
   if (isLoading || isSyncing) {
     return (<div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-3">
@@ -793,7 +801,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   if (gamePhase === 'waiting') {
     return (
       <div className="min-h-screen bg-background-dark text-white flex flex-col">
-        <RoomHeader />
+        <RoomHeader game={game} finishedRounds={finishedRounds} gamePhase={gamePhase} onBack={() => navigate('/lobby')} onShowScoreBoard={() => setShowScoreBoard(true)} />
         <div className="px-4 pt-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-400">玩家 ({currentPlayers}/{maxPlayers})</h3>

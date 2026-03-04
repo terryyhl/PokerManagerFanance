@@ -460,7 +460,7 @@ export function settleRound(
     // ─── 零和校验 ─────────────────────────────────────────────────
     const total = Array.from(settlements.values()).reduce((sum, s) => sum + s.finalScore, 0);
     if (total !== 0) {
-        console.warn(`[scoring] 零和校验失败: 总分 = ${total}, 期望 0`);
+        throw new Error(`零和校验失败: 总分 = ${total}, 期望 0。结算数据异常，已阻止写入。`);
     }
 
     return {
