@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D 沙漏时钟 — CSS 原型 v4</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    color: #e2e8f0;
+    overflow: hidden;
+  }
+
+  .ring-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+
+  .ring-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring-track { fill: none; stroke: #334155; stroke-width: 4; }
+
+  .ring-progress {
+    fill: none;
+    stroke: #3b82f6;
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.5s;
+    filter: drop-shadow(0 0 6px #3b82f6);
+  }
+
+  .hourglass-area {
+    position: absolute;
+    inset: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hourglass-svg {
+    width: 180px;
+    height: 240px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+  }
+
+  .sand-smooth {
+    transition: d 1s ease-in-out, y 1s ease-in-out, height 1s ease-in-out,
+                cy 1s ease-in-out, rx 1s ease-in-out, ry 1s ease-in-out, opacity 0.5s;
+  }
+
+  .timer-display { margin-top: 20px; text-align: center; }
+
+  .timer-text {
+    font-size: 42px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    transition: color 0.5s;
+  }
+
+  .timer-text.normal { color: #e2e8f0; }
+  .timer-text.warning { color: #f59e0b; }
+  .timer-text.urgent { color: #ef4444; }
+  .timer-text.finished { color: #ef4444; animation: pulse 0.8s ease-in-out infinite; }
+
+  .timer-hint { font-size: 14px; color: #64748b; margin-top: 4px; }
+
+  .timer-finished {
+    font-size: 15px; font-weight: 700; color: #ef4444;
+    margin-top: 4px; animation: pulse 0.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .presets { display: flex; gap: 16px; margin-top: 24px; }
+
+  .preset-btn {
+    width: 72px; height: 72px; border-radius: 16px;
+    border: 2px solid #334155; background: #1e293b;
+    color: #cbd5e1; font-weight: 800; font-size: 22px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; transition: all 0.2s;
+  }
+
+  .preset-btn:active { transform: scale(0.95); }
+  .preset-btn:hover { border-color: rgba(59,130,246,0.5); }
+
+  .preset-btn.active {
+    background: #3b82f6; color: #fff; border-color: #3b82f6;
+    box-shadow: 0 4px 20px rgba(59,130,246,0.3); transform: scale(1.05);
+  }
+
+  .preset-btn .unit {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; opacity: 0.7;
+  }
+
+  .reset-btn {
+    margin-top: 20px; padding: 10px 28px; border-radius: 12px;
+    border: none; background: #334155; color: #94a3b8;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    display: none; align-items: center; gap: 6px; transition: all 0.2s;
+  }
+
+  .reset-btn:hover { background: #475569; }
+  .reset-btn:active { transform: scale(0.95); }
+  .reset-btn.visible { display: flex; }
+
+  .edge-glow {
+    position: fixed; inset: 0; pointer-events: none;
+    z-index: 100; opacity: 0; transition: opacity 0.3s;
+  }
+
+  .edge-glow.active {
+    opacity: 1; animation: edge-glow-anim 0.8s ease-in-out infinite;
+  }
+
+  @keyframes edge-glow-anim {
+    0%, 100% { box-shadow: inset 0 0 30px 8px rgba(239,68,68,0.0); }
+    50% { box-shadow: inset 0 0 60px 15px rgba(239,68,68,0.6); }
+  }
+</style>
+</head>
+<body>
+
+  <div class="edge-glow" id="edgeGlow"></div>
+
+  <div class="ring-container">
+    <svg class="ring-svg" viewBox="0 0 300 300">
+      <circle class="ring-track" cx="150" cy="150" r="142" />
+      <circle class="ring-progress" id="ringProgress" cx="150" cy="150" r="142"
+        stroke-dasharray="892.21" stroke-dashoffset="0" />
+    </svg>
+
+    <div class="hourglass-area">
+      <svg class="hourglass-svg" viewBox="0 0 180 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#7dd3e8" stop-opacity="0.7"/>
+            <stop offset="30%" stop-color="#b5ecf7" stop-opacity="0.5"/>
+            <stop offset="50%" stop-color="#d4f4fb" stop-opacity="0.35"/>
+            <stop offset="70%" stop-color="#b5ecf7" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#7dd3e8" stop-opacity="0.7"/>
+          </linearGradient>
+
+          <linearGradient id="glassEdge" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#4aafbf" stop-opacity="0.8"/>
+            <stop offset="15%" stop-color="#7dd3e8" stop-opacity="0.4"/>
+            <stop offset="85%" stop-color="#7dd3e8" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#4aafbf" stop-opacity="0.8"/>
+          </linearGradient>
+
+          <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5d280"/>
+            <stop offset="50%" stop-color="#daa520"/>
+            <stop offset="100%" stop-color="#c4931a"/>
+          </linearGradient>
+
+          <linearGradient id="sandBottomGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e8b84b"/>
+            <stop offset="40%" stop-color="#daa520"/>
+            <stop offset="100%" stop-color="#b8860b"/>
+          </linearGradient>
+
+          <linearGradient id="frameGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#d45a3a"/>
+            <stop offset="30%" stop-color="#c0422a"/>
+            <stop offset="70%" stop-color="#a83620"/>
+            <stop offset="100%" stop-color="#8b2c1a"/>
+          </linearGradient>
+
+          <linearGradient id="frameGradDark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#b8432a"/>
+            <stop offset="50%" stop-color="#963822"/>
+            <stop offset="100%" stop-color="#7a2d18"/>
+          </linearGradient>
+
+          <!-- 上半沙子裁剪 -->
+          <clipPath id="clipUpperBulb">
+            <path d="M30,38 Q30,90 60,108 L90,120 L120,108 Q150,90 150,38 Z"/>
+          </clipPath>
+
+          <!-- 下半沙子裁剪 -->
+          <clipPath id="clipLowerBulb">
+            <path d="M60,132 L90,120 L120,132 Q150,150 150,206 L30,206 Q30,150 60,132 Z"/>
+          </clipPath>
+
+          <!-- 粒子裁剪：颈部 + 下半玻璃内部 -->
+          <clipPath id="clipNeckAndLower">
+            <path d="M80,112 L100,112 L120,132 Q150,150 150,206 L30,206 Q30,150 60,132 Z"/>
+          </clipPath>
+        </defs>
+
+        <!-- ========== 上木框 ========== -->
+        <rect x="18" y="20" width="144" height="14" rx="3" fill="url(#frameGradDark)"/>
+        <rect x="14" y="8" width="152" height="16" rx="4" fill="url(#frameGrad)"/>
+        <g stroke="#8b2c1a" stroke-width="0.5" opacity="0.4">
+          <line x1="35" y1="8" x2="35" y2="24"/>
+          <line x1="55" y1="8" x2="55" y2="34"/>
+          <line x1="125" y1="8" x2="125" y2="34"/>
+          <line x1="145" y1="8" x2="145" y2="24"/>
+        </g>
+        <rect x="16" y="9" width="148" height="3" rx="1.5" fill="white" opacity="0.15"/>
+
+        <!-- ========== 下木框 ========== -->
+        <rect x="14" y="218" width="152" height="16" rx="4" fill="url(#frameGrad)"/>
+        <rect x="18" y="206" width="144" height="14" rx="3" fill="url(#frameGradDark)"/>
+        <g stroke="#8b2c1a" stroke-width="0.5" opacity="0.4">
+          <line x1="35" y1="218" x2="35" y2="234"/>
+          <line x1="55" y1="206" x2="55" y2="234"/>
+          <line x1="125" y1="206" x2="125" y2="234"/>
+          <line x1="145" y1="218" x2="145" y2="234"/>
+        </g>
+        <rect x="16" y="230" width="148" height="2" rx="1" fill="white" opacity="0.1"/>
+
+        <!-- ========== 玻璃外壳 ========== -->
+        <path d="M30,34 Q28,90 62,112 L82,122 Q90,126 98,122 L118,112 Q152,90 150,34 Z"
+          fill="url(#glassGrad)" stroke="url(#glassEdge)" stroke-width="2"/>
+        <path d="M82,122 Q90,126 98,122 L118,132 Q152,152 150,206 L30,206 Q28,152 62,132 Z"
+          fill="url(#glassGrad)" stroke="url(#glassEdge)" stroke-width="2"/>
+
+        <!-- ========== 上半沙子 ========== -->
+        <g clip-path="url(#clipUpperBulb)">
+          <!-- 主体沙块 -->
+          <rect id="sandTopRect" class="sand-smooth" x="28" y="38" width="124" height="82"
+            fill="url(#sandGrad)" opacity="0.9"/>
+          <!-- 沙面：漏斗形凹陷（中间低两边高） -->
+          <ellipse id="sandTopSurface" class="sand-smooth" cx="90" cy="38" rx="52" ry="6"
+            fill="#0f172a" opacity="0"/>
+        </g>
+
+        <!-- ========== 下半沙子 ========== -->
+        <g clip-path="url(#clipLowerBulb)">
+          <path id="sandBottomPath" class="sand-smooth"
+            d="M30,202 L150,202 L150,202 L90,202 Z"
+            fill="url(#sandBottomGrad)" opacity="0.9"/>
+        </g>
+
+        <!-- ========== 粒子（SVG circles，JS 驱动） ========== -->
+        <g id="particleGroup" clip-path="url(#clipNeckAndLower)">
+          <!-- JS 会在这里动态添加 circle 元素 -->
+        </g>
+
+        <!-- ========== 玻璃高光 ========== -->
+        <path d="M42,42 Q38,70 56,100" stroke="white" stroke-width="3.5"
+          fill="none" opacity="0.25" stroke-linecap="round"/>
+        <path d="M46,44 Q44,60 52,80" stroke="white" stroke-width="1.5"
+          fill="none" opacity="0.35" stroke-linecap="round"/>
+        <path d="M56,142 Q38,170 42,198" stroke="white" stroke-width="3.5"
+          fill="none" opacity="0.2" stroke-linecap="round"/>
+        <path d="M52,155 Q44,175 46,195" stroke="white" stroke-width="1.5"
+          fill="none" opacity="0.3" stroke-linecap="round"/>
+        <path d="M136,50 Q142,75 130,100" stroke="white" stroke-width="2"
+          fill="none" opacity="0.1" stroke-linecap="round"/>
+        <path d="M130,145 Q142,170 136,195" stroke="white" stroke-width="2"
+          fill="none" opacity="0.08" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="timer-display">
+    <div class="timer-text normal" id="timerText">00:00</div>
+    <div class="timer-hint" id="timerHint">选择档位开始</div>
+  </div>
+
+  <div class="presets">
+    <button class="preset-btn" data-seconds="30">30<span class="unit">秒</span></button>
+    <button class="preset-btn" data-seconds="60">1<span class="unit">分钟</span></button>
+    <button class="preset-btn" data-seconds="120">2<span class="unit">分钟</span></button>
+    <button class="preset-btn" data-seconds="180">3<span class="unit">分钟</span></button>
+  </div>
+
+  <button class="reset-btn" id="resetBtn">■ 重置</button>
+
+<script>
+  // ===================== 常量 =====================
+  const CIRC = 2 * Math.PI * 142;
+  const CX = 90;              // 沙漏中线 x
+  const UPPER_TOP = 38;       // 上半沙区顶 y
+  const UPPER_BOTTOM = 120;   // 上半沙区底 y（颈部上沿）
+  const NECK_Y = 122;         // 颈部中心 y（粒子起点）
+  const LOWER_TOP = 132;      // 下半沙区顶 y（颈部下沿）
+  const LOWER_BOTTOM = 202;   // 下半沙区底 y
+  const MAX_HALF_W = 60;      // 下半玻璃壁最大半宽
+  const REPOSE_RATIO = 0.7;   // 安息角
+  const CRITICAL_H = MAX_HALF_W * REPOSE_RATIO;
+  const TOTAL_H = LOWER_BOTTOM - LOWER_TOP;
+  const CRITICAL_FILL = (CRITICAL_H / TOTAL_H) * 0.55;
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const PARTICLE_POOL_SIZE = 24;
+  const SAND_COLORS = ['#f5d280', '#e8b84b', '#daa520', '#ecc65a', '#d4a017', '#f0c850'];
+
+  // ===================== DOM =====================
+  const ringEl = document.getElementById('ringProgress');
+  const sandTopRect = document.getElementById('sandTopRect');
+  const sandTopSurface = document.getElementById('sandTopSurface');
+  const sandBottomPath = document.getElementById('sandBottomPath');
+  const particleGroup = document.getElementById('particleGroup');
+  const timerTextEl = document.getElementById('timerText');
+  const timerHintEl = document.getElementById('timerHint');
+  const resetBtn = document.getElementById('resetBtn');
+  const edgeGlow = document.getElementById('edgeGlow');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  // ===================== 粒子系统 =====================
+  // 每个粒子: { el, x, y, vx, vy, life, maxLife, size, active }
+  const particles = [];
+  for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('r', '1.2');
+    c.setAttribute('fill', SAND_COLORS[i % SAND_COLORS.length]);
+    c.setAttribute('opacity', '0');
+    particleGroup.appendChild(c);
+    particles.push({ el: c, x: CX, y: NECK_Y, vx: 0, vy: 0, life: 0, maxLife: 1, size: 1.2, active: false });
+  }
+
+  // 当前下半沙堆顶部 y（粒子终点）
+  let currentPileTopY = LOWER_BOTTOM;
+  // 当前进度
+  let currentProgress = 1;
+
+  function spawnParticle(p) {
+    p.active = true;
+    // 从颈部中心出发，轻微随机偏移
+    p.x = CX + (Math.random() - 0.5) * 6;
+    p.y = NECK_Y;
+    // 水平速度：微小随机漂移
+    p.vx = (Math.random() - 0.5) * 0.8;
+    // 垂直速度：重力加速，初速偏小
+    p.vy = 0.5 + Math.random() * 0.5;
+    // 粒子落到沙堆顶部的距离决定寿命
+    const fallDist = Math.max(10, currentPileTopY - NECK_Y);
+    p.maxLife = fallDist / 1.8 + Math.random() * 8;
+    p.life = 0;
+    p.size = 0.8 + Math.random() * 1.2;
+    p.el.setAttribute('r', String(p.size));
+  }
+
+  function updateParticles(dt) {
+    const flowing = currentProgress < 0.995 && currentProgress > 0.005;
+    // 粒子生成速率随进度变化：沙多时快，沙少时慢
+    const spawnRate = flowing ? Math.max(1, Math.floor(currentProgress * 4)) : 0;
+
+    // 生成新粒子
+    if (flowing) {
+      let spawned = 0;
+      for (const p of particles) {
+        if (!p.active && spawned < spawnRate && Math.random() < 0.15) {
+          spawnParticle(p);
+          spawned++;
+        }
+      }
+    }
+
+    // 更新所有活跃粒子
+    const gravity = 0.12;
+    for (const p of particles) {
+      if (!p.active) {
+        p.el.setAttribute('opacity', '0');
+        continue;
+      }
+
+      p.life += dt;
+      p.vy += gravity; // 重力加速
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // 到达沙堆顶部或超出寿命 → 消亡
+      if (p.y >= currentPileTopY - 2 || p.life >= p.maxLife) {
+        p.active = false;
+        p.el.setAttribute('opacity', '0');
+        continue;
+      }
+
+      // 逐渐扩散（从颈部窄口散开）
+      const fallProgress = (p.y - NECK_Y) / Math.max(1, currentPileTopY - NECK_Y);
+      // 限制水平范围随下落扩展
+      const maxDrift = 3 + fallProgress * 12;
+      p.x = Math.max(CX - maxDrift, Math.min(CX + maxDrift, p.x));
+
+      // 透明度：出现 → 饱满 → 接近沙堆时淡出
+      let opacity;
+      if (fallProgress < 0.1) opacity = fallProgress / 0.1;
+      else if (fallProgress > 0.8) opacity = (1 - fallProgress) / 0.2;
+      else opacity = 1;
+      opacity = Math.max(0, Math.min(1, opacity)) * 0.9;
+
+      p.el.setAttribute('cx', String(p.x));
+      p.el.setAttribute('cy', String(p.y));
+      p.el.setAttribute('opacity', String(opacity.toFixed(2)));
+    }
+  }
+
+  // ===================== 沙量计算 =====================
+  function getSandBottomTopY(fillRatio) {
+    if (fillRatio < 0.01) return LOWER_BOTTOM;
+    if (fillRatio <= CRITICAL_FILL) {
+      const t = fillRatio / CRITICAL_FILL;
+      return LOWER_BOTTOM - CRITICAL_H * t;
+    } else {
+      const t = (fillRatio - CRITICAL_FILL) / (1 - CRITICAL_FILL);
+      const baseY = LOWER_BOTTOM - CRITICAL_H;
+      return baseY - (baseY - LOWER_TOP) * t;
+    }
+  }
+
+  // ===================== 更新显示 =====================
+  function updateDisplay() {
+    const progress = totalSeconds > 0 ? remaining / totalSeconds : 1;
+    currentProgress = progress;
+    const isUrgent = remaining > 0 && remaining <= 10;
+    const isWarning = remaining > 10 && remaining <= 30;
+    const fillRatio = 1 - progress;
+
+    // ---- 圆环 ----
+    ringEl.style.strokeDashoffset = CIRC * (1 - progress);
+    if (isFinished || isUrgent) {
+      ringEl.style.stroke = '#ef4444';
+      ringEl.style.filter = 'drop-shadow(0 0 6px #ef4444)';
+    } else if (isWarning) {
+      ringEl.style.stroke = '#f59e0b';
+      ringEl.style.filter = 'drop-shadow(0 0 6px #f59e0b)';
+    } else {
+      ringEl.style.stroke = '#3b82f6';
+      ringEl.style.filter = 'drop-shadow(0 0 6px #3b82f6)';
+    }
+
+    // ---- 上半沙子 ----
+    const upperRange = UPPER_BOTTOM - UPPER_TOP;
+    const sandSurfaceY = UPPER_TOP + upperRange * (1 - progress);
+    const sandHeight = UPPER_BOTTOM - sandSurfaceY;
+
+    sandTopRect.setAttribute('y', String(sandSurfaceY));
+    sandTopRect.setAttribute('height', String(Math.max(0, sandHeight)));
+
+    // 沙面漏斗凹陷：运行中沙面中间向下凹（椭圆遮挡），接近空时凹陷更深
+    if (progress > 0.03 && progress < 0.98) {
+      const dip = 3 + (1 - progress) * 5; // 凹陷深度 3~8
+      sandTopSurface.setAttribute('cy', String(sandSurfaceY + 1));
+      sandTopSurface.setAttribute('rx', '48');
+      sandTopSurface.setAttribute('ry', String(dip));
+      sandTopSurface.setAttribute('opacity', '0.5');
+    } else {
+      sandTopSurface.setAttribute('opacity', '0');
+    }
+
+    // ---- 下半沙子 ----
+    currentPileTopY = getSandBottomTopY(fillRatio);
+
+    if (fillRatio < 0.01) {
+      sandBottomPath.setAttribute('d', `M${CX},${LOWER_BOTTOM} L${CX},${LOWER_BOTTOM} Z`);
+      sandBottomPath.setAttribute('opacity', '0');
+    } else if (fillRatio <= CRITICAL_FILL) {
+      // 阶段一：锥体堆积
+      const t = fillRatio / CRITICAL_FILL;
+      const coneH = CRITICAL_H * t;
+      const coneHalfW = coneH / REPOSE_RATIO;
+      const tipY = LOWER_BOTTOM - coneH;
+      const cpY = Math.min(coneH * 0.25, 8);
+
+      sandBottomPath.setAttribute('d',
+        `M${CX - coneHalfW},${LOWER_BOTTOM}
+         Q${CX},${tipY - cpY} ${CX + coneHalfW},${LOWER_BOTTOM}
+         Z`
+      );
+      sandBottomPath.setAttribute('opacity', '0.9');
+    } else {
+      // 阶段二：底部铺满，沙面上升
+      const t = (fillRatio - CRITICAL_FILL) / (1 - CRITICAL_FILL);
+      const baseY = LOWER_BOTTOM - CRITICAL_H;
+      const surfaceY = baseY - (baseY - LOWER_TOP) * t;
+      const archH = Math.max(2, 8 * (1 - t));
+
+      sandBottomPath.setAttribute('d',
+        `M${CX - MAX_HALF_W},${LOWER_BOTTOM}
+         L${CX - MAX_HALF_W},${surfaceY + archH}
+         Q${CX},${surfaceY - archH} ${CX + MAX_HALF_W},${surfaceY + archH}
+         L${CX + MAX_HALF_W},${LOWER_BOTTOM}
+         Z`
+      );
+      sandBottomPath.setAttribute('opacity', '0.9');
+    }
+
+    // ---- 数字 ----
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    timerTextEl.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    timerTextEl.className = 'timer-text ' + (
+      isFinished ? 'finished' : isUrgent ? 'urgent' : isWarning ? 'warning' : 'normal'
+    );
+
+    if (isFinished) {
+      timerHintEl.textContent = '时间到！';
+      timerHintEl.className = 'timer-finished';
+    } else if (totalSeconds > 0) {
+      timerHintEl.textContent = '';
+      timerHintEl.className = 'timer-hint';
+    } else {
+      timerHintEl.textContent = '选择档位开始';
+      timerHintEl.className = 'timer-hint';
+    }
+
+    edgeGlow.classList.toggle('active', isFinished);
+    resetBtn.classList.toggle('visible', isRunning || isFinished || remaining > 0);
+    presetBtns.forEach(btn => {
+      btn.classList.toggle('active', isRunning && +btn.dataset.seconds === totalSeconds);
+    });
+  }
+
+  // ===================== 动画循环 =====================
+  let lastFrameTime = 0;
+
+  function animationLoop(timestamp) {
+    const dt = lastFrameTime ? (timestamp - lastFrameTime) / 16.67 : 1; // 归一化到 60fps
+    lastFrameTime = timestamp;
+
+    if (isRunning) {
+      updateParticles(dt);
+    } else {
+      // 不运行时让残留粒子消亡
+      for (const p of particles) {
+        if (p.active) {
+          p.life += dt * 3;
+          if (p.life >= p.maxLife) {
+            p.active = false;
+            p.el.setAttribute('opacity', '0');
+          }
+        }
+      }
+    }
+
+    requestAnimationFrame(animationLoop);
+  }
+
+  requestAnimationFrame(animationLoop);
+
+  // ===================== 计时逻辑 =====================
+  let totalSeconds = 0;
+  let remaining = 0;
+  let isRunning = false;
+  let isFinished = false;
+  let intervalId = null;
+  let flashTimeout = null;
+
+  function tick() {
+    if (remaining <= 1) {
+      remaining = 0;
+      isRunning = false;
+      isFinished = true;
+      clearInterval(intervalId);
+      intervalId = null;
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      flashTimeout = setTimeout(() => { isFinished = false; updateDisplay(); }, 5000);
+    } else {
+      remaining--;
+    }
+    updateDisplay();
+  }
+
+  function startTimer(secs) {
+    cleanup();
+    // 重置所有粒子
+    for (const p of particles) { p.active = false; p.el.setAttribute('opacity', '0'); }
+    totalSeconds = secs;
+    remaining = secs;
+    isRunning = true;
+    isFinished = false;
+    updateDisplay();
+    intervalId = setInterval(tick, 1000);
+  }
+
+  function cleanup() {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    if (flashTimeout) { clearTimeout(flashTimeout); flashTimeout = null; }
+  }
+
+  function reset() {
+    cleanup();
+    for (const p of particles) { p.active = false; p.el.setAttribute('opacity', '0'); }
+    totalSeconds = 0;
+    remaining = 0;
+    isRunning = false;
+    isFinished = false;
+    updateDisplay();
+  }
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => startTimer(+btn.dataset.seconds));
+  });
+  resetBtn.addEventListener('click', reset);
+  updateDisplay();
+</script>
+</body>
+</html>
