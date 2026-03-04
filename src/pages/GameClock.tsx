@@ -1,20 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import Hourglass from '../components/Hourglass';
 
 const PRESETS = [
     { label: '30s', seconds: 30 },
     { label: '1', seconds: 60 },
     { label: '2', seconds: 120 },
     { label: '3', seconds: 180 },
-];
-
-/** 可用的 Lottie 动画列表，每次开启闹钟随机选一个 */
-const LOTTIE_ANIMATIONS = [
-    '/panda-sleeping.lottie',
-    '/cat-loading.lottie',
-    '/cat-love.lottie',
-    '/lovely-cats.lottie',
 ];
 
 export default function GameClock() {
@@ -26,11 +18,6 @@ export default function GameClock() {
     const [isFinished, setIsFinished] = useState(false);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    // 每次开启闹钟随机换一个动画
-    const [lottieSrc, setLottieSrc] = useState(
-        () => LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]
-    );
 
     const cleanup = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -66,7 +53,6 @@ export default function GameClock() {
 
     const handleSelectPreset = (secs: number) => {
         cleanup();
-        setLottieSrc(LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]);
         setTotalSeconds(secs);
         setRemaining(secs);
         setIsRunning(true);
@@ -83,18 +69,19 @@ export default function GameClock() {
 
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
-    const progress = totalSeconds > 0 ? remaining / totalSeconds : 0;
+    const progress = totalSeconds > 0 ? remaining / totalSeconds : 1;
     const isUrgent = remaining > 0 && remaining <= 10;
     const isWarning = remaining > 10 && remaining <= 30;
 
-    const R = 88;
+    // 外环参数
+    const R = 142;
     const C = 2 * Math.PI * R;
 
-    const ringColor = isFinished || isUrgent
-        ? 'stroke-red-500'
+    const ringStroke = isFinished || isUrgent
+        ? '#ef4444'
         : isWarning
-            ? 'stroke-amber-500'
-            : 'stroke-primary';
+            ? '#f59e0b'
+            : '#3b82f6';
 
     const timeColor = isFinished
         ? 'text-red-500 animate-pulse'
@@ -124,61 +111,61 @@ export default function GameClock() {
             {/* 主内容 */}
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-24">
 
-                {/* 圆环进度 + 熊猫动画 */}
-                <div className="relative w-60 h-60 mb-8">
+                {/* 外环 + 沙漏 */}
+                <div className="relative mb-4" style={{ width: 300, height: 300 }}>
                     {/* 进度圆环 SVG */}
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                    <svg
+                        className="absolute inset-0 w-full h-full"
+                        viewBox="0 0 300 300"
+                        style={{ transform: 'rotate(-90deg)' }}
+                    >
                         {/* 背景轨道 */}
                         <circle
-                            cx="100" cy="100" r={R}
-                            fill="none"
-                            strokeWidth="6"
-                            className="stroke-slate-200 dark:stroke-slate-800"
+                            cx="150" cy="150" r={R}
+                            fill="none" strokeWidth="4"
+                            className="stroke-slate-200 dark:stroke-slate-700"
                         />
                         {/* 进度弧 */}
                         {totalSeconds > 0 && (
                             <circle
-                                cx="100" cy="100" r={R}
-                                fill="none"
-                                strokeWidth="6"
+                                cx="150" cy="150" r={R}
+                                fill="none" strokeWidth="4"
                                 strokeLinecap="round"
                                 strokeDasharray={C}
                                 strokeDashoffset={C * (1 - progress)}
-                                className={`transition-all duration-1000 ease-linear ${ringColor}`}
+                                stroke={ringStroke}
+                                style={{
+                                    transition: 'stroke-dashoffset 1s linear, stroke 0.5s',
+                                    filter: `drop-shadow(0 0 6px ${ringStroke})`,
+                                }}
                             />
                         )}
                     </svg>
 
-                    {/* 圆内内容 */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        {/* Lottie 动画 — 容器固定大小，cat-loading 内部缩放 */}
-                        <div
-                            className={`w-40 h-40 flex items-center justify-center transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
-                        >
-                            <div className={lottieSrc === '/cat-loading.lottie' ? 'w-28 h-28' : 'w-full h-full'}>
-                                <DotLottieReact
-                                    key={lottieSrc}
-                                    src={lottieSrc}
-                                    loop
-                                    autoplay
-                                    renderConfig={{ autoResize: true }}
-                                />
-                            </div>
-                        </div>
+                    {/* 沙漏居中 */}
+                    <div className="absolute inset-0 flex items-center justify-center" style={{ padding: 18 }}>
+                        <Hourglass
+                            progress={progress}
+                            isRunning={isRunning}
+                            size={160}
+                        />
+                    </div>
+                </div>
 
-                        {/* 倒计时数字 */}
-                        {totalSeconds > 0 ? (
-                            <span className={`text-3xl font-black tabular-nums tracking-tight -mt-1 transition-colors ${timeColor}`}>
+                {/* 倒计时数字 */}
+                <div className="text-center mb-6">
+                    {totalSeconds > 0 ? (
+                        <>
+                            <span className={`text-[42px] font-black tabular-nums tracking-tight transition-colors ${timeColor}`}>
                                 {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
                             </span>
-                        ) : (
-                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-1">选择档位开始</span>
-                        )}
-
-                        {isFinished && (
-                            <span className="text-xs font-bold text-red-500 animate-pulse">时间到！</span>
-                        )}
-                    </div>
+                            {isFinished && (
+                                <p className="text-sm font-bold text-red-500 animate-pulse mt-1">时间到！</p>
+                            )}
+                        </>
+                    ) : (
+                        <span className="text-sm font-medium text-slate-400 dark:text-slate-500">选择档位开始</span>
+                    )}
                 </div>
 
                 {/* 档位选择 */}

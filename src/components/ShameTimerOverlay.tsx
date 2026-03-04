@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import anime from 'animejs';
 import Avatar from './Avatar';
+import Hourglass from './Hourglass';
 
 const PRESETS = [
     { label: '30s', seconds: 30 },
@@ -161,7 +162,7 @@ export default function ShameTimerOverlay({
         : remaining <= 30 ? 'stroke-orange-500'
         : 'stroke-amber-400';
 
-    const R = 70;
+    const R = 82; // viewBox 176x176, 圆环半径 82 → 外径 ~86
     const C = 2 * Math.PI * R;
 
     // 视角文案
@@ -189,21 +190,27 @@ export default function ShameTimerOverlay({
                     </p>
                 </div>
 
-                {/* 倒计时圆环 */}
+                {/* 倒计时圆环 + 沙漏 */}
                 {(totalSeconds > 0 || viewerMode) && totalSeconds > 0 && (
-                    <div className="relative w-40 h-40">
-                        <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-                            <circle cx="80" cy="80" r={R} fill="none" strokeWidth="5" className="stroke-slate-700" />
-                            <circle cx="80" cy="80" r={R} fill="none" strokeWidth="5" strokeLinecap="round"
-                                strokeDasharray={C} strokeDashoffset={C * (1 - progress)}
-                                className={`transition-all duration-1000 ease-linear ${ringColor}`}
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-4xl font-black font-mono tabular-nums ${urgencyColor} ${isFinished ? 'animate-pulse' : ''}`}>
-                                {formatTime(remaining)}
-                            </span>
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="relative w-44 h-44">
+                            {/* 外圈进度环 */}
+                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 176 176" style={{ transform: 'rotate(-90deg)' }}>
+                                <circle cx="88" cy="88" r={R} fill="none" strokeWidth="4" className="stroke-slate-700" />
+                                <circle cx="88" cy="88" r={R} fill="none" strokeWidth="4" strokeLinecap="round"
+                                    strokeDasharray={C} strokeDashoffset={C * (1 - progress)}
+                                    className={`transition-all duration-1000 ease-linear ${ringColor}`}
+                                />
+                            </svg>
+                            {/* 沙漏居中 */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Hourglass progress={progress} isRunning={isRunning} size={90} />
+                            </div>
                         </div>
+                        {/* 倒计时数字 */}
+                        <span className={`text-3xl font-black font-mono tabular-nums ${urgencyColor} ${isFinished ? 'animate-pulse' : ''}`}>
+                            {formatTime(remaining)}
+                        </span>
                     </div>
                 )}
 
