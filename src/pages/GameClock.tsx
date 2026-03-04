@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import type { DotLottie } from '@lottiefiles/dotlottie-web';
 
 const PRESETS = [
     { label: '30s', seconds: 30 },
@@ -9,6 +8,59 @@ const PRESETS = [
     { label: '2', seconds: 120 },
     { label: '3', seconds: 180 },
 ];
+
+/**
+ * 沙漏沙量遮罩 —— 覆盖在 Lottie 动画上方，用半透明遮罩模拟沙量变化
+ * progress: 1(满) → 0(空)
+ *
+ * 原理：沙漏上半部分的沙随时间减少，下半部分的沙随时间增加
+ * - 上半遮罩：从顶部向下扩展，遮住"已流走"的部分
+ * - 下半遮罩：从底部向上收缩，露出"已流入"的部分
+ */
+function SandMask({ progress }: { progress: number }) {
+    // 沙漏在容器中的大致位置比例（根据 lottie 实际渲染微调）
+    // 沙漏上半沙区域 ≈ 容器 15%~45%，下半沙区域 ≈ 容器 55%~85%
+    const topStart = 15;   // 上半沙区起始 %
+    const topEnd = 45;     // 上半沙区结束 %（中线）
+    const botStart = 55;   // 下半沙区起始 %
+    const botEnd = 85;     // 下半沙区结束 %
+
+    const topRange = topEnd - topStart;   // 30%
+    const botRange = botEnd - botStart;   // 30%
+
+    // 上半：progress=1 时无遮罩(沙满)，progress=0 时全遮(沙空)
+    const topMaskHeight = topRange * (1 - progress);  // 0→30%
+    const topMaskTop = topStart;                       // 从顶部开始
+
+    // 下半：progress=1 时全遮(下方空)，progress=0 时无遮罩(下方满)
+    const botMaskHeight = botRange * progress;         // 30%→0%
+    const botMaskBottom = 100 - botEnd;                // 从底部开始
+
+    return (
+        <>
+            {/* 上半遮罩 — 遮住已流走的沙 */}
+            <div
+                className="absolute left-[10%] right-[10%] pointer-events-none transition-all duration-1000 ease-linear"
+                style={{
+                    top: `${topMaskTop}%`,
+                    height: `${topMaskHeight}%`,
+                    background: 'linear-gradient(to bottom, rgba(15,23,42,0.7) 60%, rgba(15,23,42,0.3))',
+                    borderRadius: '0 0 40% 40%',
+                }}
+            />
+            {/* 下半遮罩 — 遮住尚未流入的空间 */}
+            <div
+                className="absolute left-[10%] right-[10%] pointer-events-none transition-all duration-1000 ease-linear"
+                style={{
+                    bottom: `${botMaskBottom}%`,
+                    height: `${botMaskHeight}%`,
+                    background: 'linear-gradient(to top, rgba(15,23,42,0.7) 60%, rgba(15,23,42,0.3))',
+                    borderRadius: '40% 40% 0 0',
+                }}
+            />
+        </>
+    );
+}
 
 export default function GameClock() {
     const navigate = useNavigate();
@@ -19,9 +71,6 @@ export default function GameClock() {
     const [isFinished, setIsFinished] = useState(false);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    // DotLottie 实例引用，用于帧同步控制
-    const dotLottieRef = useRef<DotLottie | null>(null);
 
     const cleanup = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -49,21 +98,6 @@ export default function GameClock() {
         return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
     }, [isRunning, remaining]);
 
-    // 沙漏帧同步：将 remaining/totalSeconds 映射到 Lottie 帧
-    useEffect(() => {
-        const lottie = dotLottieRef.current;
-        if (!lottie || totalSeconds <= 0) return;
-
-        const total = lottie.totalFrames;
-        if (!total || total <= 0) return;
-
-        // progress: 1(满) → 0(空)
-        const progress = remaining / totalSeconds;
-        // 帧映射：progress=1 → frame=0（沙漏满）, progress=0 → frame=totalFrames（沙漏空）
-        const targetFrame = Math.round((1 - progress) * (total - 1));
-        lottie.setFrame(targetFrame);
-    }, [remaining, totalSeconds]);
-
     // 结束闪烁 5 秒后恢复
     useEffect(() => {
         if (isFinished) {
@@ -78,10 +112,6 @@ export default function GameClock() {
         setRemaining(secs);
         setIsRunning(true);
         setIsFinished(false);
-        // 重置沙漏到起始帧
-        if (dotLottieRef.current) {
-            dotLottieRef.current.setFrame(0);
-        }
     };
 
     const handleReset = () => {
@@ -90,16 +120,23 @@ export default function GameClock() {
         setIsFinished(false);
         setRemaining(0);
         setTotalSeconds(0);
-        // 重置沙漏到起始帧
-        if (dotLottieRef.current) {
-            dotLottieRef.current.setFrame(0);
-        }
     };
 
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
+    const progress = totalSeconds > 0 ? remaining / totalSeconds : 1;
     const isUrgent = remaining > 0 && remaining <= 10;
     const isWarning = remaining > 10 && remaining <= 30;
+
+    // SVG 圆环参数
+    const R = 108;
+    const C = 2 * Math.PI * R;
+
+    const ringColor = isFinished || isUrgent
+        ? 'stroke-red-500'
+        : isWarning
+            ? 'stroke-amber-500'
+            : 'stroke-primary';
 
     const timeColor = isFinished
         ? 'text-red-500 animate-pulse'
@@ -108,25 +145,6 @@ export default function GameClock() {
             : isWarning
                 ? 'text-amber-600 dark:text-amber-400'
                 : 'text-slate-800 dark:text-white';
-
-    // 沙漏周围光晕颜色
-    const glowColor = isFinished || isUrgent
-        ? 'shadow-red-500/40'
-        : isWarning
-            ? 'shadow-amber-500/30'
-            : 'shadow-primary/20';
-
-    // DotLottie 实例回调 — 获取后暂停自动播放
-    const handleDotLottieRef = useCallback((instance: DotLottie | null) => {
-        dotLottieRef.current = instance;
-        if (instance) {
-            // 加载完成后暂停，由 setFrame 手动控制
-            instance.addEventListener('load', () => {
-                instance.pause();
-                instance.setFrame(0);
-            });
-        }
-    }, []);
 
     return (
         <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
@@ -148,17 +166,44 @@ export default function GameClock() {
             {/* 主内容 */}
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-24">
 
-                {/* 沙漏动画区域 */}
-                <div className={`relative w-56 h-56 mb-4 rounded-3xl transition-shadow duration-500 ${totalSeconds > 0 ? `shadow-lg ${glowColor}` : ''}`}>
-                    <div className={`w-full h-full transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-70' : ''}`}>
-                        <DotLottieReact
-                            src="/hourglass-loading.lottie"
-                            autoplay={false}
-                            loop={false}
-                            dotLottieRefCallback={handleDotLottieRef}
-                            renderConfig={{ autoResize: true }}
-                            style={{ width: '100%', height: '100%' }}
+                {/* 圆环 + 沙漏 组合区域 */}
+                <div className="relative w-64 h-64 mb-6">
+                    {/* SVG 圆环进度 */}
+                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 240 240">
+                        {/* 背景轨道 */}
+                        <circle
+                            cx="120" cy="120" r={R}
+                            fill="none"
+                            strokeWidth="5"
+                            className="stroke-slate-200 dark:stroke-slate-800"
                         />
+                        {/* 进度弧 */}
+                        {totalSeconds > 0 && (
+                            <circle
+                                cx="120" cy="120" r={R}
+                                fill="none"
+                                strokeWidth="5"
+                                strokeLinecap="round"
+                                strokeDasharray={C}
+                                strokeDashoffset={C * (1 - progress)}
+                                className={`transition-all duration-1000 ease-linear ${ringColor}`}
+                            />
+                        )}
+                    </svg>
+
+                    {/* 沙漏 Lottie 动画（循环装饰） + 沙量遮罩 */}
+                    <div className="absolute inset-[14px] rounded-full overflow-hidden">
+                        <div className={`relative w-full h-full transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}>
+                            <DotLottieReact
+                                src="/hourglass-loading.lottie"
+                                autoplay
+                                loop
+                                renderConfig={{ autoResize: true }}
+                                style={{ width: '100%', height: '100%' }}
+                            />
+                            {/* 沙量遮罩 — 仅在倒计时进行中显示 */}
+                            {totalSeconds > 0 && <SandMask progress={progress} />}
+                        </div>
                     </div>
                 </div>
 
