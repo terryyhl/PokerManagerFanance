@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { toPng } from 'html-to-image';
 import { Player } from '../../lib/api';
 import Avatar from '../../components/Avatar';
@@ -8,49 +8,62 @@ import { PokerCard, CardBack } from './PokerCard';
 
 // ─── 逐对逐道比牌动画 ──────────────────────────────────────
 
-export const CompareAnimation: React.FC<{
+// ─── 常量 ─────────────────────────────────────────────────────
+const LANE_NAMES: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
+const LANE_LABELS: Record<string, string> = { head: '头道', mid: '中道', tail: '尾道' };
+
+export const CompareAnimation = memo<{
   result: RoundResult; players: Player[]; userId?: string; onClose: () => void; replay?: boolean; gameName?: string;
-}> = ({ result, players, userId, onClose, replay = false, gameName }) => {
+}>(function CompareAnimation({ result, players, userId, onClose, replay = false, gameName }) {
   const { settlement, hands, publicCards, ghostCount, ghostMultiplier, roundNumber } = result;
-  const playerMap: Record<string, Player> = {};
-  for (const p of players) playerMap[p.user_id] = p;
+
+  const playerMap = useMemo(() => {
+    const map: Record<string, Player> = {};
+    for (const p of players) map[p.user_id] = p;
+    return map;
+  }, [players]);
 
   // 构建两两对战列表
-  const allPlayerIds = settlement.players.map(p => p.userId);
-  const pairs: Array<[string, string]> = [];
-  for (let i = 0; i < allPlayerIds.length; i++) {
-    for (let j = i + 1; j < allPlayerIds.length; j++) {
-      pairs.push([allPlayerIds[i], allPlayerIds[j]]);
-    }
-  }
-
-  // 构建每对每道的得分查找表: key = "userId_opponentId_lane" → score
-  const pairLaneScores: Record<string, number> = {};
-  for (const sp of settlement.players) {
-    for (const ls of sp.laneScores) {
-      if (ls.lane === 'head' || ls.lane === 'mid' || ls.lane === 'tail') {
-        const key = `${ls.userId}_${ls.opponentId}_${ls.lane}`;
-        pairLaneScores[key] = (pairLaneScores[key] || 0) + ls.score;
+  const pairs = useMemo(() => {
+    const allPlayerIds = settlement.players.map(p => p.userId);
+    const result: Array<[string, string]> = [];
+    for (let i = 0; i < allPlayerIds.length; i++) {
+      for (let j = i + 1; j < allPlayerIds.length; j++) {
+        result.push([allPlayerIds[i], allPlayerIds[j]]);
       }
     }
-  }
+    return result;
+  }, [settlement.players]);
+
+  // 构建每对每道的得分查找表: key = "userId_opponentId_lane" → score
+  const pairLaneScores = useMemo(() => {
+    const scores: Record<string, number> = {};
+    for (const sp of settlement.players) {
+      for (const ls of sp.laneScores) {
+        if (ls.lane === 'head' || ls.lane === 'mid' || ls.lane === 'tail') {
+          const key = `${ls.userId}_${ls.opponentId}_${ls.lane}`;
+          scores[key] = (scores[key] || 0) + ls.score;
+        }
+      }
+    }
+    return scores;
+  }, [settlement.players]);
 
   // 检测每对是否打枪
-  const pairGunStatus: Record<string, { gunner: string | null }> = {};
-  for (const [a, b] of pairs) {
-    const key = `${a}_${b}`;
-    const lanes: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
-    let aWins = 0, bWins = 0;
-    for (const lane of lanes) {
-      const scoreA = pairLaneScores[`${a}_${b}_${lane}`] || 0;
-      if (scoreA > 0) aWins++;
-      else if (scoreA < 0) bWins++;
+  const pairGunStatus = useMemo(() => {
+    const status: Record<string, { gunner: string | null }> = {};
+    for (const [a, b] of pairs) {
+      const key = `${a}_${b}`;
+      let aWins = 0, bWins = 0;
+      for (const lane of LANE_NAMES) {
+        const scoreA = pairLaneScores[`${a}_${b}_${lane}`] || 0;
+        if (scoreA > 0) aWins++;
+        else if (scoreA < 0) bWins++;
+      }
+      status[key] = { gunner: aWins === 3 ? a : bWins === 3 ? b : null };
     }
-    pairGunStatus[key] = { gunner: aWins === 3 ? a : bWins === 3 ? b : null };
-  }
-
-  const laneNames: Array<'head' | 'mid' | 'tail'> = ['head', 'mid', 'tail'];
-  const laneLabels: Record<string, string> = { head: '头道', mid: '中道', tail: '尾道' };
+    return status;
+  }, [pairs, pairLaneScores]);
 
   // 阶段: 每对为一个阶段（一次性展开3道），最后一个阶段为汇总
   const summaryPhase = pairs.length;
@@ -90,7 +103,7 @@ export const CompareAnimation: React.FC<{
     }
   }, [phase, effectType, replay, summaryPhase]);
 
-  const sorted = [...settlement.players].sort((a, b) => b.finalScore - a.finalScore);
+  const sorted = useMemo(() => [...settlement.players].sort((a, b) => b.finalScore - a.finalScore), [settlement.players]);
 
   const skipToEnd = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -181,7 +194,7 @@ export const CompareAnimation: React.FC<{
 
             // 该对的三道总得分（A视角）
             let pairTotalA = 0;
-            for (const lane of laneNames) {
+            for (const lane of LANE_NAMES) {
               pairTotalA += pairLaneScores[`${pA}_${pB}_${lane}`] || 0;
             }
 
@@ -203,7 +216,7 @@ export const CompareAnimation: React.FC<{
                 </div>
                 {/* 三道一次性展开 */}
                 <div className="p-2 space-y-1.5">
-                  {laneNames.map((lane) => {
+                  {LANE_NAMES.map((lane) => {
                     const cardCount = lane === 'head' ? 3 : 5;
                     const cardsA = handA ? (lane === 'head' ? handA.head_cards : lane === 'mid' ? handA.mid_cards : handA.tail_cards) : null;
                     const cardsB = handB ? (lane === 'head' ? handB.head_cards : lane === 'mid' ? handB.mid_cards : handB.tail_cards) : null;
@@ -215,7 +228,7 @@ export const CompareAnimation: React.FC<{
                     return (
                       <div key={lane} className="rounded-xl p-2 bg-white/[0.01]">
                         <div className="flex items-center gap-1 mb-1">
-                          <span className="text-[10px] font-bold text-slate-500">{laneLabels[lane]}</span>
+                          <span className="text-[10px] font-bold text-slate-500">{LANE_LABELS[lane]}</span>
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
@@ -330,4 +343,4 @@ export const CompareAnimation: React.FC<{
       )}
     </div>
   );
-};
+});

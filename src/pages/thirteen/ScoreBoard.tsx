@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { toPng } from 'html-to-image';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Player } from '../../lib/api';
@@ -8,11 +8,11 @@ import { CompareAnimation } from './CompareAnimation';
 
 // ─── 积分账单面板 ────────────────────────────────────────────
 
-export const ScoreBoard: React.FC<{
+export const ScoreBoard = memo<{
   gameId: string; gameName: string; players: Player[]; playerTotals: Record<string, number>;
   finishedRounds: number; isHost: boolean; userId?: string;
   onClose: () => void; onCloseRoom: () => void;
-}> = ({ gameId, gameName, players, playerTotals, finishedRounds, isHost, userId, onClose, onCloseRoom }) => {
+}>(function ScoreBoard({ gameId, gameName, players, playerTotals, finishedRounds, isHost, userId, onClose, onCloseRoom }) {
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [replayResult, setReplayResult] = useState<RoundResult | null>(null);
@@ -103,9 +103,9 @@ export const ScoreBoard: React.FC<{
     a.href = previewUrl; a.download = `十三水积分_${gameName}.png`; a.click();
   };
 
-  const sorted = players
+  const sorted = useMemo(() => players
     .map(p => ({ ...p, total: playerTotals[p.user_id] || 0 }))
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => b.total - a.total), [players, playerTotals]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col">
@@ -373,4 +373,4 @@ export const ScoreBoard: React.FC<{
       )}
     </div>
   );
-};
+});

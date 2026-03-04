@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { gamesApi, Game, Player } from '../lib/api';
@@ -25,14 +25,14 @@ const LANE_MAX = { head: 3, mid: 5, tail: 5 } as const;
 
 // ─── Header 组件（提取到函数体外避免每次渲染重建） ────────────────
 
-const RoomHeader: React.FC<{
+const RoomHeader = memo<{
   game: Game | null;
   finishedRounds: number;
   gamePhase: string;
   onBack: () => void;
   onShowScoreBoard: () => void;
   showBack?: boolean;
-}> = ({ game, finishedRounds, gamePhase, onBack, onShowScoreBoard, showBack = true }) => (
+}>(function RoomHeader({ game, finishedRounds, gamePhase, onBack, onShowScoreBoard, showBack = true }) { return (
   <div className="flex items-center px-4 h-14 border-b border-white/5 shrink-0">
     {showBack && (
       <button onClick={onBack} className="mr-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
@@ -56,7 +56,7 @@ const RoomHeader: React.FC<{
       <span className="text-[10px] font-mono text-slate-500">{game?.room_code}</span>
     </div>
   </div>
-);
+); });
 
 // ─── 主组件 ────────────────────────────────────────────────────
 
