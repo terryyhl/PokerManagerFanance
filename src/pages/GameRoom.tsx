@@ -338,8 +338,11 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     // 申请用户：审核通过通知（由 buy_ins INSERT 事件触发）
     onBuyinApproved: (data) => {
       showToast(`✅ 买入申请已通过！${data.amount} 积分`, 'success');
-      // totalAmount 先用 0 占位，fetchGame 完成后界面会自动更新
-      setBuyinSuccess({ amount: data.amount, total: data.totalAmount ?? 0 });
+      // 从当前已有买入记录计算总额，加上本次审核通过的金额
+      const existingTotal = buyIns
+        .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy'))
+        .reduce((sum, b) => sum + b.amount, 0);
+      setBuyinSuccess({ amount: data.amount, total: existingTotal + data.amount });
       setShowBuyIn(true);
       // buy_ins INSERT 已经触发了 onGameRefresh → fetchGame，无需重复调用
     },
