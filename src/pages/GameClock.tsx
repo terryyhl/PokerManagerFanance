@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import type { DotLottie } from '@lottiefiles/dotlottie-web';
 
 const PRESETS = [
     { label: '30s', seconds: 30 },
     { label: '1', seconds: 60 },
     { label: '2', seconds: 120 },
     { label: '3', seconds: 180 },
-];
-
-/** 可用的 Lottie 动画列表，每次开启闹钟随机选一个 */
-const LOTTIE_ANIMATIONS = [
-    '/panda-sleeping.lottie',
-    '/cat-loading.lottie',
-    '/cat-love.lottie',
-    '/lovely-cats.lottie',
 ];
 
 export default function GameClock() {
@@ -27,10 +20,8 @@ export default function GameClock() {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // 每次开启闹钟随机换一个动画
-    const [lottieSrc, setLottieSrc] = useState(
-        () => LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]
-    );
+    // DotLottie 实例引用，用于帧同步控制
+    const dotLottieRef = useRef<DotLottie | null>(null);
 
     const cleanup = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -39,6 +30,7 @@ export default function GameClock() {
 
     useEffect(() => () => cleanup(), [cleanup]);
 
+    // 倒计时核心逻辑
     useEffect(() => {
         if (!isRunning || remaining <= 0) return;
         intervalRef.current = setInterval(() => {
@@ -57,6 +49,22 @@ export default function GameClock() {
         return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
     }, [isRunning, remaining]);
 
+    // 沙漏帧同步：将 remaining/totalSeconds 映射到 Lottie 帧
+    useEffect(() => {
+        const lottie = dotLottieRef.current;
+        if (!lottie || totalSeconds <= 0) return;
+
+        const total = lottie.totalFrames;
+        if (!total || total <= 0) return;
+
+        // progress: 1(满) → 0(空)
+        const progress = remaining / totalSeconds;
+        // 帧映射：progress=1 → frame=0（沙漏满）, progress=0 → frame=totalFrames（沙漏空）
+        const targetFrame = Math.round((1 - progress) * (total - 1));
+        lottie.setFrame(targetFrame);
+    }, [remaining, totalSeconds]);
+
+    // 结束闪烁 5 秒后恢复
     useEffect(() => {
         if (isFinished) {
             flashTimerRef.current = setTimeout(() => setIsFinished(false), 5000);
@@ -66,11 +74,14 @@ export default function GameClock() {
 
     const handleSelectPreset = (secs: number) => {
         cleanup();
-        setLottieSrc(LOTTIE_ANIMATIONS[Math.floor(Math.random() * LOTTIE_ANIMATIONS.length)]);
         setTotalSeconds(secs);
         setRemaining(secs);
         setIsRunning(true);
         setIsFinished(false);
+        // 重置沙漏到起始帧
+        if (dotLottieRef.current) {
+            dotLottieRef.current.setFrame(0);
+        }
     };
 
     const handleReset = () => {
@@ -79,22 +90,16 @@ export default function GameClock() {
         setIsFinished(false);
         setRemaining(0);
         setTotalSeconds(0);
+        // 重置沙漏到起始帧
+        if (dotLottieRef.current) {
+            dotLottieRef.current.setFrame(0);
+        }
     };
 
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
-    const progress = totalSeconds > 0 ? remaining / totalSeconds : 0;
     const isUrgent = remaining > 0 && remaining <= 10;
     const isWarning = remaining > 10 && remaining <= 30;
-
-    const R = 88;
-    const C = 2 * Math.PI * R;
-
-    const ringColor = isFinished || isUrgent
-        ? 'stroke-red-500'
-        : isWarning
-            ? 'stroke-amber-500'
-            : 'stroke-primary';
 
     const timeColor = isFinished
         ? 'text-red-500 animate-pulse'
@@ -103,6 +108,25 @@ export default function GameClock() {
             : isWarning
                 ? 'text-amber-600 dark:text-amber-400'
                 : 'text-slate-800 dark:text-white';
+
+    // 沙漏周围光晕颜色
+    const glowColor = isFinished || isUrgent
+        ? 'shadow-red-500/40'
+        : isWarning
+            ? 'shadow-amber-500/30'
+            : 'shadow-primary/20';
+
+    // DotLottie 实例回调 — 获取后暂停自动播放
+    const handleDotLottieRef = useCallback((instance: DotLottie | null) => {
+        dotLottieRef.current = instance;
+        if (instance) {
+            // 加载完成后暂停，由 setFrame 手动控制
+            instance.addEventListener('load', () => {
+                instance.pause();
+                instance.setFrame(0);
+            });
+        }
+    }, []);
 
     return (
         <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
@@ -124,61 +148,34 @@ export default function GameClock() {
             {/* 主内容 */}
             <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-24">
 
-                {/* 圆环进度 + 熊猫动画 */}
-                <div className="relative w-60 h-60 mb-8">
-                    {/* 进度圆环 SVG */}
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                        {/* 背景轨道 */}
-                        <circle
-                            cx="100" cy="100" r={R}
-                            fill="none"
-                            strokeWidth="6"
-                            className="stroke-slate-200 dark:stroke-slate-800"
+                {/* 沙漏动画区域 */}
+                <div className={`relative w-56 h-56 mb-4 rounded-3xl transition-shadow duration-500 ${totalSeconds > 0 ? `shadow-lg ${glowColor}` : ''}`}>
+                    <div className={`w-full h-full transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-70' : ''}`}>
+                        <DotLottieReact
+                            src="/hourglass-loading.lottie"
+                            autoplay={false}
+                            loop={false}
+                            dotLottieRefCallback={handleDotLottieRef}
+                            renderConfig={{ autoResize: true }}
+                            style={{ width: '100%', height: '100%' }}
                         />
-                        {/* 进度弧 */}
-                        {totalSeconds > 0 && (
-                            <circle
-                                cx="100" cy="100" r={R}
-                                fill="none"
-                                strokeWidth="6"
-                                strokeLinecap="round"
-                                strokeDasharray={C}
-                                strokeDashoffset={C * (1 - progress)}
-                                className={`transition-all duration-1000 ease-linear ${ringColor}`}
-                            />
-                        )}
-                    </svg>
-
-                    {/* 圆内内容 */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        {/* Lottie 动画 — 容器固定大小，cat-loading 内部缩放 */}
-                        <div
-                            className={`w-40 h-40 flex items-center justify-center transition-all ${!isRunning && !isFinished && totalSeconds === 0 ? 'opacity-40 grayscale' : ''} ${isFinished ? 'opacity-60' : ''}`}
-                        >
-                            <div className={lottieSrc === '/cat-loading.lottie' ? 'w-28 h-28' : 'w-full h-full'}>
-                                <DotLottieReact
-                                    key={lottieSrc}
-                                    src={lottieSrc}
-                                    loop
-                                    autoplay
-                                    renderConfig={{ autoResize: true }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* 倒计时数字 */}
-                        {totalSeconds > 0 ? (
-                            <span className={`text-3xl font-black tabular-nums tracking-tight -mt-1 transition-colors ${timeColor}`}>
-                                {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
-                            </span>
-                        ) : (
-                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-1">选择档位开始</span>
-                        )}
-
-                        {isFinished && (
-                            <span className="text-xs font-bold text-red-500 animate-pulse">时间到！</span>
-                        )}
                     </div>
+                </div>
+
+                {/* 倒计时数字 */}
+                <div className="mb-8">
+                    {totalSeconds > 0 ? (
+                        <span className={`text-4xl font-black tabular-nums tracking-tight transition-colors ${timeColor}`}>
+                            {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+                        </span>
+                    ) : (
+                        <span className="text-sm font-medium text-slate-400 dark:text-slate-500">选择档位开始</span>
+                    )}
+                    {isFinished && (
+                        <div className="text-center mt-1">
+                            <span className="text-sm font-bold text-red-500 animate-pulse">时间到！</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* 档位选择 */}
