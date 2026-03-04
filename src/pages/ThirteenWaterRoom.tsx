@@ -578,6 +578,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     syncGameState();
   }, [syncGameState]);
 
+  console.log('[render] useMemo#1 allSelectedCards');
   const allSelectedCards = useMemo(() => [...myHeadCards, ...myMidCards, ...myTailCards], [myHeadCards, myMidCards, myTailCards]);
 
   const handleSelectCard = useCallback((card: string) => {
@@ -694,7 +695,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
   }, [myHeadCards, myMidCards, myTailCards, game, user, currentRoundId, isConfirmed]);
 
+  console.log('[render] useMemo#2 me');
   const me = useMemo(() => players.find(p => p.user_id === user?.id), [players, user?.id]);
+  console.log('[render] useMemo#3 opponents');
   const opponents = useMemo(() => players.filter(p => p.user_id !== user?.id), [players, user?.id]);
 
   // ─── 密码键盘 ──────────────────────────────────────────────
@@ -965,6 +968,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   const publicCardsSet = publicCards.length > 0;
 
+  console.log('[render] useMemo#4 tableProps, gamePhase=', gamePhase, 'game=', !!game, 'me=', !!me, 'opponents=', opponents.length, 'currentPlayers=', currentPlayers);
   const tableProps: TableProps = useMemo(() => ({
     game,
     me,

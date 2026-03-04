@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { gamesApi, RoomType } from '../lib/api';
 import GameRoom from '../pages/GameRoom';
 import ThirteenWaterRoom from '../pages/ThirteenWaterRoom';
+import TableErrorBoundary from './TableErrorBoundary';
 
 interface GameRouterProps {
   forcedId: string;
@@ -44,7 +45,7 @@ export default function GameRouter({ forcedId }: GameRouterProps) {
   }
 
   if (roomType === 'thirteen') {
-    return <ThirteenWaterRoom forcedId={forcedId} />;
+    return <TableErrorBoundary><ThirteenWaterRoom forcedId={forcedId} /></TableErrorBoundary>;
   }
 
   return <GameRoom forcedId={forcedId} />;
