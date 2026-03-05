@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useUser } from '../contexts/UserContext';
 import Avatar from '../components/Avatar';
 import TableErrorBoundary from '../components/TableErrorBoundary';
+import { autoArrange } from '../lib/handEval';
 
 // 导入拆分后的组件
 import {
@@ -622,7 +623,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     showToast('已清空，重新摆牌', 'info');
   }, [showToast]);
 
-  const handleAutoArrange = useCallback(async () => {
+  const handleAutoArrange = useCallback(() => {
     if (!game || isAutoArranging) return;
     const allCards = [...myHeadCards, ...myMidCards, ...myTailCards];
     if (allCards.length !== 13) {
@@ -631,19 +632,17 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     }
     setIsAutoArranging(true);
     setSelectedCard(null);
-    try {
-      const res = await fetch(`/api/thirteen/${game.id}/auto-arrange`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cards: allCards }),
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error || '自动摆牌失败', 'error'); return; }
-      setMyHeadCards(data.head);
-      setMyMidCards(data.mid);
-      setMyTailCards(data.tail);
-      showToast(`已自动摆牌: ${data.headName} / ${data.midName} / ${data.tailName}`, 'success');
-    } catch { showToast('网络错误', 'error'); }
-    finally { setIsAutoArranging(false); }
+    // 使用 setTimeout 让 UI 先更新（显示"计算中..."），再执行计算
+    setTimeout(() => {
+      try {
+        const result = autoArrange(allCards);
+        setMyHeadCards(result.head);
+        setMyMidCards(result.mid);
+        setMyTailCards(result.tail);
+        showToast(`已自动摆牌: ${result.headName} / ${result.midName} / ${result.tailName}`, 'success');
+      } catch { showToast('自动摆牌失败', 'error'); }
+      finally { setIsAutoArranging(false); }
+    }, 16);
   }, [game, isAutoArranging, myHeadCards, myMidCards, myTailCards, showToast]);
 
   // ─── Modal 开关稳定回调（避免 Table/GameModals 内联函数击穿 memo）──
