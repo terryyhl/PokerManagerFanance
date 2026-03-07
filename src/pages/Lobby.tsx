@@ -77,7 +77,7 @@ export default function Lobby() {
   return (
     <AnimatedPage animationType="slide-left">
       <div className="relative flex h-full min-h-full w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
-        <div className="flex items-center justify-between p-5 bg-background-light dark:bg-background-dark sticky top-0 z-10" style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 0px))' }}>
+        <div className="flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark sticky top-0 z-10">
           <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">大厅</h2>
           <div className="flex items-center gap-2">
             <button

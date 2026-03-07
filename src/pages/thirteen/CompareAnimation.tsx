@@ -143,7 +143,7 @@ export const CompareAnimation = memo<{
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col overflow-hidden" onClick={!replay && phase < summaryPhase ? skipToEnd : undefined}>
       <div className="flex-1 flex flex-col overflow-y-auto" ref={contentRef}>
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-4 shrink-0" style={{ height: 'calc(48px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="flex items-center justify-between px-4 h-12 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-white">第 {roundNumber} 局</span>
             {ghostCount > 0 && (

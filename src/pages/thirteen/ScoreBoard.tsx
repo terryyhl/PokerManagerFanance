@@ -110,7 +110,7 @@ export const ScoreBoard = memo<{
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col">
       <div className="bg-background-dark flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 border-b border-white/5 shrink-0" style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="flex items-center justify-between px-4 h-14 border-b border-white/5 shrink-0">
           <h2 className="text-lg font-bold text-white">积分账单</h2>
           <div className="flex items-center gap-1">
             <button onClick={() => { setPreviewUrl(null); setShowSharePoster(true); }} className="p-1.5 rounded-lg hover:bg-white/10" title="分享">

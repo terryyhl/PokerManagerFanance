@@ -79,7 +79,7 @@ export default function Login() {
   return (
     <AnimatedPage animationType="slide-left">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full flex flex-col">
-        <header className="flex items-center justify-between px-4 pb-4 sticky top-0 z-10 bg-background-light dark:bg-background-dark" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
+        <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background-light dark:bg-background-dark">
           <button
             onClick={() => navigate(-1)}
             className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"

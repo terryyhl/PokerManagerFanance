@@ -124,7 +124,7 @@ export default function SettlementReport() {
     <AnimatedPage animationType="slide-up">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full">
         <div className="relative flex min-h-full h-full w-full flex-col mx-auto bg-background-light dark:bg-background-dark">
-          <div className="sticky top-0 z-20 flex items-center bg-background-light dark:bg-background-dark px-4 pb-2 justify-between border-b border-slate-200 dark:border-slate-800" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
+          <div className="sticky top-0 z-20 flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between border-b border-slate-200 dark:border-slate-800">
             <button
               onClick={() => navigate(-1)}
               className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"

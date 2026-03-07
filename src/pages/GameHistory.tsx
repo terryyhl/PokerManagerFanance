@@ -108,7 +108,7 @@ export default function GameHistory() {
         <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
 
             {/* Header */}
-            <div className="flex-shrink-0 px-5 pb-3 bg-background-light dark:bg-background-dark z-10 border-b border-slate-200 dark:border-slate-800" style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 0px))' }}>
+            <div className="flex-shrink-0 px-5 pt-8 pb-3 bg-background-light dark:bg-background-dark z-10 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-xl font-bold leading-tight tracking-tight">牌局回顾</h2>
                     <button onClick={fetchCurrent}

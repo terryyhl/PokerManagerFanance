@@ -75,7 +75,7 @@ export default function Toolbox() {
     return (
         <AnimatedPage animationType="slide-left">
             <div className="relative flex h-full min-h-full w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
-                <div className="flex-shrink-0 flex items-center justify-center p-5" style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 0px))' }}>
+                <div className="flex-shrink-0 flex items-center justify-center p-5 pt-8">
                     <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">工具箱</h2>
                 </div>
 

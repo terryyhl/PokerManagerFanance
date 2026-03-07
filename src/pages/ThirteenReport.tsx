@@ -136,7 +136,7 @@ export default function ThirteenReport() {
             <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-dark text-slate-100">
 
                 {/* Header */}
-                <div className="flex items-center gap-3 px-4 pb-3 border-b border-white/5 shrink-0" style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 0px))' }}>
+                <div className="flex items-center gap-3 px-4 pt-8 pb-3 border-b border-white/5 shrink-0">
                     <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-white/10">
                         <span className="material-symbols-outlined text-white text-xl">arrow_back</span>
                     </button>

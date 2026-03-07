@@ -18,7 +18,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
   return (
     <div className="h-dvh bg-background-dark text-white flex flex-col overflow-hidden relative">
       {/* 标题栏: 返回 + 房间名 + 按钮 */}
-      <div className="flex items-center justify-between px-2 bg-black/30 border-b border-white/5 shrink-0" style={{ height: 'calc(58px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div className="flex items-center justify-between px-2 h-[58px] bg-black/30 border-b border-white/5 shrink-0">
         <button onClick={() => p.setGamePhase('waiting')} className="p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0">
           <span className="material-symbols-outlined text-[20px] text-slate-400">arrow_back</span>
         </button>

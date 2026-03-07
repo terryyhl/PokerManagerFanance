@@ -35,7 +35,7 @@ const RoomHeader = memo<{
   onShowScoreBoard: () => void;
   showBack?: boolean;
 }>(function RoomHeader({ game, finishedRounds, gamePhase, onBack, onShowScoreBoard, showBack = true }) { return (
-  <div className="flex items-center px-4 border-b border-white/5 shrink-0" style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+  <div className="flex items-center px-4 h-14 border-b border-white/5 shrink-0">
     {showBack && (
       <button onClick={onBack} className="mr-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
         <span className="material-symbols-outlined text-[22px] text-white">arrow_back</span>
@@ -809,7 +809,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
     const pinFull = passwordPin.join('').length === 6;
     return (
       <div className="relative flex h-dvh min-h-dvh w-full flex-col bg-background-dark text-white">
-        <div className="absolute left-4 z-50" style={{ top: 'max(24px, env(safe-area-inset-top, 24px))' }}>
+        <div className="absolute top-6 left-4 z-50">
           <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
             <span className="material-symbols-outlined text-[24px] text-white">close</span>
           </button>
