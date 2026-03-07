@@ -107,6 +107,15 @@ export default function SettlementReport() {
   const totalProfit = totalChips - totalBuyIn;
   const isBalanced = Math.abs(totalChips - totalBuyIn) <= 1;
 
+  // 水上（正盈亏总和）/ 水下（负盈亏总和）
+  const { totalUp, totalDown } = stats.reduce((acc, s) => {
+    const chips = localChips[s.userId] ?? s.finalChips;
+    const profit = chips - s.totalBuyin;
+    if (profit > 0) acc.totalUp += profit;
+    else if (profit < 0) acc.totalDown += profit;
+    return acc;
+  }, { totalUp: 0, totalDown: 0 });
+
   // 格式化真实金额
   const toReal = (chips: number) => (chips * exchangeRate).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -339,6 +348,24 @@ export default function SettlementReport() {
                     })}
                   </tbody>
                   <tfoot className="bg-slate-50 dark:bg-[#15202b] border-t border-slate-200 dark:border-slate-700">
+                    <tr className="border-b border-slate-100 dark:border-slate-700/50">
+                      <td className="px-4 py-2.5 font-semibold text-sm text-green-600 dark:text-green-400">水上</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-sm text-green-600 dark:text-green-400">
+                        +{totalUp}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold text-sm text-green-600 dark:text-green-400">
+                        +${toReal(totalUp)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-100 dark:border-slate-700/50">
+                      <td className="px-4 py-2.5 font-semibold text-sm text-red-500 dark:text-red-400">水下</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-sm text-red-500 dark:text-red-400">
+                        {totalDown}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold text-sm text-red-500 dark:text-red-400">
+                        -${toReal(Math.abs(totalDown))}
+                      </td>
+                    </tr>
                     <tr>
                       <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">总池</td>
                       <td className={`px-4 py-3 text-right font-bold ${totalProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
