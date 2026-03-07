@@ -49,7 +49,7 @@ router.post('/', async (req, res) => {
                 type: validType,
                 ...(isProxy ? { created_by: createdBy } : {}),
             })
-            .select(`*, users(id, username)`)
+            .select(`*, users!user_id(id, username)`)
             .single();
 
         if (error) {
@@ -188,7 +188,7 @@ router.post('/pending/:id/approve', async (req, res) => {
                 amount: pending.amount,
                 type: pending.type,
             })
-            .select(`*, users(id, username)`)
+            .select(`*, users!user_id(id, username)`)
             .single();
 
         if (error) {
@@ -292,7 +292,7 @@ router.post('/checkout', async (req, res) => {
                 type: 'checkout',
                 ...(isProxy ? { created_by: createdBy } : {}),
             })
-            .select(`*, users(id, username)`)
+            .select(`*, users!user_id(id, username)`)
             .single();
 
         if (error) {

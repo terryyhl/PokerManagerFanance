@@ -105,7 +105,7 @@ router.get('/:id/full-state', async (req, res) => {
         // 并行查询所有数据
         const [gameResult, buyInsResult, playersResult, pendingResult] = await Promise.all([
             supabase.from('games').select('*, users!games_created_by_fkey(id, username)').eq('id', id).single(),
-            supabase.from('buy_ins').select('*, users(id, username)').eq('game_id', id).order('created_at', { ascending: true }),
+            supabase.from('buy_ins').select('*, users!user_id(id, username)').eq('game_id', id).order('created_at', { ascending: true }),
             supabase.from('game_players').select('*, users(id, username)').eq('game_id', id),
             getPending(id),
         ]);
