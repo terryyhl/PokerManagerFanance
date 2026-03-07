@@ -1,16 +1,21 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
+import AuthLoading from '../components/AuthLoading';
+import { useUser } from '../contexts/UserContext';
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const { user, hydrated } = useUser();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!hydrated || user) return;
+
     const tl = anime.timeline({
       easing: 'easeOutExpo',
       duration: 800
@@ -39,7 +44,23 @@ export default function Welcome() {
       opacity: [0, 1],
       delay: anime.stagger(100)
     }, '-=600');
-  }, []);
+
+    return () => {
+      tl.pause();
+      anime.remove(iconRef.current);
+      anime.remove(titleRef.current);
+      anime.remove(subtitleRef.current);
+      anime.remove(buttonsRef.current?.children || []);
+    };
+  }, [hydrated, user]);
+
+  if (!hydrated) {
+    return <AuthLoading />;
+  }
+
+  if (user) {
+    return <Navigate to="/lobby" replace />;
+  }
 
   return (
     <AnimatedPage>

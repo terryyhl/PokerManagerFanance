@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import AuthLoading from './AuthLoading';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -11,8 +12,12 @@ interface ProtectedRouteProps {
  * 保留 from 参数，登录后可跳回原页面
  */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const { user } = useUser();
+    const { user, hydrated } = useUser();
     const location = useLocation();
+
+    if (!hydrated) {
+        return <AuthLoading />;
+    }
 
     if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;

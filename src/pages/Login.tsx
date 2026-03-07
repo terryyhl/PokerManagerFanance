@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import anime from 'animejs';
 import AnimatedPage from '../components/AnimatedPage';
+import AuthLoading from '../components/AuthLoading';
 import { usersApi } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser } = useUser();
+  const { user, hydrated, setUser } = useUser();
   // ProtectedRoute 重定向时会传 state.from，登录后跳回原页面
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname || '/lobby';
+  const fromLocation = (location.state as {
+    from?: { pathname: string; search?: string; hash?: string };
+  } | null)?.from;
+  const from = fromLocation
+    ? `${fromLocation.pathname}${fromLocation.search || ''}${fromLocation.hash || ''}`
+    : '/lobby';
   const formRef = useRef<HTMLFormElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [username, setUsername] = useState('');
@@ -18,6 +24,8 @@ export default function Login() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!hydrated || user) return;
+
     anime({
       targets: headerRef.current?.children,
       translateY: [20, 0],
@@ -35,7 +43,20 @@ export default function Login() {
       easing: 'easeOutExpo',
       delay: anime.stagger(100, { start: 300 })
     });
-  }, []);
+
+    return () => {
+      anime.remove(headerRef.current?.children || []);
+      anime.remove(formRef.current?.children || []);
+    };
+  }, [hydrated, user]);
+
+  if (!hydrated) {
+    return <AuthLoading />;
+  }
+
+  if (user) {
+    return <Navigate to={from} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,9 +113,7 @@ export default function Login() {
               </div>
             </label>
 
-            {error && (
-              <p className="text-red-500 text-sm text-center opacity-0">{error}</p>
-            )}
+            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
             <div className="pt-4 opacity-0">
               <button
