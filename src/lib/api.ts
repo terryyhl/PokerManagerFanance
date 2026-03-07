@@ -194,6 +194,16 @@ export const gamesApi = {
 
     finish: (id: string, userId: string) =>
         request<{ game: Game }>('POST', `/games/${id}/finish`, { userId }),
+
+    getFullState: (id: string, userId: string) =>
+        request<{
+            game: Game;
+            buyIns: BuyIn[];
+            players: Player[];
+            pendingRequests: Array<{ id: string; gameId: string; userId: string; username: string; amount: number; totalBuyIn: number; type: 'initial' | 'rebuy'; createdAt: string }>;
+            luckyHands: LuckyHand[];
+            pendingLuckyHits: PendingLuckyHit[];
+        }>('GET', `/games/${id}/full-state?userId=${encodeURIComponent(userId)}`),
 };
 
 // ──────────────────────────── Buy-in API ───────────────────────────────────
@@ -207,6 +217,9 @@ export const buyInApi = {
 };
 
 export const pendingBuyInApi = {
+    getList: (gameId: string) =>
+        request<{ requests: Array<{ id: string; gameId: string; userId: string; username: string; amount: number; totalBuyIn: number; type: 'initial' | 'rebuy'; createdAt: string }> }>('GET', `/buyin/pending/${gameId}`),
+
     submit: (gameId: string, userId: string, username: string, amount: number, type: 'initial' | 'rebuy') =>
         request<{ request: { id: string } }>('POST', '/buyin/pending', { gameId, userId, username, amount, type }),
 

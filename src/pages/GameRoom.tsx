@@ -230,23 +230,36 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const fetchGame = async () => {
     if (!id || !user) return;
     try {
-      const { game: gameData, buyIns: buyInsData, players: playersData } = await gamesApi.get(id);
+      const {
+        game: gameData,
+        buyIns: buyInsData,
+        players: playersData,
+        pendingRequests: pendingData,
+        luckyHands: luckyHandsData,
+        pendingLuckyHits: pendingLuckyData,
+      } = await gamesApi.getFullState(id, user.id);
 
       setGame({ ...gameData, created_at: gameData.created_at || new Date().toISOString() });
       setBuyIns(buyInsData);
       setPlayers(playersData);
 
-      // 如果有幸运手牌功能开启，获取该功能的数据
-      if (gameData.lucky_hands_count > 0 && user) {
-        const { luckyHands: fetchedHands } = await luckyHandsApi.getAll(id);
-        setAllLuckyHands(fetchedHands);
-        // 这里我们只在 FAB 中关心【自己的】手牌配置
-        setLuckyHands(fetchedHands.filter((h) => h.user_id === user.id));
+      // 房主: 恢复待审核购买列表
+      setPendingRequests(pendingData.map(r => ({
+        id: r.id,
+        gameId: r.gameId,
+        userId: r.userId,
+        username: r.username,
+        amount: r.amount,
+        totalBuyIn: r.totalBuyIn,
+        type: r.type,
+        createdAt: r.createdAt,
+      })));
 
-        if (gameData.created_by === user.id) {
-          const { pendingHits } = await luckyHandsApi.getPending(id);
-          setPendingLuckyHits(pendingHits);
-        }
+      // 幸运手牌
+      if (gameData.lucky_hands_count > 0) {
+        setAllLuckyHands(luckyHandsData);
+        setLuckyHands(luckyHandsData.filter((h) => h.user_id === user.id));
+        setPendingLuckyHits(pendingLuckyData);
       }
 
       const isMember = (playersData as Player[]).some(p => p.user_id === user.id);
@@ -549,9 +562,20 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     if (needsApproval && !isHost) {
       setSubmitting(true);
       try {
-        await pendingBuyInApi.submit(id, user.id, user.username, amount, type);
+        const { request: pendingReq } = await pendingBuyInApi.submit(id, user.id, user.username, amount, type);
         // 标记「我已提交待审核申请」，供 SSE Hook 识别后续 buy_ins INSERT 为审批通过
         markPendingSubmitted(amount, type);
+        // 将自己的申请加入本地 pending 列表，立即在时间线中显示审核状态
+        setPendingRequests(prev => [...prev, {
+          id: pendingReq.id,
+          gameId: id,
+          userId: user.id,
+          username: user.username,
+          amount,
+          totalBuyIn: buyIns.filter(b => b.user_id === user.id && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0),
+          type,
+          createdAt: new Date().toISOString(),
+        }]);
         showToast('申请已提交，等待房主审核...', 'info');
         setBuyInAmount(''); setShowBuyIn(false);
       } catch (err: any) {
@@ -1061,9 +1085,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               ...buyIns.map(b => ({ ...b, _pending: false as const, _time: new Date(b.created_at).getTime() })),
             ].sort((a, b) => a._time - b._time).map((item) => {
               if (item._pending) {
-                // 待审核申请条目（只有房主能看到）
-                if (!isHost) return null;
                 const req = item as PendingBuyinEvent & { _pending: true };
+                const isMine = req.userId === user?.id;
+                // 非房主只能看自己的待审核记录
+                if (!isHost && !isMine) return null;
                 return (
                   <div key={`p-${req.id}`} className="flex items-end gap-3">
                     <div className="relative">
@@ -1096,21 +1121,31 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                               已有总买入: ${buyIns.filter(b => b.user_id === req.userId && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0)}
                             </span>
                           </div>
+                          {/* 非房主看到自己的审核状态提示 */}
+                          {!isHost && isMine && (
+                            <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-700/50">
+                              <span className="material-symbols-outlined text-amber-500 text-[12px] animate-spin" style={{ animationDuration: '2s' }}>progress_activity</span>
+                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">等待房主审核中...</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-col gap-1.5 shrink-0">
-                          <button
-                            onClick={() => setConfirmReq(req)}
-                            className="flex items-center gap-1 bg-primary hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">check</span>批准
-                          </button>
-                          <button
-                            onClick={() => handleReject(req)}
-                            className="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 text-slate-500 dark:text-slate-400 text-xs font-bold py-2 px-3 rounded-lg transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">close</span>拒绝
-                          </button>
-                        </div>
+                        {/* 房主才有批准/拒绝按钮 */}
+                        {isHost && (
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            <button
+                              onClick={() => setConfirmReq(req)}
+                              className="flex items-center gap-1 bg-primary hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">check</span>批准
+                            </button>
+                            <button
+                              onClick={() => handleReject(req)}
+                              className="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 text-slate-500 dark:text-slate-400 text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>拒绝
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

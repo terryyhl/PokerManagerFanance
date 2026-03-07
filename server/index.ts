@@ -32,13 +32,16 @@ const apiLimiter = rateLimit({
     message: { error: '请求过于频繁，请稍后再试' },
 });
 
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 分钟
-    max: 30, // 每个 IP 15 分钟最多 30 次登录尝试
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: '登录尝试过于频繁，请稍后再试' },
-});
+const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+const loginLimiter = isDev
+    ? (_req: express.Request, _res: express.Response, next: express.NextFunction) => next()
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 30,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: '登录尝试过于频繁，请稍后再试' },
+    });
 
 const joinLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 分钟

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
+import { getPending } from '../pendingRequests.js';
 
 const router = Router();
 
@@ -90,6 +91,67 @@ router.get('/history', async (req, res) => {
 });
 
 
+
+/**
+ * GET /api/games/:id/full-state?userId=xxx
+ * 一次性返回房间全量状态：game + buyIns + players + pendingRequests + luckyHands + pendingLuckyHits
+ * pendingRequests / pendingLuckyHits 仅在请求者是房主时返回有效数据
+ */
+router.get('/:id/full-state', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.query.userId as string | undefined;
+
+        // 并行查询所有数据
+        const [gameResult, buyInsResult, playersResult, pendingResult] = await Promise.all([
+            supabase.from('games').select('*, users!games_created_by_fkey(id, username)').eq('id', id).single(),
+            supabase.from('buy_ins').select('*, users(id, username)').eq('game_id', id).order('created_at', { ascending: true }),
+            supabase.from('game_players').select('*, users(id, username)').eq('game_id', id),
+            getPending(id),
+        ]);
+
+        if (gameResult.error || !gameResult.data) {
+            return res.status(404).json({ error: '游戏不存在' });
+        }
+
+        const game = gameResult.data;
+        const isHost = userId && game.created_by === userId;
+
+        // 幸运手牌相关查询（条件查询，仅在开启时执行）
+        let luckyHands: unknown[] = [];
+        let pendingLuckyHits: unknown[] = [];
+
+        if (game.lucky_hands_count > 0) {
+            const [lhResult, plhResult] = await Promise.all([
+                supabase.from('lucky_hands').select('*, users(id, username)').eq('game_id', id),
+                isHost
+                    ? supabase.from('pending_lucky_hits').select('*, users(id, username), lucky_hands(card_1, card_2, hand_index)').eq('game_id', id).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [], error: null }),
+            ]);
+            luckyHands = lhResult.data || [];
+            pendingLuckyHits = plhResult.data || [];
+        }
+
+        // 房主: 返回全部 pending；普通用户: 仅返回自己的 pending
+        const filteredPending = isHost
+            ? pendingResult
+            : userId
+                ? pendingResult.filter(r => r.userId === userId)
+                : [];
+
+        return res.json({
+            game,
+            buyIns: buyInsResult.data || [],
+            players: playersResult.data || [],
+            pendingRequests: filteredPending,
+            luckyHands,
+            pendingLuckyHits,
+        });
+    } catch (err) {
+        console.error('[games/full-state] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
 
 /**
  * GET /api/games/:id
