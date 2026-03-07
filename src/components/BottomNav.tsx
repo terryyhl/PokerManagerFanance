@@ -13,7 +13,7 @@ export default function BottomNav() {
     ];
 
     return (
-        <div className="fixed left-0 right-0 bg-white dark:bg-[#151f2b] border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2 z-50 pt-2 pb-2" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))' }}>
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#151f2b] border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2 z-50 pt-2" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))' }}>
             {tabs.map((tab) => {
                 const isActive = location.pathname.startsWith(tab.path);
                 return (
