@@ -19,6 +19,7 @@ import OddsChart from './pages/OddsChart';
 import DiceRoll from './pages/DiceRoll';
 import ThirteenReport from './pages/ThirteenReport';
 import MainLayout from './components/MainLayout';
+import InstallBanner from './components/InstallBanner';
 import { setupGlobalClickSound } from './lib/audio';
 
 // ─── 路径判断工具 ─────────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ export default function App() {
         <Router>
           <AppShell />
         </Router>
+        <InstallBanner />
       </div>
     </UserProvider>
   );
