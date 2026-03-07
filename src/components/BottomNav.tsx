@@ -32,7 +32,7 @@ export default function BottomNav() {
                         >
                             {tab.icon}
                         </span>
-                        <span className={`text-[10px] font-bold ${isActive ? 'scale-105' : ''}`}>
+                        <span className={`text-[11px] font-bold ${isActive ? 'scale-105' : ''}`}>
                             {tab.label}
                         </span>
                     </button>

@@ -87,16 +87,16 @@ export default function Toolbox() {
                             <button
                                 key={tool.id}
                                 onClick={() => navigate(tool.path)}
-                                className={`flex items-start p-4 rounded-2xl bg-white dark:bg-[#1a2632] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-[0.97] text-left ${tool.wide ? 'col-span-2 flex-row gap-4 items-center' : 'flex-col'}`}
+                                className={`flex items-start p-4 rounded-2xl bg-white dark:bg-[#1a2632] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-[0.97] text-left ${tool.wide ? 'col-span-2 flex-row gap-4 items-center' : 'flex-col items-center justify-center'}`}
                             >
-                                <div className={`${tool.wide ? 'w-12 h-12' : 'w-10 h-10 mb-3'} rounded-xl flex items-center justify-center shrink-0 ${tool.iconBg}`}>
+                                <div className={`${tool.wide ? 'w-12 h-12' : 'w-10 h-10 mb-2'} rounded-xl flex items-center justify-center shrink-0 ${tool.iconBg}`}>
                                     <span className={`material-symbols-outlined ${tool.wide ? 'text-[26px]' : 'text-[22px]'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                                         {tool.icon}
                                     </span>
                                 </div>
-                                <div className={tool.wide ? 'flex-1' : ''}>
-                                    <span className={`${tool.wide ? 'text-base' : 'text-sm'} font-bold text-slate-900 dark:text-white block mb-0.5`}>{tool.label}</span>
-                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{tool.desc}</span>
+                                <div className={tool.wide ? 'flex-1' : 'text-center'}>
+                                    <span className={`${tool.wide ? 'text-base' : 'text-sm'} font-bold text-slate-900 dark:text-white block`}>{tool.label}</span>
+                                    {tool.wide && <span className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{tool.desc}</span>}
                                 </div>
                                 {tool.wide && (
                                     <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px] shrink-0">chevron_right</span>

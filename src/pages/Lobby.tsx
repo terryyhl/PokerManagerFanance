@@ -132,13 +132,23 @@ export default function Lobby() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600 mb-4">playing_cards</span>
               <p className="text-slate-500 dark:text-slate-400 text-base font-medium mb-2">暂无活跃牌局</p>
-              <p className="text-slate-400 dark:text-slate-500 text-sm mb-6">点击"创建"开始一局新游戏</p>
-              <button
-                onClick={() => navigate('/create')}
-                className="bg-primary text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md shadow-primary/20"
-              >
-                创建牌局
-              </button>
+              <p className="text-slate-400 dark:text-slate-500 text-sm mb-8">创建新牌局或输入密码加入</p>
+              <div className="flex flex-col gap-3 w-full max-w-[260px]">
+                <button
+                  onClick={() => navigate('/create')}
+                  className="w-full bg-primary text-white py-3 rounded-xl text-sm font-bold shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[20px]">add</span>
+                  创建牌局
+                </button>
+                <button
+                  onClick={() => navigate('/join')}
+                  className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[20px]">lock_open</span>
+                  输入密码加入
+                </button>
+              </div>
             </div>
           )}
 
@@ -233,15 +243,17 @@ export default function Lobby() {
           )}
         </div>
 
-        <div className="absolute bottom-[76px] left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => navigate('/join')}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors text-sm font-medium mb-4"
-          >
-            <span className="material-symbols-outlined text-[20px]">lock_open</span>
-            输入密码加入私密房间
-          </button>
-        </div>
+        {!isLoading && games.length > 0 && (
+          <div className="absolute bottom-[76px] left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => navigate('/join')}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors text-sm font-medium mb-4"
+            >
+              <span className="material-symbols-outlined text-[20px]">lock_open</span>
+              输入密码加入私密房间
+            </button>
+          </div>
+        )}
       </div>
     </AnimatedPage>
   );
