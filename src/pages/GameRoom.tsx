@@ -1694,7 +1694,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 <p className="text-sm text-slate-400 mb-4">
                   为 <span className="font-bold text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '按手数购买' : '结账'}
                 </p>
-                <div className="relative">
+                <div className="relative w-full">
                   <input
                     type="number"
                     value={proxyAmount}
@@ -1702,14 +1702,15 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
                     onClick={e => (e.target as HTMLInputElement).select()}
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-center text-xl font-bold text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                    placeholder={proxyTarget.action === 'buyin' ? '手数' : '结账筹码'}
+                    className="w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 px-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
+                    placeholder={proxyTarget.action === 'buyin' ? '1' : '0'}
                     min={proxyTarget.action === 'buyin' ? 1 : 0}
                     max={proxyTarget.action === 'buyin' ? (game?.max_hands_per_buy || 10) : undefined}
+                    inputMode="numeric"
                   />
                   {proxyTarget.action === 'buyin' && (
                     <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                      <span className="text-sm font-bold text-slate-400">手</span>
+                      <span className="text-lg font-bold text-slate-500">手</span>
                     </div>
                   )}
                 </div>
