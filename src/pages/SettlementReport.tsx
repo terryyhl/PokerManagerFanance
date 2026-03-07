@@ -291,11 +291,7 @@ export default function SettlementReport() {
                     value={rateInput}
                     onChange={e => handleRateChange(e.target.value)}
                     onClick={e => (e.target as HTMLInputElement).select()}
-                    disabled={isFinished}
-                    className={`w-20 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-right px-2 focus:border-primary focus:outline-none ${isFinished
-                        ? 'bg-slate-200/50 dark:bg-[#111a22]/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                        : 'bg-slate-50 dark:bg-[#111a22] text-slate-900 dark:text-white'
-                      }`}
+                    className="w-20 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-right px-2 focus:border-primary focus:outline-none bg-slate-50 dark:bg-[#111a22] text-slate-900 dark:text-white"
                     placeholder="1.00"
                   />
                   <span className="text-xs text-slate-500">$</span>
