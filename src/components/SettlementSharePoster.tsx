@@ -39,6 +39,15 @@ export default function SettlementSharePoster({
 
     const totalBuyIn = stats.reduce((sum, s) => sum + s.totalBuyin, 0);
 
+    // 水上（正盈亏总和）/ 水下（负盈亏总和）
+    const { totalUp, totalDown } = sorted.reduce((acc, s) => {
+        const chips = localChips[s.userId] ?? s.finalChips;
+        const profit = chips - s.totalBuyin;
+        if (profit > 0) acc.totalUp += profit;
+        else if (profit < 0) acc.totalDown += profit;
+        return acc;
+    }, { totalUp: 0, totalDown: 0 });
+
     const generateImage = useCallback(async () => {
         if (!posterRef.current) return;
         setIsGenerating(true);
@@ -256,13 +265,57 @@ export default function SettlementSharePoster({
                             })}
                         </div>
 
+                        {/* 水上 / 水下统计 */}
+                        <div style={{
+                            display: 'flex',
+                            gap: 10,
+                            marginTop: 16,
+                        }}>
+                            {/* 水上 */}
+                            <div style={{
+                                flex: 1,
+                                padding: '12px 14px',
+                                background: 'rgba(52,211,153,0.08)',
+                                borderRadius: 12,
+                                border: '1px solid rgba(52,211,153,0.2)',
+                            }}>
+                                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, marginBottom: 4, letterSpacing: 0.5 }}>
+                                    水上 (赢)
+                                </div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#34d399' }}>
+                                    +{totalUp}
+                                </div>
+                                <div style={{ fontSize: 11, color: '#34d399', opacity: 0.7, marginTop: 2 }}>
+                                    +${toReal(totalUp)}
+                                </div>
+                            </div>
+                            {/* 水下 */}
+                            <div style={{
+                                flex: 1,
+                                padding: '12px 14px',
+                                background: 'rgba(248,113,113,0.08)',
+                                borderRadius: 12,
+                                border: '1px solid rgba(248,113,113,0.2)',
+                            }}>
+                                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, marginBottom: 4, letterSpacing: 0.5 }}>
+                                    水下 (输)
+                                </div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#f87171' }}>
+                                    {totalDown}
+                                </div>
+                                <div style={{ fontSize: 11, color: '#f87171', opacity: 0.7, marginTop: 2 }}>
+                                    -${toReal(Math.abs(totalDown))}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* 汇率信息 */}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: 6,
-                            marginTop: 16,
+                            marginTop: 10,
                             padding: '8px 16px',
                             background: 'rgba(59,130,246,0.08)',
                             borderRadius: 10,
