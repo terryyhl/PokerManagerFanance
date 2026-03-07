@@ -33,7 +33,7 @@ export const PublicCardPickerModal = memo<{
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col">
-      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pt-3 pb-3 px-3">
+      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pb-3 px-3" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">设置公共牌</span>
@@ -172,7 +172,7 @@ export const CardPickerModal = memo<{
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col">
-      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pt-3 pb-3 px-3">
+      <div className="bg-gradient-to-b from-surface-dark to-background-dark border-b border-white/10 pb-3 px-3" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">选牌摆牌</span>

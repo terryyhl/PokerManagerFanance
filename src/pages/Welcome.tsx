@@ -73,7 +73,7 @@ export default function Welcome() {
           <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent"></div>
         </div>
         
-        <div className="relative z-10 flex w-full justify-between p-4 pt-6"></div>
+        <div className="relative z-10 flex w-full justify-between p-4" style={{ paddingTop: 'max(24px, env(safe-area-inset-top, 0px))' }}></div>
         
         <div className="relative z-10 flex flex-col items-center justify-end h-full px-6 pb-12 w-full max-w-md mx-auto">
           <div ref={iconRef} className="mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-600 shadow-2xl shadow-primary/30 opacity-0">

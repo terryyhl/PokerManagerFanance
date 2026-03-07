@@ -109,7 +109,7 @@ export default function Profile() {
             <div className="flex h-full w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
 
                 {/* Header — 固定在顶部，不参与滚动 */}
-                <div className="flex-shrink-0 flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark z-10">
+                <div className="flex-shrink-0 flex items-center justify-between p-5 bg-background-light dark:bg-background-dark z-10" style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 0px))' }}>
                     <h2 className="text-xl font-bold">个人中心</h2>
                     <div className="flex items-center gap-1">
                         <button

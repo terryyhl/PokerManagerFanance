@@ -187,7 +187,7 @@ export default function CreateGame() {
   return (
     <AnimatedPage animationType="slide-up">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full flex flex-col">
-        <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
+        <header className="flex items-center justify-between px-4 pb-4 sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
           <button onClick={() => navigate(-1)} className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-900 dark:text-white">
             <span className="material-symbols-outlined text-[24px]">arrow_back</span>
           </button>

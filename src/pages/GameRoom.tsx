@@ -803,7 +803,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     return (
       <AnimatedPage animationType="slide-left">
         <div className="relative flex h-full min-h-full w-full flex-col bg-[#0f1923] text-white">
-          <div className="absolute top-6 left-4 z-50">
+          <div className="absolute left-4 z-50" style={{ top: 'max(24px, env(safe-area-inset-top, 24px))' }}>
             <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
               <span className="material-symbols-outlined text-[24px] text-white">close</span>
             </button>
@@ -875,7 +875,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         )}
 
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-3">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 pb-3" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">
               <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>

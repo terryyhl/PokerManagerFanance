@@ -100,7 +100,7 @@ export default function JoinRoom() {
     <AnimatedPage animationType="slide-up">
       <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 flex items-center justify-center min-h-full h-full">
         <div className="relative w-full h-full min-h-full flex flex-col">
-          <div className="flex items-center px-4 py-4 justify-between bg-background-light dark:bg-background-dark sticky top-0 z-10">
+          <div className="flex items-center px-4 pb-4 justify-between bg-background-light dark:bg-background-dark sticky top-0 z-10" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
             <button
               onClick={() => navigate(-1)}
               className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"

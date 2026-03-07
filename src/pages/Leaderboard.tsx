@@ -142,7 +142,7 @@ export default function Leaderboard() {
         <div className="min-h-dvh bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#151f2b]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center px-4 h-14">
+                <div className="flex items-center px-4" style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
                     <button onClick={() => navigate(-1)} className="mr-3 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <span className="material-symbols-outlined text-[22px]">arrow_back</span>
                     </button>
