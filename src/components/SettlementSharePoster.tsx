@@ -28,7 +28,7 @@ export default function SettlementSharePoster({
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const toReal = (chips: number) =>
-        (chips * exchangeRate).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        Math.round(chips * exchangeRate).toLocaleString('zh-CN');
 
     // 按净盈亏降序排列
     const sorted = [...stats].sort((a, b) => {

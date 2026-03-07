@@ -117,7 +117,7 @@ export default function SettlementReport() {
   }, { totalUp: 0, totalDown: 0 });
 
   // 格式化真实金额
-  const toReal = (chips: number) => (chips * exchangeRate).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const toReal = (chips: number) => Math.round(chips * exchangeRate).toLocaleString('zh-CN');
 
   if (isLoading) {
     return (
