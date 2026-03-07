@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS game_players (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nickname    TEXT,                                      -- 房间内昵称（可选，为空时显示 username）
   joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(game_id, user_id)
 );

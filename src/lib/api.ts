@@ -147,6 +147,7 @@ export interface Player {
     id: string;
     game_id: string;
     user_id: string;
+    nickname?: string | null;
     joined_at: string;
     users?: { id: string; username: string };
 }
