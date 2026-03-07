@@ -1,24 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import anime from 'animejs';
-import AnimatedPage from '../components/AnimatedPage';
 import AuthLoading from '../components/AuthLoading';
 import { usersApi } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
+
+// 背景花色装饰（少量、克制、与 Welcome 呼应）
+const SUIT_DECOR = [
+  { suit: '♠', x: '10%', y: '8%', size: 'text-4xl', rotate: -20, color: 'text-white/[0.03]' },
+  { suit: '♥', x: '88%', y: '15%', size: 'text-3xl', rotate: 15, color: 'text-red-500/[0.05]' },
+  { suit: '♣', x: '80%', y: '55%', size: 'text-5xl', rotate: -10, color: 'text-white/[0.03]' },
+  { suit: '♦', x: '6%', y: '70%', size: 'text-3xl', rotate: 25, color: 'text-red-500/[0.04]' },
+  { suit: '♥', x: '50%', y: '90%', size: 'text-4xl', rotate: -35, color: 'text-red-500/[0.04]' },
+];
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, hydrated, setUser } = useUser();
-  // ProtectedRoute 重定向时会传 state.from，登录后跳回原页面
   const fromLocation = (location.state as {
     from?: { pathname: string; search?: string; hash?: string };
   } | null)?.from;
   const from = fromLocation
     ? `${fromLocation.pathname}${fromLocation.search || ''}${fromLocation.hash || ''}`
     : '/lobby';
-  const formRef = useRef<HTMLFormElement>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const decorRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,45 +36,52 @@ export default function Login() {
   useEffect(() => {
     if (!hydrated || user) return;
 
-    anime({
-      targets: headerRef.current?.children,
-      translateY: [20, 0],
+    const tl = anime.timeline({ easing: 'easeOutQuint' });
+
+    // 1. 背景花色淡入
+    tl.add({
+      targets: decorRef.current?.children,
       opacity: [0, 1],
-      duration: 600,
-      easing: 'easeOutExpo',
-      delay: anime.stagger(100)
+      duration: 1000,
+      delay: anime.stagger(80, { start: 100 }),
     });
 
-    anime({
-      targets: formRef.current?.children,
-      translateY: [20, 0],
+    // 2. 头部区域（花色 + 标题 + 副标题）
+    tl.add({
+      targets: headerRef.current?.querySelectorAll('.anim-item'),
+      translateY: [40, 0],
+      opacity: [0, 1],
+      duration: 700,
+      easing: 'easeOutExpo',
+      delay: anime.stagger(100),
+    }, 200);
+
+    // 3. 表单元素
+    tl.add({
+      targets: formRef.current?.querySelectorAll('.anim-item'),
+      translateY: [30, 0],
       opacity: [0, 1],
       duration: 600,
       easing: 'easeOutExpo',
-      delay: anime.stagger(100, { start: 300 })
-    });
+      delay: anime.stagger(100),
+    }, '-=300');
 
     return () => {
-      anime.remove(headerRef.current?.children || []);
-      anime.remove(formRef.current?.children || []);
+      tl.pause();
+      if (decorRef.current) anime.remove(decorRef.current.children);
+      if (headerRef.current) anime.remove(headerRef.current.querySelectorAll('.anim-item'));
+      if (formRef.current) anime.remove(formRef.current.querySelectorAll('.anim-item'));
     };
   }, [hydrated, user]);
 
-  if (!hydrated) {
-    return <AuthLoading />;
-  }
-
-  if (user) {
-    return <Navigate to={from} replace />;
-  }
+  if (!hydrated) return <AuthLoading />;
+  if (user) return <Navigate to={from} replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
-
     setIsLoading(true);
     setError('');
-
     try {
       const { user } = await usersApi.login(username.trim());
       setUser(user);
@@ -77,64 +94,119 @@ export default function Login() {
   };
 
   return (
-    <AnimatedPage animationType="slide-left">
-      <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden min-h-full h-full flex flex-col">
-        <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background-light dark:bg-background-dark">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[24px]">arrow_back</span>
-          </button>
-          <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">登录</h2>
-          <div className="w-10" />
-        </header>
+    <div ref={containerRef} className="relative min-h-dvh w-full flex flex-col bg-[#0a1118] overflow-hidden">
+      {/* 径向光晕 */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 70% 40% at 50% 25%, rgba(239,68,68,0.06) 0%, transparent 70%)',
+        }}
+      />
 
-        <main className="flex-1 flex flex-col px-4 pt-4 pb-8 w-full max-w-[480px] mx-auto">
-          <div ref={headerRef} className="flex flex-col items-center justify-center pb-8 pt-4">
-            <div className="size-16 rounded-2xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center mb-6 shadow-lg shadow-primary/20 opacity-0">
-              <span className="material-symbols-outlined text-white text-[32px]">playing_cards</span>
-            </div>
-            <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center opacity-0">欢迎回来</h1>
-            <p className="text-slate-500 dark:text-[#92adc9] text-base font-normal leading-normal pt-2 text-center max-w-[300px] opacity-0">请输入您的昵称以进入俱乐部。</p>
+      {/* 背景花色 */}
+      <div ref={decorRef} className="absolute inset-0 pointer-events-none select-none">
+        {SUIT_DECOR.map((p, i) => (
+          <span
+            key={i}
+            className={`absolute ${p.size} ${p.color} font-black opacity-0`}
+            style={{ left: p.x, top: p.y, transform: `rotate(${p.rotate}deg)` }}
+          >
+            {p.suit}
+          </span>
+        ))}
+      </div>
+
+      {/* 顶部导航 */}
+      <header className="relative z-10 flex items-center p-4 pt-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-white/70 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+        </button>
+      </header>
+
+      {/* 主内容 */}
+      <main className="relative z-10 flex-1 flex flex-col px-6 w-full max-w-[400px] mx-auto">
+        {/* 头部 */}
+        <div ref={headerRef} className="pt-4 pb-10">
+          {/* 扑克花色装饰图标 */}
+          <div className="anim-item flex items-center gap-2 mb-6 opacity-0">
+            <span className="text-3xl text-red-500">♥</span>
+            <span className="text-3xl text-white/80">♠</span>
           </div>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
-            <label className="flex flex-col gap-2 opacity-0">
-              <span className="text-slate-900 dark:text-white text-sm font-medium leading-normal">昵称或用户名</span>
-              <div className="relative">
-                <input
-                  className="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] focus:border-primary dark:focus:border-primary h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base font-normal leading-normal transition-all"
-                  placeholder="PokerKing123"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
+          {/* 标题 — 极大字号，层级鲜明 */}
+          <h1 className="anim-item leading-[0.95] tracking-tight mb-4 opacity-0">
+            <span className="block text-6xl font-black text-white">欢迎</span>
+            <span className="block text-4xl font-black text-white/50 mt-1">回来</span>
+          </h1>
+
+          {/* 副标题 */}
+          <p className="anim-item text-slate-500 text-base leading-relaxed max-w-[280px] opacity-0">
+            输入昵称，回到牌桌
+          </p>
+        </div>
+
+        {/* 登录表单 */}
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
+          {/* 昵称输入 */}
+          <div className="anim-item flex flex-col gap-2.5 opacity-0">
+            <span className="text-white/60 text-xs font-bold uppercase tracking-widest">昵称</span>
+            <div className="relative">
+              <input
+                className="w-full h-16 rounded-2xl bg-white/[0.06] border-2 border-white/[0.08] text-white text-xl font-bold px-5 placeholder:text-white/20 focus:outline-none focus:border-red-500/60 focus:bg-white/[0.08] transition-all"
+                placeholder="PokerKing"
+                type="text"
+                required
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                <span className="text-white/15 text-lg">♠</span>
               </div>
-            </label>
-
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
-            <div className="pt-4 opacity-0">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-14 bg-primary hover:bg-blue-600 text-white font-bold text-base rounded-full shadow-lg shadow-primary/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                ) : (
-                  <>
-                    <span>进入大厅</span>
-                    <span className="material-symbols-outlined text-[20px]">login</span>
-                  </>
-                )}
-              </button>
             </div>
-          </form>
-        </main>
+          </div>
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="flex items-center gap-2 text-red-400 text-sm">
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* 登录按钮 */}
+          <div className="anim-item pt-2 opacity-0">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group w-full h-14 rounded-2xl bg-red-500 text-white font-black text-lg tracking-wide shadow-[0_6px_24px_rgba(239,68,68,0.3)] active:scale-[0.97] transition-all hover:bg-red-400 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              ) : (
+                <>
+                  <span>进入大厅</span>
+                  <span className="text-lg transition-transform group-hover:translate-x-1">♠</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </main>
+
+      {/* 底部装饰 */}
+      <div className="relative z-10 w-full pb-10 flex justify-center">
+        <div className="flex items-center gap-3 text-white/10 text-sm select-none">
+          <span>♣</span>
+          <div className="w-12 h-px bg-white/10" />
+          <span>♦</span>
+          <div className="w-12 h-px bg-white/10" />
+          <span>♥</span>
+        </div>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }
