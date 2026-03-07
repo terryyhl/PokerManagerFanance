@@ -750,7 +750,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // ─── 密码键盘 ──────────────────────────────────────────────
   const handlePinKey = (key: string) => {
-    if (key === 'backspace') {
+    if (key === 'clear') {
+      setPasswordPin(['', '', '', '', '', '']); return;
+    } else if (key === 'backspace') {
       const p = [...passwordPin];
       for (let i = 5; i >= 0; i--) { if (p[i] !== '') { p[i] = ''; setPasswordPin(p); return; } }
     } else {
@@ -834,8 +836,12 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
             </div>
           )}
           <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace'].map((key, i) => (
-              key === '' ? <div key={i} /> :
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'].map((key, i) => (
+              key === 'clear' ? (
+                <button key={i} onClick={() => handlePinKey('clear')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors text-xs font-medium text-slate-400">
+                  清空
+                </button>
+              ) :
                 key === 'backspace' ? (
                   <button key={i} onClick={() => handlePinKey('backspace')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors">
                     <span className="material-symbols-outlined text-slate-400 text-[22px]">backspace</span>

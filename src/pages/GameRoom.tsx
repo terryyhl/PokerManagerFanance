@@ -404,7 +404,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // 密码键盘
   const handlePinKey = (key: string) => {
-    if (key === 'backspace') {
+    if (key === 'clear') {
+      setPasswordPin(['', '', '', '', '', '']); return;
+    } else if (key === 'backspace') {
       const p = [...passwordPin];
       for (let i = 5; i >= 0; i--) { if (p[i] !== '') { p[i] = ''; setPasswordPin(p); return; } }
     } else {
@@ -828,8 +830,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               </div>
             )}
             <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace'].map((key, i) => (
-                key === '' ? <div key={i} /> :
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'].map((key, i) => (
+                key === 'clear' ? (
+                  <button key={i} onClick={() => handlePinKey('clear')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors text-xs font-medium text-slate-400">
+                    清空
+                  </button>
+                ) :
                   key === 'backspace' ? (
                     <button key={i} onClick={() => handlePinKey('backspace')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors">
                       <span className="material-symbols-outlined text-slate-400 text-[22px]">backspace</span>
@@ -866,7 +872,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* Toast 通知 */}
         {toast && (
-          <div className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-slate-700'
+          <div className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-slate-700'
             }`}>
             <span className="material-symbols-outlined text-[16px]">
               {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
@@ -980,7 +986,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           </div>
                         )}
                       </div>
-                      <span className={`text-[10px] font-bold truncate max-w-[50px] ${isBeingTimed ? 'text-amber-400' : hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
+                      <span className={`text-[11px] font-bold truncate max-w-[50px] ${isBeingTimed ? 'text-amber-400' : hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
                         {player.user_id === user?.id ? '自己' : player.users?.username}
                       </span>
                     </div>
@@ -1043,11 +1049,11 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     }
                     navigate(tool.path, { state });
                   }}
-                  className={`tools-fan-item flex flex-col items-center gap-1 py-2 rounded-xl active:scale-90 ${tool.bg}`}
+                  className={`tools-fan-item flex flex-col items-center gap-1.5 py-2.5 rounded-xl active:scale-90 ${tool.bg}`}
                   style={{ opacity: 0, transform: 'scale(0) translateY(-10px)' }}
                 >
-                  <span className={`material-symbols-outlined text-[22px] ${tool.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
-                  <span className={`text-[10px] font-bold ${tool.color}`}>{tool.label}</span>
+                  <span className={`material-symbols-outlined text-[24px] ${tool.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                  <span className={`text-[11px] font-bold ${tool.color}`}>{tool.label}</span>
                 </button>
               ))}
             </div>
@@ -1359,7 +1365,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         </main>
 
-        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3 bottom-6">
+        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 8px))' }}>
           <button onClick={() => {
             setShowBuyIn(true);
             setBuyInAmount('1');
@@ -1442,7 +1448,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* 带入审核确认对话框 */}
         {confirmReq && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !confirming && setConfirmReq(null)} />
             <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10">
               <div className="px-6 pt-6 pb-4 text-center">
@@ -1520,13 +1526,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* #26 自定义修改手牌确认 Modal（替代 window.confirm） */}
         {modifyConfirm && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-500 mb-4 mx-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-[#1e2936] rounded-2xl max-w-sm w-full p-6 shadow-2xl ring-1 ring-white/10">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-900/30 text-amber-500 mb-4 mx-auto">
                 <span className="material-symbols-outlined text-[28px]">edit_note</span>
               </div>
-              <h3 className="text-xl font-bold mb-2 text-center text-slate-800 dark:text-slate-100">确定修改手牌？</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 text-center leading-relaxed">
+              <h3 className="text-xl font-bold mb-2 text-center text-white">确定修改手牌？</h3>
+              <p className="text-slate-400 text-sm mb-4 text-center leading-relaxed">
                 新卡牌将即时生效，同时该组中奖次数将重置为 0。
               </p>
               <div className="flex justify-center mb-6">
@@ -1535,7 +1541,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               <div className="flex gap-3">
                 <button
                   onClick={() => setModifyConfirm(null)}
-                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold transition-colors"
+                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold transition-colors"
                 >
                   取消
                 </button>
@@ -1563,13 +1569,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* 房主免审确认 Dialog */}
         {directHitConfirmHand && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in duration-200">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-500 mb-4 mx-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-[#1e2936] rounded-2xl max-w-sm w-full p-6 shadow-2xl ring-1 ring-white/10 animate-in zoom-in duration-200">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-900/30 text-yellow-500 mb-4 mx-auto">
                 <span className="material-symbols-outlined text-[28px]">workspace_premium</span>
               </div>
-              <h3 className="text-xl font-bold mb-2 text-center text-slate-800 dark:text-slate-100">确认自己中奖？</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 text-center leading-relaxed">
+              <h3 className="text-xl font-bold mb-2 text-center text-white">确认自己中奖？</h3>
+              <p className="text-slate-400 text-sm mb-6 text-center leading-relaxed">
                 房主特权：无需审核，直接为您增加该手牌组的中奖次数。
               </p>
               <div className="flex justify-center mb-6">
@@ -1578,7 +1584,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={() => setDirectHitConfirmHand(null)}
-                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold transition-colors"
+                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold transition-colors"
                   disabled={submitting}
                 >
                   取消
@@ -1673,20 +1679,20 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* 房主代操作弹窗 */}
         {proxyTarget && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setProxyTarget(null)}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setProxyTarget(null)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative w-full max-w-[300px] rounded-2xl bg-white dark:bg-[#1e2936] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="relative w-full max-w-[300px] rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${proxyTarget.action === 'buyin' ? 'bg-primary/10' : 'bg-green-500/10'}`}>
                   <span className={`material-symbols-outlined text-[28px] ${proxyTarget.action === 'buyin' ? 'text-primary' : 'text-green-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                     {proxyTarget.action === 'buyin' ? 'payments' : 'receipt_long'}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                <h3 className="text-lg font-bold text-white mb-1">
                   {proxyTarget.action === 'buyin' ? '代购买' : '代结账'}
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                  为 <span className="font-bold text-slate-700 dark:text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '按手数购买' : '结账'}
+                <p className="text-sm text-slate-400 mb-4">
+                  为 <span className="font-bold text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '按手数购买' : '结账'}
                 </p>
                 <div className="relative">
                   <input
@@ -1696,7 +1702,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
                     onClick={e => (e.target as HTMLInputElement).select()}
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xl font-bold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-center text-xl font-bold text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     placeholder={proxyTarget.action === 'buyin' ? '手数' : '结账筹码'}
                     min={proxyTarget.action === 'buyin' ? 1 : 0}
                     max={proxyTarget.action === 'buyin' ? (game?.max_hands_per_buy || 10) : undefined}
@@ -1713,19 +1719,19 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   </p>
                 )}
               </div>
-              <div className="flex border-t border-slate-200 dark:border-slate-700">
+              <div className="flex border-t border-slate-700">
                 <button
                   onClick={() => setProxyTarget(null)}
                   disabled={proxySubmitting}
-                  className="flex-1 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="flex-1 py-3.5 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors disabled:opacity-50"
                 >
                   取消
                 </button>
-                <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                <div className="w-px bg-slate-700" />
                 <button
                   onClick={handleProxySubmit}
                   disabled={proxySubmitting || !proxyAmount}
-                  className={`flex-1 py-3.5 text-sm font-bold transition-colors disabled:opacity-50 ${proxyTarget.action === 'buyin' ? 'text-primary hover:bg-primary/5' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-950/20'}`}
+                  className={`flex-1 py-3.5 text-sm font-bold transition-colors disabled:opacity-50 ${proxyTarget.action === 'buyin' ? 'text-primary hover:bg-primary/5' : 'text-green-500 hover:bg-green-950/20'}`}
                 >
                   {proxySubmitting ? '提交中...' : '确认'}
                 </button>

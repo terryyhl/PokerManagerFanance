@@ -49,7 +49,7 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
     };
 
     return (
-        <div className="fixed inset-0 z-[200]" onClick={handleClose}>
+        <div className="fixed inset-0 z-[70]" onClick={handleClose}>
             {/* 遮罩 */}
             <div
                 className="absolute inset-0 bg-black/50 transition-opacity duration-200"
@@ -62,13 +62,8 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
                 style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* 拖动指示条 */}
-                <div className="flex justify-center pt-3 pb-2">
-                    <div className="w-10 h-1 bg-white/20 rounded-full" />
-                </div>
-
                 {/* 目标玩家信息 */}
-                <div className="flex items-center gap-3 px-5 pb-4">
+                <div className="flex items-center gap-3 px-5 pt-5 pb-4">
                     <Avatar username={target.username} className="w-10 h-10" />
                     <div className="flex flex-col">
                         <span className="text-sm font-bold text-white">{target.username}</span>
