@@ -146,7 +146,7 @@ export interface BuyIn {
     game_id: string;
     user_id: string;
     amount: number;
-    type: 'initial' | 'rebuy' | 'checkout';
+    type: 'initial' | 'rebuy' | 'checkout' | 'seat_report';
     created_by?: string | null;
     hand_count?: number | null;
     points_per_hand?: number | null;
@@ -159,6 +159,7 @@ export interface Player {
     game_id: string;
     user_id: string;
     nickname?: string | null;
+    seat_number?: number | null;
     joined_at: string;
     users?: { id: string; username: string };
 }
@@ -201,6 +202,15 @@ export const gamesApi = {
 
     finish: (id: string, userId: string) =>
         request<{ game: Game }>('POST', `/games/${id}/finish`, { userId }),
+
+    assignSeats: (id: string, assignments: Array<{ userId: string; seatNumber: number }>, assignedBy: string) =>
+        request<{ success: boolean }>('POST', `/games/${id}/seat-assign`, { assignments, assignedBy }),
+
+    reportSeat: (id: string, userId: string, seatNumber: number) =>
+        request<{ success: boolean; seatNumber: number }>('POST', `/games/${id}/seat-report`, { userId, seatNumber }),
+
+    autoCreatePlayer: (username: string, gameId: string) =>
+        request<{ userId: string; username: string }>('POST', '/games/auto-create-player', { username, gameId }),
 
     getFullState: (id: string, userId: string) =>
         request<{

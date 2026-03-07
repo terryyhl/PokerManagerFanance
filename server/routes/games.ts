@@ -457,4 +457,150 @@ router.post('/:id/finish', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/games/:id/seat-assign
+ * 房主提交座位分配结果（批量更新 game_players.seat_number）
+ */
+router.post('/:id/seat-assign', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { assignments, assignedBy } = req.body as {
+            assignments: Array<{ userId: string; seatNumber: number }>;
+            assignedBy: string;
+        };
+
+        if (!assignments || !assignedBy) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        // 验证房主身份
+        const { data: game } = await supabase
+            .from('games')
+            .select('created_by')
+            .eq('id', id)
+            .single();
+
+        if (!game || game.created_by !== assignedBy) {
+            return res.status(403).json({ error: '只有房主才能分配座位' });
+        }
+
+        // 先清空该房间所有座位
+        await supabase
+            .from('game_players')
+            .update({ seat_number: null })
+            .eq('game_id', id);
+
+        // 批量更新座位
+        for (const a of assignments) {
+            await supabase
+                .from('game_players')
+                .update({ seat_number: a.seatNumber })
+                .eq('game_id', id)
+                .eq('user_id', a.userId);
+        }
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[games/seat-assign] Unhandled error:', err);
+        return res.status(500).json({ error: '座位分配失败' });
+    }
+});
+
+/**
+ * POST /api/games/:id/seat-report
+ * 玩家报座位号：更新 game_players.seat_number + 写入 buy_ins 作为时间线消息
+ */
+router.post('/:id/seat-report', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId, seatNumber } = req.body;
+
+        if (!userId || seatNumber === undefined) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        const parsed = parseInt(seatNumber, 10);
+        if (isNaN(parsed) || parsed <= 0) {
+            return res.status(400).json({ error: '座位号必须为正整数' });
+        }
+
+        // 更新 game_players 中自己的座位号
+        await supabase
+            .from('game_players')
+            .update({ seat_number: parsed })
+            .eq('game_id', id)
+            .eq('user_id', userId);
+
+        // 写入 buy_ins 作为时间线消息（amount 存座位号，type = seat_report）
+        await supabase
+            .from('buy_ins')
+            .insert({
+                game_id: id,
+                user_id: userId,
+                amount: parsed,
+                type: 'seat_report',
+            });
+
+        return res.json({ success: true, seatNumber: parsed });
+    } catch (err) {
+        console.error('[games/seat-report] Unhandled error:', err);
+        return res.status(500).json({ error: '报座位失败' });
+    }
+});
+
+/**
+ * POST /api/users/auto-create
+ * 自动创建用户（按名字查找或创建），并加入指定房间
+ */
+router.post('/auto-create-player', async (req, res) => {
+    try {
+        const { username, gameId } = req.body;
+
+        if (!username || !gameId) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        const trimmed = username.trim();
+        if (!trimmed) {
+            return res.status(400).json({ error: '用户名不能为空' });
+        }
+
+        // 先查找是否已存在
+        let { data: existingUser } = await supabase
+            .from('users')
+            .select('id, username')
+            .eq('username', trimmed)
+            .single();
+
+        let userId: string;
+
+        if (existingUser) {
+            userId = existingUser.id;
+        } else {
+            // 创建新用户
+            const { data: newUser, error: createError } = await supabase
+                .from('users')
+                .insert({ username: trimmed })
+                .select('id, username')
+                .single();
+
+            if (createError || !newUser) {
+                console.error('[auto-create-player] 创建用户失败:', createError);
+                return res.status(500).json({ error: '创建用户失败' });
+            }
+            userId = newUser.id;
+        }
+
+        // 加入房间
+        await supabase
+            .from('game_players')
+            .upsert({ game_id: gameId, user_id: userId }, { onConflict: 'game_id,user_id' });
+
+        return res.json({ userId, username: trimmed });
+    } catch (err) {
+        console.error('[auto-create-player] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
 export default router;
