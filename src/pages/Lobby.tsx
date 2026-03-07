@@ -238,7 +238,7 @@ export default function Lobby() {
           )}
         </div>
 
-        <div className="absolute left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="absolute bottom-16 left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={() => navigate('/join')}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors text-sm font-medium mb-4"

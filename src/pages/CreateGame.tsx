@@ -474,7 +474,7 @@ export default function CreateGame() {
           )}
         </main>
 
-        <div className="p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-10" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+        <div className="p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 sticky bottom-0 z-10">
           <button
             onClick={handleCreate}
             disabled={isLoading}

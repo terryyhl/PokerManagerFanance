@@ -228,7 +228,7 @@ export const BottomActionBar = memo<{
   onRearrange: () => void; onAutoArrange: () => void; isAutoArranging: boolean; onSubmit: () => void;
   onForceSettle?: () => void;
 }>(function BottomActionBar({ isConfirmed, isSubmitting, isSettling, allSelectedCount, confirmedCount, totalPlayers, onRearrange, onAutoArrange, isAutoArranging, onSubmit, onForceSettle }) { return (
-  <div className="p-3 flex flex-col gap-2 shrink-0 bg-black/20 border-t border-white/5" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
+  <div className="p-3 flex flex-col gap-2 shrink-0 bg-black/20 border-t border-white/5">
     {!isConfirmed ? (
       <>
         <div className="flex gap-3">
@@ -273,7 +273,7 @@ export const BottomActionBar = memo<{
 export const SpectatorBar = memo<{
   confirmedCount: number; totalPlayers: number;
 }>(function SpectatorBar({ confirmedCount, totalPlayers }) { return (
-  <div className="p-3 flex gap-3 shrink-0 bg-black/20 border-t border-white/5" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
+  <div className="p-3 flex gap-3 shrink-0 bg-black/20 border-t border-white/5">
     <div className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/5 border border-white/10">
       <span className="material-symbols-outlined text-slate-400 text-xl">visibility</span>
       <span className="text-slate-400 font-bold">旁观中 · {confirmedCount}/{totalPlayers} 已确认</span>

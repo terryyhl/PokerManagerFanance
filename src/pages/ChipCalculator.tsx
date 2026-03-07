@@ -115,7 +115,7 @@ export default function ChipCalculator() {
             </div>
 
             {/* 底部汇总 */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#151f2b] border-t border-slate-200 dark:border-slate-800 px-5 py-4 z-30" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#151f2b] border-t border-slate-200 dark:border-slate-800 px-5 py-4 z-30">
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-xs text-slate-400 font-medium">共 {chipCount} 枚筹码</div>

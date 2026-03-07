@@ -936,7 +936,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         {/* 回到游戏 — 有活跃 round 时所有玩家都能看到 */}
         {currentRoundId && !isSpectator && (
-          <div className="p-4 border-t border-white/5" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+          <div className="p-4 border-t border-white/5">
             <button onClick={() => setGamePhase('arranging')}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-emerald-700/30 transition-all active:scale-[0.98]">
               <span className="material-symbols-outlined">arrow_forward</span>
@@ -947,7 +947,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         {/* 开始新一局 — 仅房主、无活跃 round 时显示 */}
         {!currentRoundId && isHost && !isSpectator && currentPlayers >= 2 && (
-          <div className="p-4 border-t border-white/5" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+          <div className="p-4 border-t border-white/5">
             <button disabled={isStarting} onClick={handleStartRound}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-purple-700/30 transition-all active:scale-[0.98] disabled:opacity-60">
               {isStarting ? <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span> : <span className="material-symbols-outlined">play_arrow</span>}

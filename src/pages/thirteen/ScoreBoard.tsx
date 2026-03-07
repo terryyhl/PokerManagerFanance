@@ -237,7 +237,7 @@ export const ScoreBoard = memo<{
           </div>
         </div>
         {isHost && (
-          <div className="p-4 border-t border-white/5 shrink-0" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+          <div className="p-4 border-t border-white/5 shrink-0">
             <button onClick={onCloseRoom} className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-base py-3.5 rounded-2xl border border-red-500/20 transition-all active:scale-[0.98]">
               <span className="material-symbols-outlined text-xl">power_settings_new</span>关闭房间
             </button>

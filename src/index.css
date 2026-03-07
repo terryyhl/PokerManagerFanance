@@ -14,10 +14,8 @@ body {
   min-height: 100dvh;
 }
 
-/* ── 安全区域工具类（iPhone X+ Home Indicator / 刘海屏） ── */
-.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* ── 安全区域工具类（iPhone 刘海屏顶部） ── */
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
-.mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
 
 /* 禁用卡牌图片的长按保存和拖拽（移动端） */
 img {

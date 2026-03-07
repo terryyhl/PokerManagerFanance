@@ -77,7 +77,7 @@ export const PublicCardPickerModal = memo<{
           <button onClick={() => { onConfirm(selected); onClose(); }} className="flex-1 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90">确认</button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pt-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-4">
         {SUITS.map(suit => (
           <div key={suit} className="mb-2.5">
             <div className="flex items-center gap-1.5 mb-1.5 px-1">
@@ -213,7 +213,7 @@ export const CardPickerModal = memo<{
           })}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pt-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+      <div className="flex-1 overflow-y-auto px-2 pt-3 pb-4">
         {SUITS.map(suit => (
           <div key={suit} className="mb-2.5">
             <div className="flex items-center gap-1.5 mb-1.5 px-1">

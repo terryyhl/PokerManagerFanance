@@ -1359,7 +1359,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         </main>
 
-        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom, 0px) + 8px))' }}>
+        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3 bottom-6">
           <button onClick={() => {
             setShowBuyIn(true);
             setBuyInAmount('1');

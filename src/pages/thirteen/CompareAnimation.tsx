@@ -306,7 +306,7 @@ export const CompareAnimation = memo<{
         </div>
       </div>
       {(phase >= summaryPhase || replay) && (
-        <div className="p-4 shrink-0" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+        <div className="p-4 shrink-0">
           <button onClick={onClose} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-base shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">
             继续
           </button>

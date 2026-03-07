@@ -6,7 +6,7 @@ export default function InstallBanner() {
     if (!showBanner || isStandalone) return null;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[200] px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 bg-gradient-to-t from-slate-900 via-slate-900/98 to-slate-900/90 backdrop-blur-md border-t border-slate-700/50 animate-slideUp">
+        <div className="fixed bottom-0 left-0 right-0 z-[200] px-4 pb-4 pt-3 bg-gradient-to-t from-slate-900 via-slate-900/98 to-slate-900/90 backdrop-blur-md border-t border-slate-700/50 animate-slideUp">
             <div className="max-w-md mx-auto flex items-center gap-3">
                 <img src="/icons/icon-192.png" alt="" className="w-12 h-12 rounded-xl shrink-0" />
                 <div className="flex-1 min-w-0">
