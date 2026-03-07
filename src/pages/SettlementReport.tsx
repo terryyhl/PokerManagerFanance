@@ -29,9 +29,10 @@ export default function SettlementReport() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localChips, setLocalChips] = useState<Record<string, number>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // 汇率：每积分对应的真实货币金额（例如 1积分 = $0.1）
-  const [exchangeRate, setExchangeRate] = useState<number>(1);
-  const [rateInput, setRateInput] = useState<string>('1');
+  // 汇率：每积分对应的真实货币金额（例如 1积分 = $0.1），从 session 恢复
+  const savedRate = sessionStorage.getItem('settlement_exchange_rate');
+  const [exchangeRate, setExchangeRate] = useState<number>(savedRate ? parseFloat(savedRate) || 1 : 1);
+  const [rateInput, setRateInput] = useState<string>(savedRate || '1');
   // 分享海报
   const [showSharePoster, setShowSharePoster] = useState(false);
   // 买入历史
@@ -117,7 +118,7 @@ export default function SettlementReport() {
   }, { totalUp: 0, totalDown: 0 });
 
   // 格式化真实金额
-  const toReal = (chips: number) => Math.round(chips * exchangeRate).toLocaleString('zh-CN');
+  const toReal = (chips: number) => Math.trunc(chips * exchangeRate).toLocaleString('zh-CN');
 
   if (isLoading) {
     return (
@@ -142,7 +143,7 @@ export default function SettlementReport() {
             </button>
             <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight flex-1 text-center">结算报告</h2>
             <button
-              onClick={() => setShowSharePoster(true)}
+              onClick={() => { sessionStorage.setItem('settlement_exchange_rate', rateInput); setShowSharePoster(true); }}
               className="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
               title="分享"
             >
