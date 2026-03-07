@@ -104,7 +104,7 @@ export default function Lobby() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-24">
+        <div className="flex-1 overflow-y-auto px-5 pb-40">
           <div className="flex items-center justify-between mb-4 mt-2">
             <h3 className="text-lg font-bold">活跃牌局</h3>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -238,7 +238,7 @@ export default function Lobby() {
           )}
         </div>
 
-        <div className="absolute bottom-16 left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 pb-safe">
+        <div className="absolute bottom-16 left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
           <button
             onClick={() => navigate('/join')}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors text-sm font-medium mb-4"

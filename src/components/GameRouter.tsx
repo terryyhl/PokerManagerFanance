@@ -38,7 +38,7 @@ export default function GameRouter({ forcedId }: GameRouterProps) {
 
   if (!roomType) {
     return (
-      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+      <div className="min-h-dvh bg-background-light dark:bg-background-dark flex items-center justify-center">
         <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
       </div>
     );

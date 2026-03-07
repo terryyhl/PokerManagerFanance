@@ -790,14 +790,14 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   // ─── Loading / Error ───────────────────────────────────────
   if (isLoading || isSyncing) {
-    return (<div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-3">
+    return (<div className="min-h-dvh bg-background-dark flex flex-col items-center justify-center gap-3">
       <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
       <span className="text-sm text-slate-400">{isLoading ? '加载房间...' : '同步游戏状态...'}</span>
     </div>);
   }
 
   if (!game) {
-    return (<div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-4 text-slate-500">
+    return (<div className="min-h-dvh bg-background-dark flex flex-col items-center justify-center gap-4 text-slate-500">
       <span className="material-symbols-outlined text-5xl">error</span>
       <p>房间不存在</p>
       <button onClick={() => navigate('/lobby')} className="text-primary font-bold">返回大厅</button>
@@ -808,7 +808,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
   if (needsPassword) {
     const pinFull = passwordPin.join('').length === 6;
     return (
-      <div className="relative flex h-screen min-h-screen w-full flex-col bg-background-dark text-white">
+      <div className="relative flex h-dvh min-h-dvh w-full flex-col bg-background-dark text-white">
         <div className="absolute top-6 left-4 z-50">
           <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
             <span className="material-symbols-outlined text-[24px] text-white">close</span>
@@ -820,9 +820,9 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
           </div>
           <h2 className="text-2xl font-bold mb-2">输入房间密码</h2>
           <p className="text-slate-400 text-sm mb-8">需要6位密码才能进入此房间</p>
-          <div className="flex gap-3 mb-8">
+          <div className="flex gap-2 mb-8">
             {passwordPin.map((d, i) => (
-              <div key={i} className={`w-11 h-14 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
+              <div key={i} className={`w-10 h-13 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
                 {d ? '\u2022' : ''}
               </div>
             ))}
@@ -860,7 +860,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
   if (gamePhase === 'waiting') {
     return (
-      <div className="min-h-screen bg-background-dark text-white flex flex-col">
+      <div className="min-h-dvh bg-background-dark text-white flex flex-col">
         <RoomHeader game={game} finishedRounds={finishedRounds} gamePhase={gamePhase} onBack={() => navigate('/lobby')} onShowScoreBoard={() => setShowScoreBoard(true)} />
         <div className="px-4 pt-6">
           <div className="flex items-center justify-between mb-4">
@@ -936,7 +936,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         {/* 回到游戏 — 有活跃 round 时所有玩家都能看到 */}
         {currentRoundId && !isSpectator && (
-          <div className="p-4 border-t border-white/5 pb-8">
+          <div className="p-4 border-t border-white/5" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
             <button onClick={() => setGamePhase('arranging')}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-emerald-700/30 transition-all active:scale-[0.98]">
               <span className="material-symbols-outlined">arrow_forward</span>
@@ -947,7 +947,7 @@ export default function ThirteenWaterRoom({ forcedId }: ThirteenWaterRoomProps) 
 
         {/* 开始新一局 — 仅房主、无活跃 round 时显示 */}
         {!currentRoundId && isHost && !isSpectator && currentPlayers >= 2 && (
-          <div className="p-4 border-t border-white/5 pb-8">
+          <div className="p-4 border-t border-white/5" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
             <button disabled={isStarting} onClick={handleStartRound}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-purple-700/30 transition-all active:scale-[0.98] disabled:opacity-60">
               {isStarting ? <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span> : <span className="material-symbols-outlined">play_arrow</span>}

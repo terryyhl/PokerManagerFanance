@@ -163,7 +163,7 @@ export default function JoinRoom() {
             </div>
           </div>
 
-          <div ref={keypadRef} className="bg-slate-100 dark:bg-[#15202b] pb-8 pt-4 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)] opacity-0">
+          <div ref={keypadRef} className="bg-slate-100 dark:bg-[#15202b] pt-4 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)] opacity-0" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
             <div className="grid grid-cols-3 gap-y-4 gap-x-6 px-6 max-w-[320px] mx-auto">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                 <button

@@ -139,7 +139,7 @@ export default function Leaderboard() {
     const medalColors = ['text-yellow-500', 'text-slate-400', 'text-amber-700'];
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+        <div className="min-h-dvh bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#151f2b]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center px-4 h-14">

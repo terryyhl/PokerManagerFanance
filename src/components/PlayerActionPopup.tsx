@@ -91,7 +91,7 @@ export default function PlayerActionPopup({ target, onClose, onStartTimer, onThr
                 </div>
 
                 {/* 底部安全区 */}
-                <div className="pb-8" />
+                <div style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }} />
             </div>
         </div>
     );

@@ -290,7 +290,7 @@ export default function ThirteenReport() {
                                 <img src={previewUrl} alt="海报预览" className="w-full max-w-[375px] rounded-xl shadow-2xl" />
                             )}
                         </div>
-                        <div className="shrink-0 p-4 pb-8 flex gap-3">
+                        <div className="shrink-0 p-4 flex gap-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
                             {!previewUrl ? (
                                 <button onClick={generateImage} disabled={isGenerating}
                                     className="flex-1 py-3.5 rounded-2xl bg-primary text-white font-bold text-base flex items-center justify-center gap-2 disabled:opacity-50">

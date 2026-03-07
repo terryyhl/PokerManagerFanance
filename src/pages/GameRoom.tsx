@@ -814,9 +814,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             </div>
             <h2 className="text-2xl font-bold mb-2">输入房间密码</h2>
             <p className="text-slate-400 text-sm mb-8">需要6位密码才能进入此房间</p>
-            <div className="flex gap-3 mb-8">
+            <div className="flex gap-2 mb-8">
               {passwordPin.map((d, i) => (
-                <div key={i} className={`w-11 h-14 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
+                <div key={i} className={`w-10 h-13 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
                   {d ? '•' : ''}
                 </div>
               ))}
@@ -1169,7 +1169,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     </div>
                     <div className="flex flex-col gap-1 items-start flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 ml-1">
-                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{req.username}</span>
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{req.username}</span>
                         {req.userId === game?.created_by && (
                           <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
                             <span className="material-symbols-outlined text-[10px]">grade</span>
@@ -1254,7 +1254,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       </div>
                       <div className="flex flex-col gap-1 items-start max-w-[80%]">
                         <div className="flex items-center gap-1.5 ml-1">
-                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{b.users?.username || '玩家'}</span>
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{b.users?.username || '玩家'}</span>
                           {b.user_id === game?.created_by && (
                             <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
                               <span className="material-symbols-outlined text-[10px]">grade</span>
@@ -1302,7 +1302,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     </div>
                     <div className="flex flex-col gap-1 items-start max-w-[80%]">
                       <div className="flex items-center gap-1.5 ml-1">
-                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide">{b.users?.username || '玩家'}</span>
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{b.users?.username || '玩家'}</span>
                         {b.user_id === game?.created_by && (
                           <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
                             <span className="material-symbols-outlined text-[10px]">grade</span>
@@ -1359,7 +1359,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         </main>
 
-        <div className="fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3">
+        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom, 0px) + 8px))' }}>
           <button onClick={() => {
             setShowBuyIn(true);
             setBuyInAmount('1');

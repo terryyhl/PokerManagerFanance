@@ -149,7 +149,7 @@ export default function App() {
 
   return (
     <UserProvider>
-      <div className="w-full min-h-screen bg-white dark:bg-background-dark flex justify-center items-center">
+        <div className="w-full min-h-dvh bg-white dark:bg-background-dark flex justify-center items-center">
         <Router>
           <AppShell />
         </Router>

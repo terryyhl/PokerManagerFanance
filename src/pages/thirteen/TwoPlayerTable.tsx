@@ -16,7 +16,7 @@ export const TwoPlayerTable: React.FC<TableProps> = (p) => {
   const bottomOpponent = p.isSpectator ? allOpponents[1] : undefined;
 
   return (
-    <div className="h-screen bg-background-dark text-white flex flex-col overflow-hidden relative">
+    <div className="h-dvh bg-background-dark text-white flex flex-col overflow-hidden relative">
       {/* 标题栏: 返回 + 房间名 + 按钮 */}
       <div className="flex items-center justify-between px-2 h-[58px] bg-black/30 border-b border-white/5 shrink-0">
         <button onClick={() => p.setGamePhase('waiting')} className="p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0">

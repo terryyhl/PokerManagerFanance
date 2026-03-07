@@ -20,7 +20,7 @@ export default class TableErrorBoundary extends React.Component {
     const { error, stack } = this.state;
     if (error) {
       return (
-        <div className="min-h-screen bg-background-dark text-white flex flex-col items-center justify-center p-6 gap-4">
+        <div className="min-h-dvh bg-background-dark text-white flex flex-col items-center justify-center p-6 gap-4">
           <span className="material-symbols-outlined text-5xl text-red-400">bug_report</span>
           <h2 className="text-lg font-bold text-red-400">渲染错误</h2>
           <p className="text-sm text-slate-400 text-center max-w-sm break-all">{String(error.message)}</p>
