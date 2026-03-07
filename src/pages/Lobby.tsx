@@ -205,11 +205,6 @@ export default function Lobby() {
                       ) : (
                         <span className="bg-blue-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">🃏 德州</span>
                       )}
-                      <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">进行中</span>
-                      <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded">
-                        <span className="material-symbols-outlined text-[12px]">lock</span>
-                        密码房间
-                      </span>
                       {game.room_type === 'texas' && game.insurance_mode && (
                         <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded">
                           <span className="material-symbols-outlined text-[12px]">verified_user</span>

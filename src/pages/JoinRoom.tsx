@@ -174,7 +174,12 @@ export default function JoinRoom() {
                   {num}
                 </button>
               ))}
-              <div className="h-14"></div>
+              <button
+                onClick={() => setPin(['', '', '', '', '', ''])}
+                className="h-14 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95 text-xs font-medium"
+              >
+                清空
+              </button>
               <button
                 onClick={() => handleKeypadClick('0')}
                 className="h-14 rounded-lg text-2xl font-medium text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95"

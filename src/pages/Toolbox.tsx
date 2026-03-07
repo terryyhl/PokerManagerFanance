@@ -10,6 +10,7 @@ interface Tool {
     desc: string;
     color: string; // tailwind bg gradient
     iconBg: string;
+    wide?: boolean; // span-2
 }
 
 const TOOLS: Tool[] = [
@@ -21,6 +22,7 @@ const TOOLS: Tool[] = [
         desc: '倒计时提醒，到时间换位',
         color: 'from-blue-500 to-cyan-500',
         iconBg: 'bg-blue-500/15 text-blue-500',
+        wide: true,
     },
     {
         id: 'coin',
@@ -75,7 +77,7 @@ export default function Toolbox() {
     return (
         <AnimatedPage animationType="slide-left">
             <div className="relative flex h-full min-h-full w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
-                <div className="flex-shrink-0 flex items-center justify-center p-5 pt-8">
+                <div className="flex-shrink-0 flex items-center justify-between p-5 pt-8">
                     <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">工具箱</h2>
                 </div>
 
@@ -85,15 +87,20 @@ export default function Toolbox() {
                             <button
                                 key={tool.id}
                                 onClick={() => navigate(tool.path)}
-                                className="flex flex-col items-start p-4 rounded-2xl bg-white dark:bg-[#1a2632] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-[0.97] text-left"
+                                className={`flex items-start p-4 rounded-2xl bg-white dark:bg-[#1a2632] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-[0.97] text-left ${tool.wide ? 'col-span-2 flex-row gap-4 items-center' : 'flex-col'}`}
                             >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${tool.iconBg}`}>
-                                    <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                <div className={`${tool.wide ? 'w-12 h-12' : 'w-10 h-10 mb-3'} rounded-xl flex items-center justify-center shrink-0 ${tool.iconBg}`}>
+                                    <span className={`material-symbols-outlined ${tool.wide ? 'text-[26px]' : 'text-[22px]'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                                         {tool.icon}
                                     </span>
                                 </div>
-                                <span className="text-sm font-bold text-slate-900 dark:text-white mb-0.5">{tool.label}</span>
-                                <span className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{tool.desc}</span>
+                                <div className={tool.wide ? 'flex-1' : ''}>
+                                    <span className={`${tool.wide ? 'text-base' : 'text-sm'} font-bold text-slate-900 dark:text-white block mb-0.5`}>{tool.label}</span>
+                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{tool.desc}</span>
+                                </div>
+                                {tool.wide && (
+                                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px] shrink-0">chevron_right</span>
+                                )}
                             </button>
                         ))}
                     </div>

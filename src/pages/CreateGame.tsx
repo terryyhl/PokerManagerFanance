@@ -13,7 +13,7 @@ export default function CreateGame() {
 
   // ─── 通用 ──────────────────────────────────────────────────
   const [roomType, setRoomType] = useState<RoomType>('texas');
-  const [roomName, setRoomName] = useState('Friday Night Poker');
+  const [roomName, setRoomName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdGame, setCreatedGame] = useState<{ id: string; roomCode: string } | null>(null);

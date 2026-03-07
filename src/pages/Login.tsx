@@ -86,7 +86,8 @@ export default function Login() {
           >
             <span className="material-symbols-outlined text-[24px]">arrow_back</span>
           </button>
-          <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">登录</h2>
+          <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">登录</h2>
+          <div className="w-10" />
         </header>
 
         <main className="flex-1 flex flex-col px-4 pt-4 pb-8 w-full max-w-[480px] mx-auto">
