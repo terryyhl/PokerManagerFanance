@@ -7,15 +7,15 @@ import { useUser } from '../contexts/UserContext';
 // 散落的花色符号配置
 const SUIT_PARTICLES = [
   { suit: '♠', x: '8%', y: '12%', size: 'text-3xl', rotate: -15, color: 'text-white/[0.04]' },
-  { suit: '♥', x: '85%', y: '8%', size: 'text-4xl', rotate: 12, color: 'text-red-500/[0.06]' },
+  { suit: '♥', x: '85%', y: '8%', size: 'text-4xl', rotate: 12, color: 'text-primary/[0.08]' },
   { suit: '♣', x: '75%', y: '25%', size: 'text-2xl', rotate: -30, color: 'text-white/[0.03]' },
-  { suit: '♦', x: '15%', y: '35%', size: 'text-5xl', rotate: 20, color: 'text-red-500/[0.05]' },
+  { suit: '♦', x: '15%', y: '35%', size: 'text-5xl', rotate: 20, color: 'text-primary/[0.06]' },
   { suit: '♠', x: '90%', y: '45%', size: 'text-6xl', rotate: -8, color: 'text-white/[0.04]' },
-  { suit: '♥', x: '5%', y: '55%', size: 'text-3xl', rotate: 25, color: 'text-red-500/[0.05]' },
+  { suit: '♥', x: '5%', y: '55%', size: 'text-3xl', rotate: 25, color: 'text-primary/[0.06]' },
   { suit: '♣', x: '70%', y: '60%', size: 'text-4xl', rotate: -20, color: 'text-white/[0.03]' },
-  { suit: '♦', x: '25%', y: '75%', size: 'text-2xl', rotate: 35, color: 'text-red-500/[0.04]' },
+  { suit: '♦', x: '25%', y: '75%', size: 'text-2xl', rotate: 35, color: 'text-primary/[0.05]' },
   { suit: '♠', x: '55%', y: '15%', size: 'text-3xl', rotate: -40, color: 'text-white/[0.03]' },
-  { suit: '♥', x: '40%', y: '85%', size: 'text-5xl', rotate: 10, color: 'text-red-500/[0.05]' },
+  { suit: '♥', x: '40%', y: '85%', size: 'text-5xl', rotate: 10, color: 'text-primary/[0.06]' },
 ];
 
 // 飞入的扑克牌配置
@@ -177,7 +177,7 @@ export default function Welcome() {
             扑克
           </span>
           <span className="block text-5xl font-black mt-1">
-            <span className="text-red-500">俱乐部</span>
+            <span className="text-primary">俱乐部</span>
             <span className="text-white/60 text-3xl font-bold ml-2">管理</span>
           </span>
         </h1>
@@ -194,7 +194,7 @@ export default function Welcome() {
         <button
           ref={btnRef}
           onClick={() => navigate('/login')}
-          className="group w-full max-w-[280px] h-14 rounded-2xl bg-red-500 text-white font-black text-lg tracking-wide shadow-[0_6px_24px_rgba(239,68,68,0.35)] transition-all active:scale-[0.97] hover:bg-red-400 flex items-center justify-center gap-2 opacity-0"
+          className="group w-full max-w-[280px] h-14 rounded-2xl bg-primary text-white font-black text-lg tracking-wide shadow-[0_6px_24px_rgba(19,127,236,0.35)] transition-all active:scale-[0.97] hover:bg-blue-500 flex items-center justify-center gap-2 opacity-0"
         >
           进入俱乐部
           <span className="text-xl transition-transform group-hover:translate-x-1">♠</span>

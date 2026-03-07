@@ -8,10 +8,10 @@ import { useUser } from '../contexts/UserContext';
 // 背景花色装饰（少量、克制、与 Welcome 呼应）
 const SUIT_DECOR = [
   { suit: '♠', x: '10%', y: '8%', size: 'text-4xl', rotate: -20, color: 'text-white/[0.03]' },
-  { suit: '♥', x: '88%', y: '15%', size: 'text-3xl', rotate: 15, color: 'text-red-500/[0.05]' },
+  { suit: '♥', x: '88%', y: '15%', size: 'text-3xl', rotate: 15, color: 'text-primary/[0.07]' },
   { suit: '♣', x: '80%', y: '55%', size: 'text-5xl', rotate: -10, color: 'text-white/[0.03]' },
-  { suit: '♦', x: '6%', y: '70%', size: 'text-3xl', rotate: 25, color: 'text-red-500/[0.04]' },
-  { suit: '♥', x: '50%', y: '90%', size: 'text-4xl', rotate: -35, color: 'text-red-500/[0.04]' },
+  { suit: '♦', x: '6%', y: '70%', size: 'text-3xl', rotate: 25, color: 'text-primary/[0.05]' },
+  { suit: '♥', x: '50%', y: '90%', size: 'text-4xl', rotate: -35, color: 'text-primary/[0.05]' },
 ];
 
 export default function Login() {
@@ -99,7 +99,7 @@ export default function Login() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse 70% 40% at 50% 25%, rgba(239,68,68,0.06) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 70% 40% at 50% 25%, rgba(19,127,236,0.06) 0%, transparent 70%)',
         }}
       />
 
@@ -132,7 +132,7 @@ export default function Login() {
         <div ref={headerRef} className="pt-4 pb-10">
           {/* 扑克花色装饰图标 */}
           <div className="anim-item flex items-center gap-2 mb-6 opacity-0">
-            <span className="text-3xl text-red-500">♥</span>
+            <span className="text-3xl text-primary">♥</span>
             <span className="text-3xl text-white/80">♠</span>
           </div>
 
@@ -155,7 +155,7 @@ export default function Login() {
             <span className="text-white/60 text-xs font-bold uppercase tracking-widest">昵称</span>
             <div className="relative">
               <input
-                className="w-full h-16 rounded-2xl bg-white/[0.06] border-2 border-white/[0.08] text-white text-xl font-bold px-5 placeholder:text-white/20 focus:outline-none focus:border-red-500/60 focus:bg-white/[0.08] transition-all"
+                className="w-full h-16 rounded-2xl bg-white/[0.06] border-2 border-white/[0.08] text-white text-xl font-bold px-5 placeholder:text-white/20 focus:outline-none focus:border-primary/60 focus:bg-white/[0.08] transition-all"
                 placeholder="PokerKing"
                 type="text"
                 required
@@ -182,7 +182,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="group w-full h-14 rounded-2xl bg-red-500 text-white font-black text-lg tracking-wide shadow-[0_6px_24px_rgba(239,68,68,0.3)] active:scale-[0.97] transition-all hover:bg-red-400 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group w-full h-14 rounded-2xl bg-primary text-white font-black text-lg tracking-wide shadow-[0_6px_24px_rgba(19,127,236,0.3)] active:scale-[0.97] transition-all hover:bg-blue-500 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
