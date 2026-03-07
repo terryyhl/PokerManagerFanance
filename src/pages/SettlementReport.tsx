@@ -198,7 +198,7 @@ export default function SettlementReport() {
                         type="number"
                         value={localChips[s.userId] ?? s.finalChips}
                         onChange={(e) => handleChipChange(s.userId, e.target.value)}
-                        onFocus={e => e.target.select()}
+                        onClick={e => (e.target as HTMLInputElement).select()}
                       />
                     </div>
                   ))}
@@ -281,7 +281,7 @@ export default function SettlementReport() {
                     step="0.01"
                     value={rateInput}
                     onChange={e => handleRateChange(e.target.value)}
-                    onFocus={e => e.target.select()}
+                    onClick={e => (e.target as HTMLInputElement).select()}
                     disabled={isFinished}
                     className={`w-20 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-right px-2 focus:border-primary focus:outline-none ${isFinished
                         ? 'bg-slate-200/50 dark:bg-[#111a22]/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'

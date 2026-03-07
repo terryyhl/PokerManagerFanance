@@ -295,14 +295,14 @@ export default function CreateGame() {
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">每手积分额度</label>
                   <div className="relative">
-                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={pointsPerHand === 0 ? '' : pointsPerHand} onChange={(e) => { const v = e.target.value; setPointsPerHand(v === '' ? 0 : parseInt(v) || 0); }} onFocus={e => e.target.select()} />
+                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={pointsPerHand === 0 ? '' : pointsPerHand} onChange={(e) => { const v = e.target.value; setPointsPerHand(v === '' ? 0 : parseInt(v) || 0); }} onClick={e => (e.target as HTMLInputElement).select()} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">$/手</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">单次最大手数</label>
                   <div className="relative">
-                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={maxHandsPerBuy === 0 ? '' : maxHandsPerBuy} onChange={(e) => { const v = e.target.value; setMaxHandsPerBuy(v === '' ? 0 : parseInt(v) || 0); }} onFocus={e => e.target.select()} />
+                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={maxHandsPerBuy === 0 ? '' : maxHandsPerBuy} onChange={(e) => { const v = e.target.value; setMaxHandsPerBuy(v === '' ? 0 : parseInt(v) || 0); }} onClick={e => (e.target as HTMLInputElement).select()} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">手</span>
                   </div>
                 </div>

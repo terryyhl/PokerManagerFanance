@@ -97,7 +97,7 @@ export default function ChipCalculator() {
                                         min="0"
                                         value={count || ''}
                                         onChange={e => handleChange(denom.value, e.target.value)}
-                                        onFocus={e => e.target.select()}
+                                        onClick={e => (e.target as HTMLInputElement).select()}
                                         placeholder="0"
                                         className="w-14 h-8 text-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#111a22] text-sm font-bold focus:border-primary focus:outline-none"
                                     />
