@@ -1056,8 +1056,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     closeToolsFan();
                     const state: Record<string, unknown> = { fromGame: true };
                     if (tool.path === '/tools/seat') {
-                      // 座位工具：传完整玩家信息 + gameId + hostId
-                      state.players = players.map(p => ({ userId: p.user_id, username: p.users?.username || '?' }));
+                      // 座位工具：传完整玩家信息 + 历史座位号 + gameId + hostId
+                      state.players = players.map(p => ({ userId: p.user_id, username: p.users?.username || '?', seatNumber: p.seat_number ?? null }));
                       state.gameId = id;
                       state.hostId = user?.id;
                     } else if (tool.withPlayers) {

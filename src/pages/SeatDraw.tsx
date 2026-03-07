@@ -6,6 +6,7 @@ import { gamesApi } from '../lib/api';
 interface PlayerInfo {
     userId: string;
     username: string;
+    seatNumber?: number | null;
 }
 
 interface LocationState {
@@ -36,8 +37,17 @@ export default function SeatDraw() {
         return locState.players.map(name => ({ userId: '', username: name }));
     };
 
+    // 从历史座位数据构建上次分配结果
+    const initLastResult = (): { player: PlayerInfo; seat: number }[] | null => {
+        const inited = initPlayers();
+        const withSeat = inited.filter(p => p.seatNumber);
+        if (withSeat.length === 0) return null;
+        return withSeat.map(p => ({ player: p, seat: p.seatNumber! }));
+    };
+
     const [nameInput, setNameInput] = useState('');
     const [players, setPlayers] = useState<PlayerInfo[]>(initPlayers);
+    const [lastResult, setLastResult] = useState<{ player: PlayerInfo; seat: number }[] | null>(initLastResult);
     const [result, setResult] = useState<{ player: PlayerInfo; seat: number }[] | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +91,7 @@ export default function SeatDraw() {
         if (players.length < 2) return;
         setIsAnimating(true);
         setSaved(false);
+        setLastResult(null);
 
         // Fisher-Yates 洗牌
         const seats = Array.from({ length: players.length }, (_, i) => i + 1);
@@ -179,6 +190,30 @@ export default function SeatDraw() {
                                 </span>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {/* 上次分配结果 */}
+                {lastResult && !result && (
+                    <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                        <div className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">history</span>
+                            上次分配结果
+                        </div>
+                        {lastResult
+                            .sort((a, b) => a.seat - b.seat)
+                            .map(r => (
+                                <div
+                                    key={r.seat}
+                                    className="flex items-center gap-3 p-2.5 mb-1.5 last:mb-0 rounded-lg bg-white dark:bg-[#1a2632] border border-slate-100 dark:border-slate-800"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                                        <span className="text-slate-500 dark:text-slate-400 text-sm font-black">{r.seat}</span>
+                                    </div>
+                                    <span className="font-medium text-sm">{r.player.username}</span>
+                                    <span className="text-xs text-slate-400">#{r.seat} 号位</span>
+                                </div>
+                            ))}
                     </div>
                 )}
 
