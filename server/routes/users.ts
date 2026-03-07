@@ -458,4 +458,66 @@ router.get('/:id/thirteen-history', async (req, res) => {
     }
 });
 
+/**
+ * PATCH /api/users/:id/username
+ * 修改用户名（全局唯一）
+ */
+router.patch('/:id/username', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username } = req.body;
+
+        if (!username || typeof username !== 'string' || username.trim().length === 0) {
+            return res.status(400).json({ error: '用户名不能为空' });
+        }
+
+        const trimmed = username.trim();
+
+        if (trimmed.length > 20) {
+            return res.status(400).json({ error: '用户名不能超过20个字符' });
+        }
+
+        // 检查用户是否存在
+        const { data: existing, error: fetchErr } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', id)
+            .single();
+
+        if (fetchErr || !existing) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        // 检查新用户名是否已被其他人占用
+        const { data: conflict } = await supabase
+            .from('users')
+            .select('id')
+            .eq('username', trimmed)
+            .neq('id', id)
+            .maybeSingle();
+
+        if (conflict) {
+            return res.status(409).json({ error: '用户名已存在，请换一个' });
+        }
+
+        // 更新用户名
+        const { data: updated, error: updateErr } = await supabase
+            .from('users')
+            .update({ username: trimmed })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateErr) {
+            console.error('[users/patch-username]', updateErr);
+            return res.status(500).json({ error: '修改用户名失败，请重试' });
+        }
+
+        return res.json({ user: updated });
+    } catch (err) {
+        console.error('[users/patch-username] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
 export default router;

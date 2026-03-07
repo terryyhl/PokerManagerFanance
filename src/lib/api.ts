@@ -6,7 +6,7 @@
 const BASE_URL = '/api';
 
 async function request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     path: string,
     body?: unknown
 ): Promise<T> {
@@ -77,6 +77,12 @@ export const usersApi = {
         request<{
             history: Array<{ gameId: string; gameName: string; finishedAt: string; totalScore: number }>;
         }>('GET', `/users/${userId}/thirteen-history`),
+    updateUsername: (userId: string, username: string) =>
+        request<{ user: { id: string; username: string; created_at: string } }>(
+            'PATCH',
+            `/users/${userId}/username`,
+            { username }
+        ),
 };
 
 export interface LeaderboardEntry {

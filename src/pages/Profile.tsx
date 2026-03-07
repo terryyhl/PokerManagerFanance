@@ -26,7 +26,7 @@ interface ThirteenStats {
 
 export default function Profile() {
     const navigate = useNavigate();
-    const { user, logout } = useUser();
+    const { user, setUser, logout } = useUser();
     const [stats, setStats] = useState<UserStats>({ totalGames: 0, totalProfit: 0, totalBuyIn: 0, winRate: 0 });
     const [thirteenStats, setThirteenStats] = useState<ThirteenStats>({ totalGames: 0, totalRounds: 0, totalScore: 0, winRounds: 0, winRate: 0, gunCount: 0, homerunCount: 0 });
     const [luckyHands, setLuckyHands] = useState<LuckyHandHistory[]>([]);
@@ -38,6 +38,10 @@ export default function Profile() {
     const [error, setError] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showQrShare, setShowQrShare] = useState(false);
+    const [showRename, setShowRename] = useState(false);
+    const [newUsername, setNewUsername] = useState('');
+    const [renameLoading, setRenameLoading] = useState(false);
+    const [renameError, setRenameError] = useState('');
 
     useEffect(() => {
         if (!user) {
@@ -70,6 +74,33 @@ export default function Profile() {
 
     // Top 3 lucky hands by hit_count (already sorted from backend), filter out 0 hits
     const topLuckyHands = luckyHands.filter(lh => lh.hit_count > 0).slice(0, 3);
+
+    const handleOpenRename = () => {
+        if (!user) return;
+        setNewUsername(user.username);
+        setRenameError('');
+        setShowRename(true);
+    };
+
+    const handleRename = async () => {
+        if (!user) return;
+        const trimmed = newUsername.trim();
+        if (!trimmed) { setRenameError('用户名不能为空'); return; }
+        if (trimmed.length > 20) { setRenameError('用户名不能超过20个字符'); return; }
+        if (trimmed === user.username) { setShowRename(false); return; }
+
+        setRenameLoading(true);
+        setRenameError('');
+        try {
+            const res = await usersApi.updateUsername(user.id, trimmed);
+            setUser({ ...user, username: res.user.username });
+            setShowRename(false);
+        } catch (err: any) {
+            setRenameError(err.message || '修改失败，请重试');
+        } finally {
+            setRenameLoading(false);
+        }
+    };
 
     if (!user) return null;
 
@@ -106,7 +137,16 @@ export default function Profile() {
                             <Avatar username={user.username} />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">{user.username}</h1>
+                            <div className="flex items-center gap-1.5">
+                                <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">{user.username}</h1>
+                                <button
+                                    onClick={handleOpenRename}
+                                    className="flex-shrink-0 flex items-center justify-center size-6 rounded-full text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
+                                    aria-label="修改用户名"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">edit</span>
+                                </button>
+                            </div>
                             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">注册于 {new Date(user.created_at).toLocaleDateString('zh-CN')}</p>
                         </div>
                     </div>
@@ -304,6 +344,52 @@ export default function Profile() {
                     )}
 
                 </div>
+
+                {/* 修改用户名对话框 */}
+                {showRename && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setShowRename(false)}>
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <div className="relative w-full max-w-[300px] rounded-2xl bg-white dark:bg-[#1e2936] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
+                                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                    <span className="material-symbols-outlined text-primary text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>badge</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">修改用户名</h3>
+                                <input
+                                    type="text"
+                                    value={newUsername}
+                                    onChange={e => { setNewUsername(e.target.value); setRenameError(''); }}
+                                    onKeyDown={e => { if (e.key === 'Enter' && !renameLoading) handleRename(); }}
+                                    maxLength={20}
+                                    autoFocus
+                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-base font-semibold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="请输入新用户名"
+                                />
+                                {renameError && (
+                                    <p className="text-xs text-red-500 mt-2">{renameError}</p>
+                                )}
+                                <p className="text-[11px] text-slate-400 mt-2">{newUsername.trim().length}/20</p>
+                            </div>
+                            <div className="flex border-t border-slate-200 dark:border-slate-700">
+                                <button
+                                    onClick={() => setShowRename(false)}
+                                    disabled={renameLoading}
+                                    className="flex-1 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                >
+                                    取消
+                                </button>
+                                <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                                <button
+                                    onClick={handleRename}
+                                    disabled={renameLoading || !newUsername.trim()}
+                                    className="flex-1 py-3.5 text-sm font-bold text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                                >
+                                    {renameLoading ? '保存中...' : '确认修改'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* 退出登录确认对话框 */}
                 {showLogoutConfirm && (
