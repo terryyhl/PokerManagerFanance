@@ -13,6 +13,10 @@ interface PlayerStatsModalProps {
     luckyHandsCount: number;
     onModifyLuckyHand?: (handIndex: number) => void;
     currentUserId?: string;
+    isHost?: boolean;
+    hasCheckedOut?: boolean;
+    onProxyBuyIn?: () => void;
+    onProxyCheckout?: () => void;
 }
 
 export default function PlayerStatsModal({
@@ -23,10 +27,14 @@ export default function PlayerStatsModal({
     username,
     luckyHandsCount,
     onModifyLuckyHand,
-    currentUserId
+    currentUserId,
+    isHost,
+    hasCheckedOut,
+    onProxyBuyIn,
+    onProxyCheckout,
 }: PlayerStatsModalProps) {
     const [buyInRecords, setBuyInRecords] = useState<PlayerBuyInRecord[]>([]);
-    const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number; created_at: string } | null>(null);
+    const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number; created_by?: string | null; created_at: string } | null>(null);
     const [luckyHands, setLuckyHands] = useState<LuckyHandData[]>([]);
     const [timerStats, setTimerStats] = useState<{
         timerCount: number; timerAvgSec: number; timerMaxSec: number;
@@ -49,7 +57,7 @@ export default function PlayerStatsModal({
                 if (isMounted) {
                     setBuyInRecords(buyinData.filter(b => b.type !== 'checkout'));
                     const checkout = buyinData.find(b => b.type === 'checkout');
-                    setCheckoutRecord(checkout ? { amount: checkout.amount, created_at: checkout.created_at } : null);
+                    setCheckoutRecord(checkout ? { amount: checkout.amount, created_by: checkout.created_by, created_at: checkout.created_at } : null);
                 }
 
                 // Fetch lucky hands via API
@@ -163,6 +171,12 @@ export default function PlayerStatsModal({
                                                             <div className="text-[10px] text-slate-400 mt-0.5">
                                                                 累计: {runningTotal}
                                                             </div>
+                                                            {record.created_by && (
+                                                                <div className="flex items-center gap-0.5 text-[10px] text-violet-500 mt-0.5">
+                                                                    <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                                                                    由管理员代为购买
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
@@ -183,6 +197,12 @@ export default function PlayerStatsModal({
                                                             </div>
                                                             <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">{checkoutRecord.amount}</span>
                                                         </div>
+                                                        {checkoutRecord.created_by && (
+                                                            <div className="flex items-center gap-0.5 text-[10px] text-violet-500 mt-0.5">
+                                                                <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                                                                由管理员代为结账
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -309,6 +329,27 @@ export default function PlayerStatsModal({
                                             );
                                         })}
                                     </div>
+                                </div>
+                            )}
+                            {/* 房主代操作按钮 */}
+                            {isHost && currentUserId !== userId && (
+                                <div className="flex gap-2 pt-2">
+                                    <button
+                                        onClick={onProxyBuyIn}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold text-sm transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">payments</span>
+                                        代购买
+                                    </button>
+                                    {!hasCheckedOut && (
+                                        <button
+                                            onClick={onProxyCheckout}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-600 dark:text-green-400 font-bold text-sm transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                                            代结账
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </>

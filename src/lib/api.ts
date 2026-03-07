@@ -145,6 +145,7 @@ export interface BuyIn {
     user_id: string;
     amount: number;
     type: 'initial' | 'rebuy' | 'checkout';
+    created_by?: string | null;
     created_at: string;
     users?: { id: string; username: string };
 }
@@ -209,11 +210,11 @@ export const gamesApi = {
 // ──────────────────────────── Buy-in API ───────────────────────────────────
 
 export const buyInApi = {
-    record: (gameId: string, userId: string, amount: number, type: 'initial' | 'rebuy') =>
-        request<{ buyIn: BuyIn }>('POST', '/buyin', { gameId, userId, amount, type }),
+    record: (gameId: string, userId: string, amount: number, type: 'initial' | 'rebuy', createdBy?: string) =>
+        request<{ buyIn: BuyIn }>('POST', '/buyin', { gameId, userId, amount, type, createdBy }),
 
-    checkout: (gameId: string, userId: string, chips: number) =>
-        request<{ checkout: BuyIn }>('POST', '/buyin/checkout', { gameId, userId, chips }),
+    checkout: (gameId: string, userId: string, chips: number, createdBy?: string) =>
+        request<{ checkout: BuyIn }>('POST', '/buyin/checkout', { gameId, userId, chips, createdBy }),
 };
 
 export const pendingBuyInApi = {
@@ -287,6 +288,7 @@ export interface PendingLuckyHit {
 export interface PlayerBuyInRecord {
     amount: number;
     type: string;
+    created_by?: string | null;
     created_at: string;
 }
 

@@ -11,7 +11,7 @@ const router = Router();
  */
 router.post('/', async (req, res) => {
     try {
-        const { gameId, userId, amount, type } = req.body;
+        const { gameId, userId, amount, type, createdBy } = req.body;
 
         if (!gameId || !userId || !amount) {
             return res.status(400).json({ error: '缺少必要参数' });
@@ -23,7 +23,22 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: '买入金额必须为正整数' });
         }
 
+        // 房主代操作校验：如果 createdBy 存在且不等于 userId，验证 createdBy 是否为房主
+        if (createdBy && createdBy !== userId) {
+            const { data: game } = await supabase
+                .from('games')
+                .select('created_by')
+                .eq('id', gameId)
+                .single();
+            if (!game || game.created_by !== createdBy) {
+                return res.status(403).json({ error: '只有房主才能代操作' });
+            }
+        }
+
         const validType = type === 'rebuy' ? 'rebuy' : 'initial';
+
+        // created_by: 仅在代操作时记录操作人，本人操作为 null
+        const isProxy = createdBy && createdBy !== userId;
 
         const { data, error } = await supabase
             .from('buy_ins')
@@ -32,6 +47,7 @@ router.post('/', async (req, res) => {
                 user_id: userId,
                 amount: parsedAmount,
                 type: validType,
+                ...(isProxy ? { created_by: createdBy } : {}),
             })
             .select(`*, users(id, username)`)
             .single();
@@ -228,7 +244,7 @@ router.delete('/pending/:id', async (req, res) => {
  */
 router.post('/checkout', async (req, res) => {
     try {
-        const { gameId, userId, chips } = req.body;
+        const { gameId, userId, chips, createdBy } = req.body;
 
         if (!gameId || !userId || chips === undefined) {
             return res.status(400).json({ error: '缺少必要参数' });
@@ -238,6 +254,18 @@ router.post('/checkout', async (req, res) => {
         const parsedChips = parseInt(chips, 10);
         if (isNaN(parsedChips) || parsedChips < 0) {
             return res.status(400).json({ error: '筹码数量必须为非负整数' });
+        }
+
+        // 房主代操作校验
+        if (createdBy && createdBy !== userId) {
+            const { data: game } = await supabase
+                .from('games')
+                .select('created_by')
+                .eq('id', gameId)
+                .single();
+            if (!game || game.created_by !== createdBy) {
+                return res.status(403).json({ error: '只有房主才能代操作' });
+            }
         }
 
         // #16 防止重复结账
@@ -253,6 +281,8 @@ router.post('/checkout', async (req, res) => {
             return res.status(400).json({ error: '您已经结过账了，不能重复结账' });
         }
 
+        const isProxy = createdBy && createdBy !== userId;
+
         const { data, error } = await supabase
             .from('buy_ins')
             .insert({
@@ -260,6 +290,7 @@ router.post('/checkout', async (req, res) => {
                 user_id: userId,
                 amount: parsedChips,
                 type: 'checkout',
+                ...(isProxy ? { created_by: createdBy } : {}),
             })
             .select(`*, users(id, username)`)
             .single();

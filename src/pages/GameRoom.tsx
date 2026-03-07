@@ -87,6 +87,11 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
+  // 房主代操作弹窗
+  const [proxyTarget, setProxyTarget] = useState<{ userId: string; username: string; action: 'buyin' | 'checkout' } | null>(null);
+  const [proxyAmount, setProxyAmount] = useState('');
+  const [proxySubmitting, setProxySubmitting] = useState(false);
+
   // 实时广播催促计时器
   const [activeTimer, setActiveTimer] = useState<ActiveTimerEvent | null>(null);
   const [viewingTimer, setViewingTimer] = useState(false); // 是否正在查看广播来的计时器
@@ -539,6 +544,46 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     // 记录送花
     timerApi.record(id, userId, user.id, 'flower').catch(err => console.error('Record flower error:', err));
   }, [actionPopupTarget, user, id, broadcastInteraction]);
+
+  // ── 房主代操作 ──────────────────────────────────────────────────────────────
+  const handleProxyBuyIn = useCallback(() => {
+    if (!selectedPlayerStats) return;
+    setProxyTarget({ userId: selectedPlayerStats.id, username: selectedPlayerStats.username, action: 'buyin' });
+    setProxyAmount('');
+    setSelectedPlayerStats(null);
+  }, [selectedPlayerStats]);
+
+  const handleProxyCheckout = useCallback(() => {
+    if (!selectedPlayerStats) return;
+    setProxyTarget({ userId: selectedPlayerStats.id, username: selectedPlayerStats.username, action: 'checkout' });
+    setProxyAmount('');
+    setSelectedPlayerStats(null);
+  }, [selectedPlayerStats]);
+
+  const handleProxySubmit = async () => {
+    if (!proxyTarget || !user || !id || !proxyAmount) return;
+    const amount = parseInt(proxyAmount, 10);
+    if (isNaN(amount) || amount <= 0) { showToast('请输入有效金额', 'error'); return; }
+
+    setProxySubmitting(true);
+    try {
+      if (proxyTarget.action === 'buyin') {
+        const targetBuyIns = buyIns.filter(b => b.user_id === proxyTarget.userId && (b.type === 'initial' || b.type === 'rebuy'));
+        const type = targetBuyIns.length === 0 ? 'initial' : 'rebuy';
+        await buyInApi.record(id, proxyTarget.userId, amount, type, user.id);
+        showToast(`已为 ${proxyTarget.username} 代购买 $${amount}`, 'success');
+      } else {
+        await buyInApi.checkout(id, proxyTarget.userId, amount, user.id);
+        showToast(`已为 ${proxyTarget.username} 代结账 $${amount}`, 'success');
+      }
+      setProxyTarget(null);
+      await fetchGame();
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    } finally {
+      setProxySubmitting(false);
+    }
+  };
 
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
@@ -1194,6 +1239,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                                 盈亏: {profit >= 0 ? '+' : ''}${profit}
                               </span>
                             </div>
+                            {b.created_by && (
+                              <div className="flex items-center gap-1 pt-1 border-t border-emerald-200 dark:border-emerald-800/50 mt-1">
+                                <span className="material-symbols-outlined text-violet-500 text-[12px]">admin_panel_settings</span>
+                                <span className="text-[11px] font-medium text-violet-500">由管理员代为结账</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1239,6 +1290,12 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                                 .reduce((sum, prev) => sum + prev.amount, 0)
                             }</span>
                           </div>
+                          {b.created_by && (
+                            <div className="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
+                              <span className="material-symbols-outlined text-violet-500 text-[12px]">admin_panel_settings</span>
+                              <span className="text-[11px] font-medium text-violet-500">由管理员代为购买</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1544,6 +1601,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             luckyHandsCount={game.lucky_hands_count}
             onModifyLuckyHand={handleModifyLuckyHandFromStats}
             currentUserId={user?.id}
+            isHost={isHost}
+            hasCheckedOut={buyIns.some(b => b.user_id === selectedPlayerStats.id && b.type === 'checkout')}
+            onProxyBuyIn={handleProxyBuyIn}
+            onProxyCheckout={handleProxyCheckout}
           />
         )}
 
@@ -1568,6 +1629,54 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             onSendFlower={handleSendFlower}
             isSelf={actionPopupTarget.userId === user?.id}
           />
+        )}
+
+        {/* 房主代操作弹窗 */}
+        {proxyTarget && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setProxyTarget(null)}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-[300px] rounded-2xl bg-white dark:bg-[#1e2936] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${proxyTarget.action === 'buyin' ? 'bg-primary/10' : 'bg-green-500/10'}`}>
+                  <span className={`material-symbols-outlined text-[28px] ${proxyTarget.action === 'buyin' ? 'text-primary' : 'text-green-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {proxyTarget.action === 'buyin' ? 'payments' : 'receipt_long'}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                  {proxyTarget.action === 'buyin' ? '代购买' : '代结账'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  为 <span className="font-bold text-slate-700 dark:text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '购买积分' : '结账'}
+                </p>
+                <input
+                  type="number"
+                  value={proxyAmount}
+                  onChange={e => setProxyAmount(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
+                  autoFocus
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xl font-bold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  placeholder={proxyTarget.action === 'buyin' ? '购买金额' : '结账筹码'}
+                />
+              </div>
+              <div className="flex border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setProxyTarget(null)}
+                  disabled={proxySubmitting}
+                  className="flex-1 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                <button
+                  onClick={handleProxySubmit}
+                  disabled={proxySubmitting || !proxyAmount}
+                  className={`flex-1 py-3.5 text-sm font-bold transition-colors disabled:opacity-50 ${proxyTarget.action === 'buyin' ? 'text-primary hover:bg-primary/5' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-950/20'}`}
+                >
+                  {proxySubmitting ? '提交中...' : '确认'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 思考计时器覆盖层 — 主持模式（发起者） */}

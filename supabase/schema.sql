@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS buy_ins (
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount      INTEGER NOT NULL CHECK (amount >= 0),
   type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout')),
+  created_by  UUID REFERENCES users(id),              -- 操作人（NULL=本人，非NULL=代操作人）
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
