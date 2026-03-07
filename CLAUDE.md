@@ -171,9 +171,27 @@
 56. 个人中心13水统计
 57. 选牌器道次按钮顺序：头道→中道→尾道
 
+### 结算报告
+58. 分享海报+页面表格添加水上（正盈亏总和）/水下（负盈亏总和）统计
+59. 汇率输入框结算完成后仍可修改
+60. 实际金额截断取整（Math.trunc），不四舍五入，无小数点
+61. 汇率保存到 sessionStorage，点分享时持久化，重新进入自动恢复
+
+### 布局调整
+62. BottomNav 底部增加 20px（pb-7），适配 iPhone 底部
+63. Lobby 密码加入按钮紧靠 BottomNav 上方（bottom-[76px]）
+
+### UI 审视优化
+66. Toolbox 标题栏左对齐（与 Lobby/History/Profile 统一）
+67. Lobby 房间卡片精简 Badge（移除冗余的"密码房间"和"进行中"标签）
+68. Toolbox 牌局时钟 span-2 横跨两列（增加层次感）
+69. Login 页面标题居中修复（pr-10 → 右侧占位 div）
+70. CreateGame 默认房间名改为空字符串（避免英文闪烁）
+71. JoinRoom 密码键盘左下角添加"清空"按钮
+
 ### Bug 修复
-58. React Error #310 修复：tableProps useMemo 在 early return 之后调用导致 hooks 数量不一致，移至所有 early return 之前
-59. 清理所有 console.log 诊断日志（保留 error/warn）
+72. React Error #310 修复：tableProps useMemo 在 early return 之后调用导致 hooks 数量不一致，移至所有 early return 之前
+73. 清理所有 console.log 诊断日志（保留 error/warn）
 
 ## Architecture Notes
 
