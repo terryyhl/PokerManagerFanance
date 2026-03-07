@@ -92,9 +92,6 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [proxyAmount, setProxyAmount] = useState('');
   const [proxySubmitting, setProxySubmitting] = useState(false);
 
-  // 报座位
-  const [reportingSeat, setReportingSeat] = useState(false);
-
   // 实时广播催促计时器
   const [activeTimer, setActiveTimer] = useState<ActiveTimerEvent | null>(null);
   const [viewingTimer, setViewingTimer] = useState(false); // 是否正在查看广播来的计时器
@@ -789,25 +786,6 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy'))
     .reduce((sum, b) => sum + b.amount, 0);
 
-  // 当前玩家的座位号
-  const mySeatNumber = players.find(p => p.user_id === user?.id)?.seat_number;
-  // 当前玩家是否已报过座位（时间线中有自己的 seat_report 记录）
-  const hasReportedSeat = buyIns.some(b => b.user_id === user?.id && b.type === 'seat_report');
-
-  const handleReportSeat = async () => {
-    if (!id || !user || !mySeatNumber || reportingSeat) return;
-    setReportingSeat(true);
-    try {
-      await gamesApi.reportSeat(id, user.id, mySeatNumber);
-      await fetchGame();
-      showToast(`已报座位：${mySeatNumber}号位`, 'success');
-    } catch {
-      showToast('报座位失败', 'error');
-    } finally {
-      setReportingSeat(false);
-    }
-  };
-
   // ── 加载中 ──────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -1118,27 +1096,6 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 {game?.created_at ? `开始于 ${formatTime(game.created_at)}` : '游戏进行中'}
               </span>
             </div>
-
-            {/* 报座位提示条：有座位号但还没报过 */}
-            {mySeatNumber && !hasReportedSeat && (
-              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-indigo-500 text-[18px]">event_seat</span>
-                  <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">你的座位：<strong>{mySeatNumber}号位</strong></span>
-                </div>
-                <button
-                  onClick={handleReportSeat}
-                  disabled={reportingSeat}
-                  className="flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 active:scale-95"
-                >
-                  {reportingSeat ? (
-                    <><span className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>报座中...</>
-                  ) : (
-                    <><span className="material-symbols-outlined text-[14px]">campaign</span>报座位</>
-                  )}
-                </button>
-              </div>
-            )}
 
             {/* 如果是房主，在此插入 幸运手牌待审核 卡片区域 */}
             {isHost && pendingLuckyHits.length > 0 && (

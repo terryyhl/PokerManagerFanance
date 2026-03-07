@@ -499,6 +499,24 @@ router.post('/:id/seat-assign', async (req, res) => {
                 .eq('user_id', a.userId);
         }
 
+        // 清除该房间旧的座位时间线消息
+        await supabase
+            .from('buy_ins')
+            .delete()
+            .eq('game_id', id)
+            .eq('type', 'seat_report');
+
+        // 批量写入新的座位时间线消息（amount 存座位号）
+        const seatRecords = assignments.map(a => ({
+            game_id: id,
+            user_id: a.userId,
+            amount: a.seatNumber,
+            type: 'seat_report' as const,
+        }));
+        if (seatRecords.length > 0) {
+            await supabase.from('buy_ins').insert(seatRecords);
+        }
+
         return res.json({ success: true });
     } catch (err) {
         console.error('[games/seat-assign] Unhandled error:', err);
