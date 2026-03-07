@@ -1380,7 +1380,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   <div className="px-6 py-8">
                     <div className="relative">
                       <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 px-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
-                        inputMode="numeric" placeholder="1" type="number" min="1" max={game?.max_hands_per_buy || 10} value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} />
+                        inputMode="numeric" placeholder="1" type="number" min="1" max={game?.max_hands_per_buy || 10} value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} onFocus={e => e.target.select()} />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
                         <span className="text-lg font-bold text-slate-500">手</span>
                       </div>
@@ -1470,7 +1470,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     <span className="text-2xl font-bold text-primary">$</span>
                   </div>
                   <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 pl-10 pr-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
-                    inputMode="decimal" placeholder="0" type="number" value={checkoutChips} onChange={e => setCheckoutChips(e.target.value)} />
+                    inputMode="decimal" placeholder="0" type="number" value={checkoutChips} onChange={e => setCheckoutChips(e.target.value)} onFocus={e => e.target.select()} />
                 </div>
                 <div className="mt-4 flex justify-between text-xs font-medium text-slate-500 px-1">
                   <span>当前总买入: ${myTotalBuyIn}</span>
@@ -1667,6 +1667,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     value={proxyAmount}
                     onChange={e => setProxyAmount(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
+                    onFocus={e => e.target.select()}
                     autoFocus
                     className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xl font-bold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     placeholder={proxyTarget.action === 'buyin' ? '手数' : '结账筹码'}
