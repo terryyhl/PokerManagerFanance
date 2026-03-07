@@ -126,6 +126,8 @@ export interface Game {
     room_code: string;
     status: 'active' | 'finished';
     lucky_hands_count: number;
+    points_per_hand: number;
+    max_hands_per_buy: number;
     // 13水专属配置
     thirteen_base_score: number;
     thirteen_ghost_count: number;
@@ -146,6 +148,8 @@ export interface BuyIn {
     amount: number;
     type: 'initial' | 'rebuy' | 'checkout';
     created_by?: string | null;
+    hand_count?: number | null;
+    points_per_hand?: number | null;
     created_at: string;
     users?: { id: string; username: string };
 }
@@ -169,6 +173,8 @@ export interface CreateGameOptions {
     maxBuyin?: number;
     insuranceMode?: boolean;
     luckyHandsCount?: number;
+    pointsPerHand?: number;
+    maxHandsPerBuy?: number;
     // 13水配置
     thirteenBaseScore?: number;
     thirteenGhostCount?: number;
@@ -210,8 +216,8 @@ export const gamesApi = {
 // ──────────────────────────── Buy-in API ───────────────────────────────────
 
 export const buyInApi = {
-    record: (gameId: string, userId: string, amount: number, type: 'initial' | 'rebuy', createdBy?: string) =>
-        request<{ buyIn: BuyIn }>('POST', '/buyin', { gameId, userId, amount, type, createdBy }),
+    record: (gameId: string, userId: string, handCount: number, type: 'initial' | 'rebuy', createdBy?: string) =>
+        request<{ buyIn: BuyIn; totalAmount: number }>('POST', '/buyin', { gameId, userId, handCount, type, createdBy }),
 
     checkout: (gameId: string, userId: string, chips: number, createdBy?: string) =>
         request<{ checkout: BuyIn }>('POST', '/buyin/checkout', { gameId, userId, chips, createdBy }),
@@ -219,10 +225,10 @@ export const buyInApi = {
 
 export const pendingBuyInApi = {
     getList: (gameId: string) =>
-        request<{ requests: Array<{ id: string; gameId: string; userId: string; username: string; amount: number; totalBuyIn: number; type: 'initial' | 'rebuy'; createdAt: string }> }>('GET', `/buyin/pending/${gameId}`),
+        request<{ requests: Array<{ id: string; gameId: string; userId: string; username: string; amount: number; totalBuyIn: number; type: 'initial' | 'rebuy'; handCount?: number; pointsPerHand?: number; createdAt: string }> }>('GET', `/buyin/pending/${gameId}`),
 
-    submit: (gameId: string, userId: string, username: string, amount: number, type: 'initial' | 'rebuy') =>
-        request<{ request: { id: string } }>('POST', '/buyin/pending', { gameId, userId, username, amount, type }),
+    submit: (gameId: string, userId: string, username: string, handCount: number, type: 'initial' | 'rebuy') =>
+        request<{ request: { id: string } }>('POST', '/buyin/pending', { gameId, userId, username, handCount, type }),
 
     approve: (requestId: string) =>
         request<{ buyIn: BuyIn }>('POST', `/buyin/pending/${requestId}/approve`),

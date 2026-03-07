@@ -562,17 +562,22 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   const handleProxySubmit = async () => {
     if (!proxyTarget || !user || !id || !proxyAmount) return;
-    const amount = parseInt(proxyAmount, 10);
-    if (isNaN(amount) || amount <= 0) { showToast('请输入有效金额', 'error'); return; }
 
     setProxySubmitting(true);
     try {
       if (proxyTarget.action === 'buyin') {
+        // 代购买：输入手数
+        const handCount = parseInt(proxyAmount, 10);
+        if (isNaN(handCount) || handCount <= 0) { showToast('请输入有效手数', 'error'); setProxySubmitting(false); return; }
         const targetBuyIns = buyIns.filter(b => b.user_id === proxyTarget.userId && (b.type === 'initial' || b.type === 'rebuy'));
         const type = targetBuyIns.length === 0 ? 'initial' : 'rebuy';
-        await buyInApi.record(id, proxyTarget.userId, amount, type, user.id);
-        showToast(`已为 ${proxyTarget.username} 代购买 $${amount}`, 'success');
+        await buyInApi.record(id, proxyTarget.userId, handCount, type, user.id);
+        const pph = game?.points_per_hand || 100;
+        showToast(`已为 ${proxyTarget.username} 代购买 ${handCount}手 = $${handCount * pph}`, 'success');
       } else {
+        // 代结账：输入筹码金额（不走手数）
+        const amount = parseInt(proxyAmount, 10);
+        if (isNaN(amount) || amount < 0) { showToast('请输入有效金额', 'error'); setProxySubmitting(false); return; }
         await buyInApi.checkout(id, proxyTarget.userId, amount, user.id);
         showToast(`已为 ${proxyTarget.username} 代结账 $${amount}`, 'success');
       }
@@ -588,18 +593,21 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
     if (!user || !game || !id || !buyInAmount) return;
-    const amount = parseInt(buyInAmount, 10);
+    const handCount = parseInt(buyInAmount, 10);
+    const pph = game.points_per_hand || 100;
+    const maxHands = game.max_hands_per_buy || 10;
 
-    // 校验最小和最高买入限制
-    if (amount < game.min_buyin) {
-      showToast(`单次买入不能低于最小买入限制 $${game.min_buyin}`, 'error');
+    // 校验手数
+    if (isNaN(handCount) || handCount <= 0) {
+      showToast('请输入有效的手数', 'error');
       return;
     }
-    if (amount > game.max_buyin) {
-      showToast(`单次买入不能超过最高买入限制 $${game.max_buyin}`, 'error');
+    if (handCount > maxHands) {
+      showToast(`单次最多买入 ${maxHands} 手`, 'error');
       return;
     }
 
+    const amount = handCount * pph;
     const userBuyIns = buyIns.filter(b => b.user_id === user.id && (b.type === 'initial' || b.type === 'rebuy'));
     const type = userBuyIns.length === 0 ? 'initial' : 'rebuy';
 
@@ -607,7 +615,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     if (needsApproval && !isHost) {
       setSubmitting(true);
       try {
-        const { request: pendingReq } = await pendingBuyInApi.submit(id, user.id, user.username, amount, type);
+        const { request: pendingReq } = await pendingBuyInApi.submit(id, user.id, user.username, handCount, type);
         // 标记「我已提交待审核申请」，供 SSE Hook 识别后续 buy_ins INSERT 为审批通过
         markPendingSubmitted(amount, type);
         // 将自己的申请加入本地 pending 列表，立即在时间线中显示审核状态
@@ -621,7 +629,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           type,
           createdAt: new Date().toISOString(),
         }]);
-        showToast('申请已提交，等待房主审核...', 'info');
+        showToast(`申请已提交（${handCount}手 = $${amount}），等待房主审核...`, 'info');
         setBuyInAmount(''); setShowBuyIn(false);
       } catch (err: any) {
         showToast(err.message || '提交失败', 'error');
@@ -634,7 +642,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     // 直接买入（无审核 or 房主）
     setSubmitting(true);
     try {
-      const res = await buyInApi.record(id, user.id, amount, type) as { buyIn: BuyIn; totalAmount?: number };
+      const res = await buyInApi.record(id, user.id, handCount, type);
       await fetchGame();
       setBuyinSuccess({ amount, total: res.totalAmount ?? 0 });
       setBuyInAmount('');
@@ -1279,7 +1287,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       <div className="rounded-2xl rounded-bl-none bg-white dark:bg-[#1e2936] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">{b.type === 'initial' ? '初始买入' : '重买/加注'}</p>
                         <div className="flex flex-col gap-1">
-                          <span className="text-2xl font-bold text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}</span>
+                          <span className="text-2xl font-bold text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}{b.hand_count ? <span className="text-sm font-medium text-slate-400 ml-1">({b.hand_count}手)</span> : null}</span>
                           <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
                             <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-[14px]">account_balance_wallet</span>
                             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">当前总买入: ${
@@ -1327,7 +1335,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         <div className="fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3">
           <button onClick={() => {
             setShowBuyIn(true);
-            if (game?.min_buyin) setBuyInAmount(game.min_buyin.toString());
+            setBuyInAmount('1');
           }} className="pointer-events-auto shadow-lg shadow-primary/20 flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-white transition-transform active:scale-95 hover:bg-primary/90 max-w-[200px]">
             <span className="material-symbols-outlined font-semibold" style={{ fontSize: '24px' }}>add_circle</span>
             <span className="text-base font-bold tracking-wide">买入</span>
@@ -1351,8 +1359,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   </div>
                   <h3 className="text-xl font-bold text-white mb-2">买入成功</h3>
                   <div className="space-y-1 mb-8">
-                    <p className="text-slate-400 text-sm">本次买入: <span className="text-white font-bold">{buyinSuccess.amount} 积分</span></p>
-                    <p className="text-slate-400 text-sm">当前总买入: <span className="text-primary font-bold text-lg">{buyinSuccess.total} 积分</span></p>
+                    <p className="text-slate-400 text-sm">本次买入: <span className="text-white font-bold">${buyinSuccess.amount}</span></p>
+                    <p className="text-slate-400 text-sm">当前总买入: <span className="text-primary font-bold text-lg">${buyinSuccess.total}</span></p>
                   </div>
                   <button
                     onClick={() => { setBuyinSuccess(null); setShowBuyIn(false); }}
@@ -1364,22 +1372,27 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
               ) : (
                 <>
                   <div className="px-6 py-5 text-center border-b border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white">买入筹码</h3>
+                    <h3 className="text-lg font-bold text-white">按手数买入</h3>
                     <p className="mt-1 text-xs text-slate-400">
-                      {game ? `单次限制: $${game.min_buyin} - $${game.max_buyin}` : '请输入买入筹码数量'}
+                      {game ? `每手 $${game.points_per_hand || 100}，单次最多 ${game.max_hands_per_buy || 10} 手` : '请输入买入手数'}
                     </p>
                   </div>
                   <div className="px-6 py-8">
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                        <span className="text-2xl font-bold text-primary">$</span>
+                      <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 px-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
+                        inputMode="numeric" placeholder="1" type="number" min="1" max={game?.max_hands_per_buy || 10} value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                        <span className="text-lg font-bold text-slate-500">手</span>
                       </div>
-                      <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 pl-10 pr-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
-                        inputMode="decimal" placeholder="0" type="number" value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} />
                     </div>
-                    <div className="mt-4 flex flex-col gap-2">
+                    {buyInAmount && parseInt(buyInAmount) > 0 && game && (
+                      <p className="text-center text-lg font-bold text-primary mt-3">
+                        = ${parseInt(buyInAmount) * (game.points_per_hand || 100)}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-col gap-2">
                       <p className="text-center text-xs text-slate-500 font-medium">
-                        当前总买入: <span className="text-slate-300">{myTotalBuyIn} 积分</span>
+                        当前总买入: <span className="text-slate-300">${myTotalBuyIn}</span>
                       </p>
                       {needsApproval && !isHost && (
                         <p className="text-center text-xs text-amber-400 flex items-center justify-center gap-1">
@@ -1646,17 +1659,31 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   {proxyTarget.action === 'buyin' ? '代购买' : '代结账'}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                  为 <span className="font-bold text-slate-700 dark:text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '购买积分' : '结账'}
+                  为 <span className="font-bold text-slate-700 dark:text-slate-200">{proxyTarget.username}</span> {proxyTarget.action === 'buyin' ? '按手数购买' : '结账'}
                 </p>
-                <input
-                  type="number"
-                  value={proxyAmount}
-                  onChange={e => setProxyAmount(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xl font-bold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                  placeholder={proxyTarget.action === 'buyin' ? '购买金额' : '结账筹码'}
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={proxyAmount}
+                    onChange={e => setProxyAmount(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !proxySubmitting) handleProxySubmit(); }}
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xl font-bold text-slate-900 dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder={proxyTarget.action === 'buyin' ? '手数' : '结账筹码'}
+                    min={proxyTarget.action === 'buyin' ? 1 : 0}
+                    max={proxyTarget.action === 'buyin' ? (game?.max_hands_per_buy || 10) : undefined}
+                  />
+                  {proxyTarget.action === 'buyin' && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                      <span className="text-sm font-bold text-slate-400">手</span>
+                    </div>
+                  )}
+                </div>
+                {proxyTarget.action === 'buyin' && proxyAmount && parseInt(proxyAmount) > 0 && game && (
+                  <p className="text-center text-sm font-bold text-primary mt-2">
+                    = ${parseInt(proxyAmount) * (game.points_per_hand || 100)}
+                  </p>
+                )}
               </div>
               <div className="flex border-t border-slate-200 dark:border-slate-700">
                 <button

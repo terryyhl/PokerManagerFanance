@@ -24,8 +24,8 @@ export default function CreateGame() {
   const [customBlind, setCustomBlind] = useState('');
   const [isCustomBlind, setIsCustomBlind] = useState(false);
   const [insurance, setInsurance] = useState(true);
-  const [minBuyin, setMinBuyin] = useState(100);
-  const [maxBuyin, setMaxBuyin] = useState(400);
+  const [pointsPerHand, setPointsPerHand] = useState(100);
+  const [maxHandsPerBuy, setMaxHandsPerBuy] = useState(10);
   const [luckyHandsCount, setLuckyHandsCount] = useState(0);
 
   // ─── 13水配置 ──────────────────────────────────────────────
@@ -85,8 +85,8 @@ export default function CreateGame() {
         userId: user.id,
         roomType,
         blindLevel: isCustomBlind && customBlind.trim() ? customBlind.trim() : selectedBlind,
-        minBuyin,
-        maxBuyin,
+        pointsPerHand,
+        maxHandsPerBuy,
         insuranceMode: insurance,
         luckyHandsCount,
         thirteenBaseScore: twBaseScore,
@@ -288,20 +288,20 @@ export default function CreateGame() {
                 </div>
               </div>
 
-              {/* 买入范围 */}
+              {/* 每手积分额度 + 单次最大手数 */}
               <div className="grid grid-cols-2 gap-4 opacity-0">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">最小买入</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">每手积分额度</label>
                   <div className="relative">
-                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={minBuyin} onChange={(e) => setMinBuyin(parseInt(e.target.value) || 0)} />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">积分</span>
+                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={pointsPerHand} onChange={(e) => setPointsPerHand(Math.max(1, parseInt(e.target.value) || 1))} />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">$/手</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">最大买入</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">单次最大手数</label>
                   <div className="relative">
-                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={maxBuyin} onChange={(e) => setMaxBuyin(parseInt(e.target.value) || 0)} />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">积分</span>
+                    <input className="block w-full h-12 px-4 pr-12 rounded-xl bg-white dark:bg-[#192633] border border-slate-300 dark:border-[#324d67] text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all font-mono" type="number" value={maxHandsPerBuy} onChange={(e) => setMaxHandsPerBuy(Math.max(1, parseInt(e.target.value) || 1))} />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#92adc9] text-sm">手</span>
                   </div>
                 </div>
               </div>

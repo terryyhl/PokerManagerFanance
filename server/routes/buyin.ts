@@ -11,26 +11,42 @@ const router = Router();
  */
 router.post('/', async (req, res) => {
     try {
-        const { gameId, userId, amount, type, createdBy } = req.body;
+        const { gameId, userId, handCount, type, createdBy } = req.body;
 
-        if (!gameId || !userId || !amount) {
+        if (!gameId || !userId || !handCount) {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
-        // #15 输入验证
-        const parsedAmount = parseInt(amount, 10);
-        if (isNaN(parsedAmount) || parsedAmount <= 0) {
-            return res.status(400).json({ error: '买入金额必须为正整数' });
+        // 输入验证：手数必须为正整数
+        const parsedHandCount = parseInt(handCount, 10);
+        if (isNaN(parsedHandCount) || parsedHandCount <= 0) {
+            return res.status(400).json({ error: '手数必须为正整数' });
         }
+
+        // 查询房间配置获取 points_per_hand 和 max_hands_per_buy
+        const { data: game, error: gameError } = await supabase
+            .from('games')
+            .select('created_by, points_per_hand, max_hands_per_buy')
+            .eq('id', gameId)
+            .single();
+
+        if (gameError || !game) {
+            return res.status(404).json({ error: '房间不存在' });
+        }
+
+        // 校验手数上限
+        const maxHands = game.max_hands_per_buy || 10;
+        if (parsedHandCount > maxHands) {
+            return res.status(400).json({ error: `单次最多买入 ${maxHands} 手` });
+        }
+
+        // 后端计算金额
+        const pph = game.points_per_hand || 100;
+        const parsedAmount = parsedHandCount * pph;
 
         // 房主代操作校验：如果 createdBy 存在且不等于 userId，验证 createdBy 是否为房主
         if (createdBy && createdBy !== userId) {
-            const { data: game } = await supabase
-                .from('games')
-                .select('created_by')
-                .eq('id', gameId)
-                .single();
-            if (!game || game.created_by !== createdBy) {
+            if (game.created_by !== createdBy) {
                 return res.status(403).json({ error: '只有房主才能代操作' });
             }
         }
@@ -47,6 +63,8 @@ router.post('/', async (req, res) => {
                 user_id: userId,
                 amount: parsedAmount,
                 type: validType,
+                hand_count: parsedHandCount,
+                points_per_hand: pph,
                 ...(isProxy ? { created_by: createdBy } : {}),
             })
             .select(`*, users!user_id(id, username)`)
@@ -113,17 +131,33 @@ router.get('/player/:gameId/:userId', async (req, res) => {
  */
 router.post('/pending', async (req, res) => {
     try {
-        const { gameId, userId, username, amount, type } = req.body;
+        const { gameId, userId, username, handCount, type } = req.body;
 
-        if (!gameId || !userId || !username || !amount) {
+        if (!gameId || !userId || !username || !handCount) {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
-        // #15 输入验证
-        const parsedAmount = parseInt(amount, 10);
-        if (isNaN(parsedAmount) || parsedAmount <= 0) {
-            return res.status(400).json({ error: '买入金额必须为正整数' });
+        // 输入验证：手数必须为正整数
+        const parsedHandCount = parseInt(handCount, 10);
+        if (isNaN(parsedHandCount) || parsedHandCount <= 0) {
+            return res.status(400).json({ error: '手数必须为正整数' });
         }
+
+        // 查询房间配置
+        const { data: game } = await supabase
+            .from('games')
+            .select('points_per_hand, max_hands_per_buy')
+            .eq('id', gameId)
+            .single();
+
+        const pph = game?.points_per_hand || 100;
+        const maxHands = game?.max_hands_per_buy || 10;
+
+        if (parsedHandCount > maxHands) {
+            return res.status(400).json({ error: `单次最多买入 ${maxHands} 手` });
+        }
+
+        const parsedAmount = parsedHandCount * pph;
 
         // 计算当前总买入，用于房主审核时参考
         const { data: allUserBuyins } = await supabase
@@ -142,6 +176,8 @@ router.post('/pending', async (req, res) => {
             amount: parsedAmount,
             totalBuyIn: currentTotal,
             type: type === 'rebuy' ? 'rebuy' : 'initial',
+            handCount: parsedHandCount,
+            pointsPerHand: pph,
         });
 
         return res.status(201).json({ request: pending });
@@ -187,6 +223,8 @@ router.post('/pending/:id/approve', async (req, res) => {
                 user_id: pending.userId,
                 amount: pending.amount,
                 type: pending.type,
+                ...(pending.handCount ? { hand_count: pending.handCount } : {}),
+                ...(pending.pointsPerHand ? { points_per_hand: pending.pointsPerHand } : {}),
             })
             .select(`*, users!user_id(id, username)`)
             .single();

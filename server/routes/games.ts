@@ -222,6 +222,7 @@ router.post('/', async (req, res) => {
             name, userId, roomType,
             // 德州配置
             blindLevel, minBuyin, maxBuyin, insuranceMode, luckyHandsCount,
+            pointsPerHand, maxHandsPerBuy,
             // 13水配置
             thirteenBaseScore, thirteenGhostCount, thirteenCompareSuit,
             thirteenMaxPlayers, thirteenTimeLimit,
@@ -257,6 +258,8 @@ router.post('/', async (req, res) => {
                 max_buyin: maxBuyin || 400,
                 insurance_mode: insuranceMode || false,
                 lucky_hands_count: luckyHandsCount || 0,
+                points_per_hand: pointsPerHand || 100,
+                max_hands_per_buy: maxHandsPerBuy || 10,
             };
 
             // 13水专属配置

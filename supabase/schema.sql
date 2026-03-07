@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS games (
   max_buyin       INTEGER NOT NULL DEFAULT 400,
   insurance_mode  BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_hands_count INTEGER NOT NULL DEFAULT 0 CHECK (lucky_hands_count >= 0 AND lucky_hands_count <= 3),
+  points_per_hand INTEGER NOT NULL DEFAULT 100,              -- 每手积分额度（德州房间使用）
+  max_hands_per_buy INTEGER NOT NULL DEFAULT 10,             -- 单次买入最大手数
   -- 13水专属配置
   thirteen_base_score  INTEGER NOT NULL DEFAULT 1,        -- 底分（所有得分乘以底分）
   thirteen_ghost_count INTEGER NOT NULL DEFAULT 6,        -- 鬼牌数量（0/2/4/6）
@@ -62,6 +64,8 @@ CREATE TABLE IF NOT EXISTS buy_ins (
   amount      INTEGER NOT NULL CHECK (amount >= 0),
   type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout')),
   created_by  UUID REFERENCES users(id),              -- 操作人（NULL=本人，非NULL=代操作人）
+  hand_count  INTEGER,                                -- 本次买入手数（兼容旧数据可为空）
+  points_per_hand INTEGER,                            -- 当时的每手积分快照（兼容旧数据可为空）
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

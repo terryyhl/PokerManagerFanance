@@ -8,6 +8,8 @@ export interface PendingBuyinRequest {
     amount: number;
     totalBuyIn: number;
     type: 'initial' | 'rebuy';
+    handCount?: number;
+    pointsPerHand?: number;
     createdAt: string;
 }
 
@@ -20,7 +22,9 @@ export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdA
             username: req.username,
             amount: req.amount,
             total_buyin: req.totalBuyIn,
-            type: req.type
+            type: req.type,
+            ...(req.handCount ? { hand_count: req.handCount } : {}),
+            ...(req.pointsPerHand ? { points_per_hand: req.pointsPerHand } : {}),
         })
         .select()
         .single();
@@ -38,6 +42,8 @@ export async function addPending(req: Omit<PendingBuyinRequest, 'id' | 'createdA
         amount: data.amount,
         totalBuyIn: data.total_buyin || 0,
         type: data.type,
+        handCount: data.hand_count || undefined,
+        pointsPerHand: data.points_per_hand || undefined,
         createdAt: data.created_at
     };
 }
@@ -59,6 +65,8 @@ export async function getPending(gameId: string): Promise<PendingBuyinRequest[]>
         amount: item.amount,
         totalBuyIn: item.total_buyin || 0,
         type: item.type,
+        handCount: item.hand_count || undefined,
+        pointsPerHand: item.points_per_hand || undefined,
         createdAt: item.created_at
     }));
 }
@@ -81,6 +89,8 @@ export async function removePending(id: string): Promise<PendingBuyinRequest | n
         amount: data.amount,
         totalBuyIn: data.total_buyin || 0,
         type: data.type,
+        handCount: data.hand_count || undefined,
+        pointsPerHand: data.points_per_hand || undefined,
         createdAt: data.created_at
     };
 }
