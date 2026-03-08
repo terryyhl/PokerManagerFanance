@@ -392,13 +392,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       setPendingRequests(list);
     },
     // 所有用户：游戏数据刷新
-    onGameRefresh: (data) => {
-      // 被踢的玩家：提示并跳转回大厅
-      if (data?.type === 'player_kicked' && data?.userId === user?.id) {
-        showToast('你已被房主移出房间', 'error');
-        navigate('/lobby', { replace: true });
-        return;
-      }
+    onGameRefresh: () => {
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
         fetchGame();
