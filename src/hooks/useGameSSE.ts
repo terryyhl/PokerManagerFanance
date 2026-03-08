@@ -82,6 +82,7 @@ export function useGameSSE(
     broadcastTimerStart: (data: ActiveTimerEvent) => void;
     broadcastTimerStop: (targetUserId: string) => void;
     broadcastInteraction: (data: InteractionEvent) => void;
+    broadcastKick: (targetUserId: string) => void;
     setActiveTimerRef: (data: ActiveTimerEvent | null) => void;
 } {
     const handlersRef = useRef<SSEHandlers>(handlers);
@@ -115,6 +116,10 @@ export function useGameSSE(
         broadcastChannelRef.current?.send({ type: 'broadcast', event: 'interaction', payload: data });
     }, []);
 
+    const broadcastKick = useCallback((targetUserId: string) => {
+        broadcastChannelRef.current?.send({ type: 'broadcast', event: 'player_kicked', payload: { targetUserId } });
+    }, []);
+
     useEffect(() => {
         if (!gameId || !userId) return;
 
@@ -140,6 +145,11 @@ export function useGameSSE(
             .on('broadcast', { event: 'interaction' }, (payload) => {
                 const data = payload.payload as InteractionEvent;
                 handlersRef.current.onInteraction?.(data);
+            })
+            .on('broadcast', { event: 'player_kicked' }, (payload) => {
+                const data = payload.payload as { targetUserId: string };
+                // 所有人都刷新数据以同步头像栏和时间线
+                handlersRef.current.onGameRefresh?.({ type: 'player_kicked', userId: data.targetUserId });
             })
             .on('broadcast', { event: 'sync_request' }, () => {
                 // 只有计时器发起者回复，避免多人同时响应
@@ -298,6 +308,14 @@ export function useGameSSE(
             )
             .on(
                 'postgres_changes',
+                { event: 'DELETE', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                () => {
+                    // 玩家被踢出 → 刷新数据以同步头像栏和时间线
+                    handlersRef.current.onGameRefresh?.({ type: 'player_kicked', userId: userId });
+                }
+            )
+            .on(
+                'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'shame_timers', filter: `game_id=eq.${gameId}` },
                 (payload) => {
                     const record = payload.new as { target_user_id: string; started_by: string; duration_seconds: number };
@@ -317,5 +335,5 @@ export function useGameSSE(
         };
     }, [gameId, userId]);
 
-    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, setActiveTimerRef };
+    return { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, broadcastKick, setActiveTimerRef };
 }

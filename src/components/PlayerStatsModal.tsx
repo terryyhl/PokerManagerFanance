@@ -17,6 +17,7 @@ interface PlayerStatsModalProps {
     hasCheckedOut?: boolean;
     onProxyBuyIn?: () => void;
     onProxyCheckout?: () => void;
+    onKickPlayer?: () => void;
 }
 
 export default function PlayerStatsModal({
@@ -32,6 +33,7 @@ export default function PlayerStatsModal({
     hasCheckedOut,
     onProxyBuyIn,
     onProxyCheckout,
+    onKickPlayer,
 }: PlayerStatsModalProps) {
     const [buyInRecords, setBuyInRecords] = useState<PlayerBuyInRecord[]>([]);
     const [checkoutRecord, setCheckoutRecord] = useState<{ amount: number; created_by?: string | null; created_at: string } | null>(null);
@@ -347,21 +349,32 @@ export default function PlayerStatsModal({
                             )}
                             {/* 房主代操作按钮 */}
                             {isHost && currentUserId !== userId && (
-                                <div className="flex gap-2 pt-2">
-                                    <button
-                                        onClick={onProxyBuyIn}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold text-sm transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">payments</span>
-                                        代购买
-                                    </button>
-                                    {!hasCheckedOut && (
+                                <div className="flex flex-col gap-2 pt-2">
+                                    <div className="flex gap-2">
                                         <button
-                                            onClick={onProxyCheckout}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-600 dark:text-green-400 font-bold text-sm transition-colors"
+                                            onClick={onProxyBuyIn}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold text-sm transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-                                            代结账
+                                            <span className="material-symbols-outlined text-[18px]">payments</span>
+                                            代购买
+                                        </button>
+                                        {!hasCheckedOut && (
+                                            <button
+                                                onClick={onProxyCheckout}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-600 dark:text-green-400 font-bold text-sm transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                                                代结账
+                                            </button>
+                                        )}
+                                    </div>
+                                    {!hasCheckedOut && onKickPlayer && (
+                                        <button
+                                            onClick={onKickPlayer}
+                                            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-red-500 dark:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 font-bold text-sm transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">person_remove</span>
+                                            移出房间
                                         </button>
                                     )}
                                 </div>

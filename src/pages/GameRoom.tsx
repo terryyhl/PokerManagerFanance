@@ -375,7 +375,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     return el ? el.getBoundingClientRect() : null;
   }, []);
 
-  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, setActiveTimerRef } = useGameSSE(id, user?.id, {
+  const { markPendingSubmitted, broadcastTimerStart, broadcastTimerStop, broadcastInteraction, broadcastKick, setActiveTimerRef } = useGameSSE(id, user?.id, {
     onConnected: (isHost) => {
       console.log('[SSE] connected, isHost=', isHost);
     },
@@ -392,7 +392,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       setPendingRequests(list);
     },
     // 所有用户：游戏数据刷新
-    onGameRefresh: () => {
+    onGameRefresh: (data) => {
+      // 被踢的玩家：提示并跳转回大厅
+      if (data?.type === 'player_kicked' && data?.userId === user?.id) {
+        showToast('你已被房主移出房间', 'error');
+        navigate('/lobby', { replace: true });
+        return;
+      }
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
         fetchGame();
@@ -604,6 +610,32 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     setProxyAmount('');
     setSelectedPlayerStats(null);
   }, [selectedPlayerStats]);
+
+  // 踢人确认状态
+  const [kickConfirm, setKickConfirm] = useState<{ userId: string; username: string } | null>(null);
+  const [kicking, setKicking] = useState(false);
+
+  const handleKickPlayer = useCallback(() => {
+    if (!selectedPlayerStats) return;
+    setKickConfirm({ userId: selectedPlayerStats.id, username: selectedPlayerStats.username });
+    setSelectedPlayerStats(null);
+  }, [selectedPlayerStats]);
+
+  const handleKickConfirm = async () => {
+    if (!kickConfirm || !user || !id) return;
+    setKicking(true);
+    try {
+      await gamesApi.kick(id, kickConfirm.userId, user.id);
+      broadcastKick(kickConfirm.userId);
+      showToast(`已将 ${kickConfirm.username} 移出房间`, 'success');
+      setKickConfirm(null);
+      await fetchGame();
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    } finally {
+      setKicking(false);
+    }
+  };
 
   const handleProxySubmit = async () => {
     if (!proxyTarget || !user || !id || !proxyAmount) return;
@@ -1869,6 +1901,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             hasCheckedOut={buyIns.some(b => b.user_id === selectedPlayerStats.id && b.type === 'checkout')}
             onProxyBuyIn={handleProxyBuyIn}
             onProxyCheckout={handleProxyCheckout}
+            onKickPlayer={handleKickPlayer}
           />
         )}
 
@@ -1965,6 +1998,42 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   className={`flex-1 py-3.5 text-sm font-bold transition-colors disabled:opacity-50 ${proxyTarget.action === 'buyin' ? 'text-primary hover:bg-primary/5' : 'text-green-500 hover:bg-green-950/20'}`}
                 >
                   {proxySubmitting ? '提交中...' : '确认'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 踢人确认弹窗 */}
+        {kickConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setKickConfirm(null)}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-[300px] rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-red-500/10">
+                  <span className="material-symbols-outlined text-[28px] text-red-500" style={{ fontVariationSettings: "'FILL' 1" }}>person_remove</span>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">确认移出</h3>
+                <p className="text-sm text-slate-400">
+                  将 <span className="font-bold text-slate-200">{kickConfirm.username}</span> 移出房间？
+                </p>
+                <p className="text-xs text-slate-500 mt-2">移出后该玩家将从头像栏消失，有效买入记录会保留在时间线</p>
+              </div>
+              <div className="flex border-t border-slate-700">
+                <button
+                  onClick={() => setKickConfirm(null)}
+                  disabled={kicking}
+                  className="flex-1 py-3.5 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <div className="w-px bg-slate-700" />
+                <button
+                  onClick={handleKickConfirm}
+                  disabled={kicking}
+                  className="flex-1 py-3.5 text-sm font-bold text-red-500 hover:bg-red-950/20 transition-colors disabled:opacity-50"
+                >
+                  {kicking ? '处理中...' : '确认移出'}
                 </button>
               </div>
             </div>

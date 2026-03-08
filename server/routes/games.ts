@@ -154,6 +154,96 @@ router.get('/:id/full-state', async (req, res) => {
 });
 
 /**
+ * POST /api/games/:id/kick
+ * 房主踢出玩家
+ * - 有有效买入（hand_count 不为 null）→ 仅删除 game_players，保留 buy_ins
+ * - 无有效买入 → 删除 game_players + 清理全部脏 buy_ins
+ */
+router.post('/:id/kick', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { targetUserId, requestedBy } = req.body;
+
+        if (!targetUserId || !requestedBy) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        // 验证房间存在且请求者是房主
+        const { data: game, error: gameError } = await supabase
+            .from('games')
+            .select('created_by, status')
+            .eq('id', id)
+            .single();
+
+        if (gameError || !game) {
+            return res.status(404).json({ error: '房间不存在' });
+        }
+
+        if (game.created_by !== requestedBy) {
+            return res.status(403).json({ error: '只有房主才能踢出玩家' });
+        }
+
+        if (targetUserId === requestedBy) {
+            return res.status(400).json({ error: '不能踢出自己' });
+        }
+
+        if (game.status === 'finished') {
+            return res.status(400).json({ error: '房间已结算，无法操作' });
+        }
+
+        // 检查目标玩家是否已结账
+        const { data: checkoutRecord } = await supabase
+            .from('buy_ins')
+            .select('id')
+            .eq('game_id', id)
+            .eq('user_id', targetUserId)
+            .eq('type', 'checkout')
+            .limit(1);
+
+        if (checkoutRecord && checkoutRecord.length > 0) {
+            return res.status(400).json({ error: '该玩家已结账，无法踢出' });
+        }
+
+        // 查询该玩家的买入记录，判断是否有有效买入（hand_count 不为 null）
+        const { data: playerBuyIns } = await supabase
+            .from('buy_ins')
+            .select('id, hand_count, type')
+            .eq('game_id', id)
+            .eq('user_id', targetUserId);
+
+        const validBuyIns = (playerBuyIns || []).filter(
+            b => (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw') && b.hand_count != null
+        );
+
+        // 无有效买入 → 清理全部脏数据（旧版无 hand_count 的记录）
+        if (validBuyIns.length === 0 && playerBuyIns && playerBuyIns.length > 0) {
+            await supabase
+                .from('buy_ins')
+                .delete()
+                .eq('game_id', id)
+                .eq('user_id', targetUserId);
+        }
+
+        // 删除 game_players 记录
+        const { error: deleteError } = await supabase
+            .from('game_players')
+            .delete()
+            .eq('game_id', id)
+            .eq('user_id', targetUserId);
+
+        if (deleteError) {
+            console.error('[games/kick]', deleteError);
+            return res.status(500).json({ error: '踢出玩家失败' });
+        }
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[games/kick] Unhandled error:', err);
+        return res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+/**
  * GET /api/games/:id
  * 获取单个游戏详情（含玩家列表、买入记录）
  */

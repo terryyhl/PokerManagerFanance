@@ -221,6 +221,9 @@ export const gamesApi = {
             luckyHands: LuckyHand[];
             pendingLuckyHits: PendingLuckyHit[];
         }>('GET', `/games/${id}/full-state?userId=${encodeURIComponent(userId)}`),
+
+    kick: (id: string, targetUserId: string, requestedBy: string) =>
+        request<{ success: boolean }>('POST', `/games/${id}/kick`, { targetUserId, requestedBy }),
 };
 
 // ──────────────────────────── Buy-in API ───────────────────────────────────
