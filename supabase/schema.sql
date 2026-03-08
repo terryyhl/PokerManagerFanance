@@ -62,8 +62,8 @@ CREATE TABLE IF NOT EXISTS buy_ins (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id     UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount      INTEGER NOT NULL CHECK (amount >= 0),
-  type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout', 'seat_report')),
+  amount      INTEGER NOT NULL CHECK (amount >= 0 OR type = 'withdraw'),
+  type        TEXT NOT NULL DEFAULT 'initial' CHECK (type IN ('initial', 'rebuy', 'checkout', 'seat_report', 'withdraw')),
   created_by  UUID REFERENCES users(id),              -- 操作人（NULL=本人，非NULL=代操作人）
   hand_count  INTEGER,                                -- 本次买入手数（兼容旧数据可为空）
   points_per_hand INTEGER,                            -- 当时的每手积分快照（兼容旧数据可为空）
