@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import AnimatedPage from '../components/AnimatedPage';
@@ -6,6 +6,22 @@ import { useUser } from '../contexts/UserContext';
 import { usersApi, LuckyHandHistory, timerApi, gamesApi } from '../lib/api';
 import Avatar from '../components/Avatar';
 import HandComboDisp from '../components/HandComboDisp';
+
+function getInitialDark(): boolean {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark') return true;
+    if (stored === 'light') return false;
+    return document.documentElement.classList.contains('dark');
+}
+
+function applyTheme(dark: boolean) {
+    if (dark) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
 
 interface UserStats {
     totalGames: number;
@@ -36,6 +52,7 @@ export default function Profile() {
     } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [isDark, setIsDark] = useState(getInitialDark);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showQrShare, setShowQrShare] = useState(false);
     const [showRename, setShowRename] = useState(false);
@@ -75,6 +92,14 @@ export default function Profile() {
     // Top 3 lucky hands by hit_count (already sorted from backend), filter out 0 hits
     const topLuckyHands = luckyHands.filter(lh => lh.hit_count > 0).slice(0, 3);
 
+    const handleToggleTheme = useCallback(() => {
+        setIsDark(prev => {
+            const next = !prev;
+            applyTheme(next);
+            return next;
+        });
+    }, []);
+
     const handleOpenRename = () => {
         if (!user) return;
         setNewUsername(user.username);
@@ -112,6 +137,15 @@ export default function Profile() {
                 <div className="flex-shrink-0 flex items-center justify-between p-5 pt-8 bg-background-light dark:bg-background-dark z-10">
                     <h2 className="text-xl font-bold">个人中心</h2>
                     <div className="flex items-center gap-1">
+                        <button
+                            onClick={handleToggleTheme}
+                            className="flex items-center justify-center size-9 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            aria-label={isDark ? '切换到浅色模式' : '切换到深色模式'}
+                        >
+                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                {isDark ? 'light_mode' : 'dark_mode'}
+                            </span>
+                        </button>
                         <button
                             onClick={() => setShowQrShare(true)}
                             className="flex items-center justify-center size-9 rounded-full text-primary hover:bg-primary/10 transition-colors"

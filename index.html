@@ -17,6 +17,10 @@
   </head>
   <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-hidden">
     <div id="root"></div>
+    <script>
+      // 在 React 渲染前同步应用主题，防止闪烁
+      (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.remove('dark');else if(t==='dark')document.documentElement.classList.add('dark')})();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
