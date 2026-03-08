@@ -80,7 +80,7 @@ router.get('/:gameId', async (req, res) => {
         // #17 fix: 按时间排序后遍历，checkout 取最后一条（因为已按 created_at 升序排列）
         (buyIns || []).forEach((b: BuyInRecord) => {
             if (!playerStats[b.user_id]) return;
-            if (b.type === 'initial' || b.type === 'rebuy') {
+            if (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw') {
                 playerStats[b.user_id].totalBuyin += b.amount;
             } else if (b.type === 'checkout') {
                 // 取最后一条 checkout 记录（因为已按时间升序排列，后面的会覆盖前面的）
@@ -103,7 +103,7 @@ router.get('/:gameId', async (req, res) => {
 
         // 构建买入历史时间线（用于前端折线图）
         const buyInHistory = (buyIns || [])
-            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
+            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw')
             .map((b: BuyInRecord) => ({
                 userId: b.user_id,
                 amount: b.amount,
@@ -167,7 +167,7 @@ router.post('/:gameId', async (req, res) => {
         // ── 验证：账单需要平账 ────────────────────────────────────────────────
         // 房主提交的 playerResults 中的 finalChips 即为最终筹码（不强制要求每个玩家自行结账）
         const totalBuyInAmount = (allBuyIns || [])
-            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
+            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw')
             .reduce((sum: number, b: BuyInRecord) => sum + b.amount, 0);
 
         const submittedChipsTotal = playerResults.reduce((sum: number, p: { finalChips: number }) => sum + (p.finalChips || 0), 0);
@@ -184,7 +184,7 @@ router.post('/:gameId', async (req, res) => {
         // ── 计算每位玩家的总买入（用于结算） ─────────────────────────────────
         const buyInByUser: Record<string, number> = {};
         (allBuyIns || [])
-            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy')
+            .filter((b: BuyInRecord) => b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw')
             .forEach((b: BuyInRecord) => {
                 buyInByUser[b.user_id] = (buyInByUser[b.user_id] || 0) + b.amount;
             });

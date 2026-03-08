@@ -190,6 +190,15 @@ export function useGameSSE(
                         return;
                     }
 
+                    // 撤码记录：通知所有人刷新数据
+                    if (newBuyin.type === 'withdraw') {
+                        handlersRef.current.onGameRefresh?.({
+                            type: 'withdraw',
+                            userId: newBuyin.user_id,
+                        });
+                        return;
+                    }
+
                     if (newBuyin.user_id === userId) {
                         // 是我自己的买入记录被写入
                         const pending = pendingSubmittedRef.current;

@@ -14,23 +14,29 @@ interface PlayerActionPopupProps {
     onThrowEgg: () => void;
     onCatchChicken: () => void;
     onSendFlower: () => void;
+    onWithdraw?: () => void;
     isSelf: boolean;
+    canWithdraw?: boolean;
 }
 
 /**
  * 长按头像弹出的底部操作面板
  * 从底部滑入，固定位置，操作区域大，符合移动端习惯
  */
-export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, onSendFlower, isSelf }: PlayerActionPopupProps) {
+export default function PlayerActionPopup({ target, onClose, onStartTimer, onThrowEgg, onCatchChicken, onSendFlower, onWithdraw, isSelf, canWithdraw }: PlayerActionPopupProps) {
     const [visible, setVisible] = useState(false);
 
     const actions = isSelf
-        ? [{ emoji: '⏱️', label: '计时', onClick: onStartTimer }]
+        ? [
+            { emoji: '⏱️', label: '计时', onClick: onStartTimer },
+            ...(canWithdraw && onWithdraw ? [{ emoji: '💸', label: '撤码', onClick: onWithdraw }] : []),
+        ]
         : [
             { emoji: '⏱️', label: '催促', onClick: onStartTimer },
             { emoji: '🥚', label: '砸蛋', onClick: onThrowEgg },
             { emoji: '🐔', label: '抓鸡', onClick: onCatchChicken },
             { emoji: '🌹', label: '鲜花', onClick: onSendFlower },
+            ...(canWithdraw && onWithdraw ? [{ emoji: '💸', label: '撤码', onClick: onWithdraw }] : []),
         ];
 
     // 挂载后下一帧触发入场动画

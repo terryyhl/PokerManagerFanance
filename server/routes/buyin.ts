@@ -86,13 +86,107 @@ router.post('/', async (req, res) => {
             .select('amount')
             .eq('game_id', gameId)
             .eq('user_id', userId)
-            .in('type', ['initial', 'rebuy']);
+            .in('type', ['initial', 'rebuy', 'withdraw']);
 
         const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
         return res.status(201).json({ buyIn: data, totalAmount });
     } catch (err: unknown) {
         console.error('[buyin/create] Unhandled error:', err);
+        const message = err instanceof Error ? err.message : '服务器内部错误';
+        return res.status(500).json({ error: message });
+    }
+});
+
+/**
+ * POST /api/buyin/withdraw
+ * 撤码：按手数撤回积分，插入 type='withdraw' 的负数金额记录
+ */
+router.post('/withdraw', async (req, res) => {
+    try {
+        const { gameId, userId, handCount, createdBy } = req.body;
+
+        if (!gameId || !userId || !handCount) {
+            return res.status(400).json({ error: '缺少必要参数' });
+        }
+
+        const parsedHandCount = parseInt(handCount, 10);
+        if (isNaN(parsedHandCount) || parsedHandCount <= 0) {
+            return res.status(400).json({ error: '撤码手数必须为正整数' });
+        }
+
+        // 查询房间配置
+        const { data: game, error: gameError } = await supabase
+            .from('games')
+            .select('created_by, points_per_hand')
+            .eq('id', gameId)
+            .single();
+
+        if (gameError || !game) {
+            return res.status(404).json({ error: '房间不存在' });
+        }
+
+        // 权限校验：只允许本人或房主操作
+        const isProxy = createdBy && createdBy !== userId;
+        if (isProxy && game.created_by !== createdBy) {
+            return res.status(403).json({ error: '只有房主才能代撤码' });
+        }
+
+        const pph = game.points_per_hand || 100;
+
+        // 计算可撤手数：总买入手数 - 已撤手数
+        const { data: allRecords } = await supabase
+            .from('buy_ins')
+            .select('type, hand_count')
+            .eq('game_id', gameId)
+            .eq('user_id', userId);
+
+        const totalBuyHands = (allRecords || [])
+            .filter(r => r.type === 'initial' || r.type === 'rebuy')
+            .reduce((sum, r) => sum + (r.hand_count || 0), 0);
+        const totalWithdrawHands = (allRecords || [])
+            .filter(r => r.type === 'withdraw')
+            .reduce((sum, r) => sum + (r.hand_count || 0), 0);
+        const availableHands = totalBuyHands - totalWithdrawHands;
+
+        if (parsedHandCount > availableHands) {
+            return res.status(400).json({ error: `最多可撤 ${availableHands} 手（当前已买 ${totalBuyHands} 手，已撤 ${totalWithdrawHands} 手）` });
+        }
+
+        const withdrawAmount = parsedHandCount * pph;
+
+        const { data, error } = await supabase
+            .from('buy_ins')
+            .insert({
+                game_id: gameId,
+                user_id: userId,
+                amount: -withdrawAmount,
+                type: 'withdraw',
+                hand_count: parsedHandCount,
+                points_per_hand: pph,
+                ...(isProxy ? { created_by: createdBy } : {}),
+            })
+            .select(`*, users!user_id(id, username)`)
+            .single();
+
+        if (error) {
+            console.error('[buyin/withdraw]', error);
+            return res.status(500).json({ error: '撤码失败' });
+        }
+
+        // 计算撤码后的总买入
+        const { data: updatedBuyins } = await supabase
+            .from('buy_ins')
+            .select('amount')
+            .eq('game_id', gameId)
+            .eq('user_id', userId)
+            .in('type', ['initial', 'rebuy', 'withdraw']);
+
+        const totalAmount = (updatedBuyins || []).reduce((sum, b) => sum + b.amount, 0);
+
+        return res.status(201).json({ withdraw: data, totalAmount });
+    } catch (err: unknown) {
+        console.error('[buyin/withdraw] Unhandled error:', err);
         const message = err instanceof Error ? err.message : '服务器内部错误';
         return res.status(500).json({ error: message });
     }
@@ -165,7 +259,7 @@ router.post('/pending', async (req, res) => {
             .select('amount')
             .eq('game_id', gameId)
             .eq('user_id', userId)
-            .in('type', ['initial', 'rebuy']);
+            .in('type', ['initial', 'rebuy', 'withdraw']);
 
         const currentTotal = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
@@ -244,7 +338,7 @@ router.post('/pending/:id/approve', async (req, res) => {
             .select('amount')
             .eq('game_id', pending.gameId)
             .eq('user_id', pending.userId)
-            .in('type', ['initial', 'rebuy']);
+            .in('type', ['initial', 'rebuy', 'withdraw']);
 
         const totalAmount = (allUserBuyins || []).reduce((sum, b) => sum + b.amount, 0);
 
@@ -370,7 +464,7 @@ router.post('/checkout', async (req, res) => {
                 const chipsByUser: Record<string, number> = {};
 
                 (allBuyIns || []).forEach(b => {
-                    if (b.type === 'initial' || b.type === 'rebuy') {
+                    if (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw') {
                         buyInByUser[b.user_id] = (buyInByUser[b.user_id] || 0) + b.amount;
                     } else if (b.type === 'checkout') {
                         chipsByUser[b.user_id] = b.amount; // 取最后一条（已防重复）

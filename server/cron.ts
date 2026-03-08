@@ -82,7 +82,7 @@ export async function autoCloseExpiredGames() {
             const checkoutUsers = new Set<string>();
             buyIns.forEach(b => {
                 if (!playerStats[b.user_id]) return;
-                if (b.type === 'initial' || b.type === 'rebuy') {
+                if (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw') {
                     playerStats[b.user_id].totalBuyin += b.amount;
                 } else if (b.type === 'checkout') {
                     playerStats[b.user_id].finalChips = b.amount;

@@ -92,6 +92,11 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   const [proxyAmount, setProxyAmount] = useState('');
   const [proxySubmitting, setProxySubmitting] = useState(false);
 
+  // 撤码弹窗
+  const [withdrawTarget, setWithdrawTarget] = useState<{ userId: string; username: string } | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
+
   // 实时广播催促计时器
   const [activeTimer, setActiveTimer] = useState<ActiveTimerEvent | null>(null);
   const [viewingTimer, setViewingTimer] = useState(false); // 是否正在查看广播来的计时器
@@ -478,8 +483,6 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
   // ── 长按头像交互 ────────────────────────────────────────────────────────────
   const handleAvatarTouchStart = useCallback((playerId: string, playerName: string, e: React.TouchEvent | React.MouseEvent) => {
-    // 长按自己不弹出操作菜单
-    if (playerId === user?.id) return;
     longPressFiredRef.current = false;
     const target = (e.currentTarget as HTMLElement).getBoundingClientRect();
     longPressTimerRef.current = setTimeout(() => {
@@ -488,7 +491,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
       if ('vibrate' in navigator) navigator.vibrate(30);
       setActionPopupTarget({ userId: playerId, username: playerName, rect: target });
     }, 500);
-  }, [user?.id]);
+  }, []);
 
   const handleAvatarTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -632,6 +635,36 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     }
   };
 
+  // ── 撤码 ─────────────────────────────────────────────────────────────────
+  const handleWithdraw = useCallback(() => {
+    if (!actionPopupTarget) return;
+    const target = { userId: actionPopupTarget.userId, username: actionPopupTarget.username };
+    setActionPopupTarget(null);
+    setWithdrawTarget(target);
+    setWithdrawAmount('');
+  }, [actionPopupTarget]);
+
+  const handleWithdrawSubmit = async () => {
+    if (!withdrawTarget || !user || !id || !withdrawAmount) return;
+    const handCount = parseInt(withdrawAmount, 10);
+    if (isNaN(handCount) || handCount <= 0) { showToast('请输入有效手数', 'error'); return; }
+
+    setWithdrawSubmitting(true);
+    try {
+      const isProxy = withdrawTarget.userId !== user.id;
+      await buyInApi.withdraw(id, withdrawTarget.userId, handCount, isProxy ? user.id : undefined);
+      const pph = game?.points_per_hand || 100;
+      const who = isProxy ? `${withdrawTarget.username} ` : '';
+      showToast(`已为 ${who}撤码 ${handCount}手 = -$${handCount * pph}`, 'success');
+      setWithdrawTarget(null);
+      await fetchGame();
+    } catch (err: any) {
+      showToast(err.message || '撤码失败', 'error');
+    } finally {
+      setWithdrawSubmitting(false);
+    }
+  };
+
   // ── 买入提交 ────────────────────────────────────────────────────────────────
   const handleBuyInSubmit = async () => {
     if (!user || !game || !id || !buyInAmount) return;
@@ -667,7 +700,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           userId: user.id,
           username: user.username,
           amount,
-          totalBuyIn: buyIns.filter(b => b.user_id === user.id && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0),
+          totalBuyIn: buyIns.filter(b => b.user_id === user.id && (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw')).reduce((sum, b) => sum + b.amount, 0),
           type,
           createdAt: new Date().toISOString(),
         }]);
@@ -825,7 +858,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
   const myTotalBuyIn = buyIns
-    .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy'))
+    .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw'))
     .reduce((sum, b) => sum + b.amount, 0);
 
   // ── 加载中 ──────────────────────────────────────────────────────────────────
@@ -1251,7 +1284,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           <div className="flex items-center gap-1 mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/30">
                             <span className="material-symbols-outlined text-amber-500 dark:text-amber-600 text-[12px]">account_balance_wallet</span>
                             <span className="text-[11px] text-amber-600/70 dark:text-amber-500/70 font-medium">
-                              已有总买入: ${buyIns.filter(b => b.user_id === req.userId && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0)}
+                              已有总买入: ${buyIns.filter(b => b.user_id === req.userId && (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw')).reduce((sum, b) => sum + b.amount, 0)}
                             </span>
                           </div>
                           {/* 非房主看到自己的审核状态提示 */}
@@ -1301,7 +1334,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 // ── 结账记录条目 ──
                 if (b.type === 'checkout') {
                   const playerTotalBuyin = buyIns
-                    .filter(prev => prev.user_id === b.user_id && (prev.type === 'initial' || prev.type === 'rebuy'))
+                    .filter(prev => prev.user_id === b.user_id && (prev.type === 'initial' || prev.type === 'rebuy' || prev.type === 'withdraw'))
                     .reduce((sum, prev) => sum + prev.amount, 0);
                   const profit = b.amount - playerTotalBuyin;
 
@@ -1354,6 +1387,58 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                                 <span className={`text-base font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                                   {profit >= 0 ? '+' : ''}{profit}
                                 </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // ── 撤码条目 ──
+                if (b.type === 'withdraw') {
+                  return (
+                    <div key={b.id} className="flex items-start gap-3 group">
+                      <div className="relative shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
+                        onClick={() => setSelectedPlayerStats({ id: b.user_id, username: b.users?.username || '?' })}
+                      >
+                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-orange-300/40 dark:border-orange-500/40">
+                          <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background-light dark:ring-background-dark">
+                          <span className="material-symbols-outlined text-white text-[10px]">remove</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5 items-start flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px]">{b.users?.username || '玩家'}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-600">• {formatTime(b.created_at)}</span>
+                        </div>
+                        <div className="w-full rounded-xl overflow-hidden border border-orange-200 dark:border-orange-800/30">
+                          <div className="flex">
+                            <div className="w-1 bg-orange-500 shrink-0" />
+                            <div className="flex-1 bg-orange-50 dark:bg-orange-950/20 p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[16px] text-orange-500/70" style={{ fontVariationSettings: "'FILL' 1" }}>remove_shopping_cart</span>
+                                  <p className="text-[11px] font-bold text-orange-600 dark:text-orange-400/80">撤码</p>
+                                </div>
+                                {b.created_by ? (
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-500 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded-md">
+                                    <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                                    代撤
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-orange-500 dark:text-orange-400/70 bg-orange-50 dark:bg-orange-500/10 px-1.5 py-0.5 rounded-md">
+                                    <span className="material-symbols-outlined text-[10px]">person</span>
+                                    自撤
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-2xl font-black text-orange-600 dark:text-orange-400">${b.amount}</span>
+                                {b.hand_count ? <span className="text-xs font-bold text-orange-400 dark:text-orange-500">({b.hand_count}手)</span> : null}
                               </div>
                             </div>
                           </div>
@@ -1416,7 +1501,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                               <span className="text-[11px] font-medium text-slate-500">累计: ${
                                 buyIns
                                   .filter(prev => prev.user_id === b.user_id &&
-                                    (prev.type === 'initial' || prev.type === 'rebuy') &&
+                                    (prev.type === 'initial' || prev.type === 'rebuy' || prev.type === 'withdraw') &&
                                     new Date(prev.created_at).getTime() <= new Date(b.created_at).getTime())
                                   .reduce((sum, prev) => sum + prev.amount, 0)
                               }</span>
@@ -1798,17 +1883,29 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         )}
 
         {/* 长按头像 — 趣味交互弹窗 */}
-        {actionPopupTarget && (
-          <PlayerActionPopup
-            target={actionPopupTarget}
-            onClose={() => setActionPopupTarget(null)}
-            onStartTimer={handleStartTimer}
-            onThrowEgg={handleThrowEgg}
-            onCatchChicken={handleCatchChicken}
-            onSendFlower={handleSendFlower}
-            isSelf={actionPopupTarget.userId === user?.id}
-          />
-        )}
+        {actionPopupTarget && (() => {
+          const targetIsSelf = actionPopupTarget.userId === user?.id;
+          // 自己或房主可以撤码；目标玩家需有未结账的买入手数
+          const targetBuyIns = buyIns.filter(b => b.user_id === actionPopupTarget.userId);
+          const hasCheckedOut = targetBuyIns.some(b => b.type === 'checkout');
+          const totalBuyHands = targetBuyIns.filter(b => b.type === 'initial' || b.type === 'rebuy').reduce((s, b) => s + (b.hand_count || 0), 0);
+          const totalWithdrawHands = targetBuyIns.filter(b => b.type === 'withdraw').reduce((s, b) => s + (b.hand_count || 0), 0);
+          const availableHands = totalBuyHands - totalWithdrawHands;
+          const canWithdraw = !hasCheckedOut && availableHands > 0 && (targetIsSelf || isHost);
+          return (
+            <PlayerActionPopup
+              target={actionPopupTarget}
+              onClose={() => setActionPopupTarget(null)}
+              onStartTimer={handleStartTimer}
+              onThrowEgg={handleThrowEgg}
+              onCatchChicken={handleCatchChicken}
+              onSendFlower={handleSendFlower}
+              onWithdraw={handleWithdraw}
+              isSelf={targetIsSelf}
+              canWithdraw={canWithdraw}
+            />
+          );
+        })()}
 
         {/* 房主代操作弹窗 */}
         {proxyTarget && (
@@ -1873,6 +1970,77 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             </div>
           </div>
         )}
+
+        {/* 撤码弹窗 */}
+        {withdrawTarget && (() => {
+          const targetBuyIns = buyIns.filter(b => b.user_id === withdrawTarget.userId);
+          const totalBuyHands = targetBuyIns.filter(b => b.type === 'initial' || b.type === 'rebuy').reduce((s, b) => s + (b.hand_count || 0), 0);
+          const totalWithdrawHands = targetBuyIns.filter(b => b.type === 'withdraw').reduce((s, b) => s + (b.hand_count || 0), 0);
+          const availableHands = totalBuyHands - totalWithdrawHands;
+          const pph = game?.points_per_hand || 100;
+          const isSelfWithdraw = withdrawTarget.userId === user?.id;
+          return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setWithdrawTarget(null)}>
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+              <div className="relative w-full max-w-[300px] rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-orange-500/10">
+                    <span className="material-symbols-outlined text-[28px] text-orange-500" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      remove_shopping_cart
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-1">撤码</h3>
+                  <p className="text-sm text-slate-400 mb-1">
+                    {isSelfWithdraw ? '按手数撤回积分' : <>为 <span className="font-bold text-slate-200">{withdrawTarget.username}</span> 撤码</>}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-4">
+                    可撤 <span className="font-bold text-orange-400">{availableHands}</span> 手（已买 {totalBuyHands} 手，已撤 {totalWithdrawHands} 手）
+                  </p>
+                  <div className="relative w-full">
+                    <input
+                      type="number"
+                      value={withdrawAmount}
+                      onChange={e => setWithdrawAmount(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !withdrawSubmitting) handleWithdrawSubmit(); }}
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                      autoFocus
+                      className="w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 px-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-orange-500 focus:outline-none text-center tracking-wider"
+                      placeholder="1"
+                      min={1}
+                      max={availableHands}
+                      inputMode="numeric"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                      <span className="text-lg font-bold text-slate-500">手</span>
+                    </div>
+                  </div>
+                  {withdrawAmount && parseInt(withdrawAmount) > 0 && (
+                    <p className="text-center text-sm font-bold text-orange-500 mt-2">
+                      = -${parseInt(withdrawAmount) * pph}
+                    </p>
+                  )}
+                </div>
+                <div className="flex border-t border-slate-700">
+                  <button
+                    onClick={() => setWithdrawTarget(null)}
+                    disabled={withdrawSubmitting}
+                    className="flex-1 py-3.5 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    取消
+                  </button>
+                  <div className="w-px bg-slate-700" />
+                  <button
+                    onClick={handleWithdrawSubmit}
+                    disabled={withdrawSubmitting || !withdrawAmount}
+                    className="flex-1 py-3.5 text-sm font-bold text-orange-500 hover:bg-orange-950/20 transition-colors disabled:opacity-50"
+                  >
+                    {withdrawSubmitting ? '提交中...' : '确认撤码'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 思考计时器覆盖层 — 主持模式（发起者） */}
         {shameTimerTarget && user && (

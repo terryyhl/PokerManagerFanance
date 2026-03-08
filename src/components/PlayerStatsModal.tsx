@@ -149,19 +149,20 @@ export default function PlayerStatsModal({
                                         <div className="space-y-3">
                                             {buyInRecords.map((record, i) => {
                                                 const isInitial = record.type === 'initial';
+                                                const isWithdraw = record.type === 'withdraw';
                                                 const isProxy = !!record.created_by;
                                                 let runningTotal = 0;
                                                 for (let j = 0; j <= i; j++) runningTotal += buyInRecords[j].amount;
                                                 return (
                                                     <div key={i} className="flex items-start gap-3 relative">
-                                                        <div className={`relative z-10 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white ${isInitial ? 'bg-primary' : 'bg-indigo-400 dark:bg-indigo-500'}`}>
-                                                            {i + 1}
+                                                        <div className={`relative z-10 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white ${isWithdraw ? 'bg-orange-500' : isInitial ? 'bg-primary' : 'bg-indigo-400 dark:bg-indigo-500'}`}>
+                                                            {isWithdraw ? <span className="material-symbols-outlined text-[12px]">remove</span> : i + 1}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isInitial ? 'bg-primary/10 text-primary' : 'bg-indigo-500/10 text-indigo-500'}`}>
-                                                                        {isInitial ? '首次买入' : '补充买入'}
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isWithdraw ? 'bg-orange-500/10 text-orange-500' : isInitial ? 'bg-primary/10 text-primary' : 'bg-indigo-500/10 text-indigo-500'}`}>
+                                                                        {isWithdraw ? '撤码' : isInitial ? '首次买入' : '补充买入'}
                                                                     </span>
                                                                     <span className="text-[10px] text-slate-400">
                                                                         {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -169,16 +170,18 @@ export default function PlayerStatsModal({
                                                                     {isProxy ? (
                                                                         <span className="flex items-center gap-0.5 text-[9px] font-bold text-violet-500 bg-violet-50 dark:bg-violet-500/10 px-1 py-px rounded">
                                                                             <span className="material-symbols-outlined text-[9px]">admin_panel_settings</span>
-                                                                            代买
+                                                                            {isWithdraw ? '代撤' : '代买'}
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="flex items-center gap-0.5 text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-1 py-px rounded">
+                                                                        <span className={`flex items-center gap-0.5 text-[9px] font-bold px-1 py-px rounded ${isWithdraw ? 'text-orange-400 bg-orange-50 dark:bg-orange-500/10' : 'text-slate-400 bg-slate-100 dark:bg-slate-700/50'}`}>
                                                                             <span className="material-symbols-outlined text-[9px]">person</span>
-                                                                            自购
+                                                                            {isWithdraw ? '自撤' : '自购'}
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <span className="font-mono font-black text-sm text-slate-800 dark:text-slate-200">+{record.amount}</span>
+                                                                <span className={`font-mono font-black text-sm ${isWithdraw ? 'text-orange-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                                                                    {isWithdraw ? '' : '+'}{record.amount}
+                                                                </span>
                                                             </div>
                                                             <div className="text-[10px] text-slate-400 mt-0.5">
                                                                 累计: {runningTotal}

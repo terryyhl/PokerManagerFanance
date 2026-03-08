@@ -146,7 +146,7 @@ export interface BuyIn {
     game_id: string;
     user_id: string;
     amount: number;
-    type: 'initial' | 'rebuy' | 'checkout' | 'seat_report';
+    type: 'initial' | 'rebuy' | 'checkout' | 'seat_report' | 'withdraw';
     created_by?: string | null;
     hand_count?: number | null;
     points_per_hand?: number | null;
@@ -231,6 +231,9 @@ export const buyInApi = {
 
     checkout: (gameId: string, userId: string, chips: number, createdBy?: string) =>
         request<{ checkout: BuyIn }>('POST', '/buyin/checkout', { gameId, userId, chips, createdBy }),
+
+    withdraw: (gameId: string, userId: string, handCount: number, createdBy?: string) =>
+        request<{ withdraw: BuyIn; totalAmount: number }>('POST', '/buyin/withdraw', { gameId, userId, handCount, createdBy }),
 };
 
 export const pendingBuyInApi = {
