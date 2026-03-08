@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import anime from 'animejs';
+
 import AnimatedPage from '../components/AnimatedPage';
 import { gamesApi, Game } from '../lib/api';
 import { useUser } from '../contexts/UserContext';
@@ -10,7 +10,6 @@ import { supabase } from '../lib/supabase';
 export default function Lobby() {
   const navigate = useNavigate();
   const { user } = useUser();
-  const listRef = useRef<HTMLDivElement>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -53,18 +52,7 @@ export default function Lobby() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchGames]);
 
-  useEffect(() => {
-    if (!isLoading && games.length > 0 && listRef.current) {
-      anime({
-        targets: listRef.current.children,
-        translateY: [20, 0],
-        opacity: [0, 1],
-        duration: 600,
-        easing: 'easeOutExpo',
-        delay: anime.stagger(100)
-      });
-    }
-  }, [refreshKey, isLoading, games.length]);
+  // 列表入场动画已移除 — 避免数据刷新时反复抖动
 
   const getPlayerCount = (game: Game): string | number => {
     if (game.game_players && Array.isArray(game.game_players)) {
@@ -153,9 +141,9 @@ export default function Lobby() {
           )}
 
           {!isLoading && !error && games.length > 0 && (
-            <div ref={listRef}>
+            <div>
               {games.map((game) => (
-                <div key={game.id} className="mb-4 flex flex-col rounded-xl bg-white dark:bg-[#1a2632] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden opacity-0">
+                <div key={game.id} className="mb-4 flex flex-col rounded-xl bg-white dark:bg-[#1a2632] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div>

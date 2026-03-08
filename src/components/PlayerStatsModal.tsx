@@ -149,6 +149,7 @@ export default function PlayerStatsModal({
                                         <div className="space-y-3">
                                             {buyInRecords.map((record, i) => {
                                                 const isInitial = record.type === 'initial';
+                                                const isProxy = !!record.created_by;
                                                 let runningTotal = 0;
                                                 for (let j = 0; j <= i; j++) runningTotal += buyInRecords[j].amount;
                                                 return (
@@ -165,18 +166,23 @@ export default function PlayerStatsModal({
                                                                     <span className="text-[10px] text-slate-400">
                                                                         {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                     </span>
+                                                                    {isProxy ? (
+                                                                        <span className="flex items-center gap-0.5 text-[9px] font-bold text-violet-500 bg-violet-50 dark:bg-violet-500/10 px-1 py-px rounded">
+                                                                            <span className="material-symbols-outlined text-[9px]">admin_panel_settings</span>
+                                                                            代买
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="flex items-center gap-0.5 text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-1 py-px rounded">
+                                                                            <span className="material-symbols-outlined text-[9px]">person</span>
+                                                                            自购
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                                 <span className="font-mono font-black text-sm text-slate-800 dark:text-slate-200">+{record.amount}</span>
                                                             </div>
                                                             <div className="text-[10px] text-slate-400 mt-0.5">
                                                                 累计: {runningTotal}
                                                             </div>
-                                                            {record.created_by && (
-                                                                <div className="flex items-center gap-0.5 text-[10px] text-violet-500 mt-0.5">
-                                                                    <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
-                                                                    由管理员代为购买
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
@@ -194,15 +200,20 @@ export default function PlayerStatsModal({
                                                                 <span className="text-[10px] text-slate-400">
                                                                     {new Date(checkoutRecord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
+                                                                {checkoutRecord.created_by ? (
+                                                                    <span className="flex items-center gap-0.5 text-[9px] font-bold text-violet-500 bg-violet-50 dark:bg-violet-500/10 px-1 py-px rounded">
+                                                                        <span className="material-symbols-outlined text-[9px]">admin_panel_settings</span>
+                                                                        代结
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-0.5 text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-1 py-px rounded">
+                                                                        <span className="material-symbols-outlined text-[9px]">person</span>
+                                                                        自结
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">{checkoutRecord.amount}</span>
                                                         </div>
-                                                        {checkoutRecord.created_by && (
-                                                            <div className="flex items-center gap-0.5 text-[10px] text-violet-500 mt-0.5">
-                                                                <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
-                                                                由管理员代为结账
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 </div>
                                             )}

@@ -24,15 +24,17 @@ startCronJobs();
 
 // ─── Middleware ────────────────────────────────────────────────────────────
 // #22 速率限制
-const apiLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 分钟
-    max: 100, // 每个 IP 每分钟最多 100 次请求
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: '请求过于频繁，请稍后再试' },
-});
-
 const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+
+const apiLimiter = isDev
+    ? (_req: express.Request, _res: express.Response, next: express.NextFunction) => next()
+    : rateLimit({
+        windowMs: 1 * 60 * 1000, // 1 分钟
+        max: 100, // 每个 IP 每分钟最多 100 次请求
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: '请求过于频繁，请稍后再试' },
+    });
 const loginLimiter = isDev
     ? (_req: express.Request, _res: express.Response, next: express.NextFunction) => next()
     : rateLimit({
@@ -43,13 +45,15 @@ const loginLimiter = isDev
         message: { error: '登录尝试过于频繁，请稍后再试' },
     });
 
-const joinLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 分钟
-    max: 20, // 每个 IP 每分钟最多 20 次加入尝试（防止暴力猜测房间码）
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: '加入房间请求过于频繁，请稍后再试' },
-});
+const joinLimiter = isDev
+    ? (_req: express.Request, _res: express.Response, next: express.NextFunction) => next()
+    : rateLimit({
+        windowMs: 1 * 60 * 1000, // 1 分钟
+        max: 20, // 每个 IP 每分钟最多 20 次加入尝试（防止暴力猜测房间码）
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: '加入房间请求过于频繁，请稍后再试' },
+    });
 
 // CORS: 限制允许的来源
 const allowedOrigins = process.env.APP_URL

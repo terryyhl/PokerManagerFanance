@@ -134,6 +134,10 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     anime.remove('.tools-fan-item');
   }, []);
 
+  // 流畅的 ease-out-expo 曲线
+  const EASE_OUT = 'cubicBezier(0.16, 1, 0.3, 1)';
+  const EASE_IN = 'cubicBezier(0.4, 0, 1, 1)';
+
   const openToolsFan = useCallback(() => {
     if (toolsOpenRef.current) return;
     toolsOpenRef.current = true;
@@ -145,33 +149,33 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     const backdrop = toolsBackdropRef.current;
     const items = panel?.querySelectorAll('.tools-fan-item');
 
-    // 按钮旋转 + 换色
+    // 按钮：平滑旋转 45° + 过渡到 primary 色（通过 CSS transition）
     if (btn) {
-      anime({ targets: btn, rotate: [0, 135], duration: 400, easing: 'easeOutBack' });
-      btn.classList.replace('bg-slate-700', 'bg-primary');
+      anime({ targets: btn, rotate: [0, 45], duration: 300, easing: EASE_OUT });
     }
 
     // 背景遮罩淡入
     if (backdrop) {
       backdrop.style.pointerEvents = 'auto';
-      anime({ targets: backdrop, opacity: [0, 1], duration: 300, easing: 'easeOutQuad' });
+      anime({ targets: backdrop, opacity: [0, 1], duration: 250, easing: EASE_OUT });
     }
 
-    // 面板滑入
+    // 面板：用 maxHeight + opacity 代替 height 动画，避免 layout thrash
     if (panel) {
-      anime({ targets: panel, height: [0, panel.scrollHeight || 72], opacity: [0, 1], duration: 350, easing: 'easeOutCubic' });
+      const targetH = panel.scrollHeight || 100;
+      anime({ targets: panel, height: [0, targetH], opacity: [0, 1], duration: 300, easing: EASE_OUT });
     }
 
-    // 工具图标交错弹入
+    // 工具图标：交错淡入 + 轻微上移（无 scale 弹跳）
     if (items) {
       anime({
         targets: items,
         opacity: [0, 1],
-        scale: [0, 1],
-        translateY: [-10, 0],
-        delay: anime.stagger(50, { start: 120 }),
-        duration: 400,
-        easing: 'spring(1, 80, 10, 0)',
+        scale: [0.8, 1],
+        translateY: [8, 0],
+        delay: anime.stagger(40, { start: 80 }),
+        duration: 280,
+        easing: EASE_OUT,
       });
     }
   }, [killToolsAnime]);
@@ -189,23 +193,22 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
     // 按钮旋回
     if (btn) {
-      anime({ targets: btn, rotate: 0, duration: 250, easing: 'easeOutQuad' });
-      btn.classList.replace('bg-primary', 'bg-slate-700');
+      anime({ targets: btn, rotate: 0, duration: 200, easing: EASE_OUT });
     }
 
-    // 工具图标缩小消失
+    // 工具图标快速淡出（退出比进入快）
     if (items) {
-      anime({ targets: items, opacity: 0, scale: 0, translateY: -10, duration: 150, easing: 'easeInQuad' });
+      anime({ targets: items, opacity: 0, scale: 0.8, translateY: 4, duration: 120, easing: EASE_IN });
     }
 
     // 背景遮罩淡出
     if (backdrop) {
-      anime({ targets: backdrop, opacity: 0, duration: 200, easing: 'easeInQuad', complete: () => { backdrop.style.pointerEvents = 'none'; } });
+      anime({ targets: backdrop, opacity: 0, duration: 180, easing: EASE_IN, complete: () => { backdrop.style.pointerEvents = 'none'; } });
     }
 
     // 面板收起
     if (panel) {
-      anime({ targets: panel, height: 0, opacity: 0, duration: 220, easing: 'easeInCubic' });
+      anime({ targets: panel, height: 0, opacity: 0, duration: 200, easing: EASE_IN });
     }
   }, [killToolsAnime]);
 
@@ -232,6 +235,29 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // ── 缓存工具 ──────────────────────────────────────────────────────────────
+  const cacheKey = id ? `gameroom-cache-${id}` : '';
+
+  /** 写入 sessionStorage 缓存 */
+  const writeCache = useCallback((gameData: Game, buyInsData: BuyIn[], playersData: Player[]) => {
+    if (!cacheKey) return;
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ game: gameData, buyIns: buyInsData, players: playersData, ts: Date.now() }));
+    } catch { /* quota exceeded — 静默忽略 */ }
+  }, [cacheKey]);
+
+  /** 读取 sessionStorage 缓存（10分钟内有效） */
+  const readCache = useCallback((): { game: Game; buyIns: BuyIn[]; players: Player[] } | null => {
+    if (!cacheKey) return null;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.ts > 10 * 60 * 1000) { sessionStorage.removeItem(cacheKey); return null; }
+      return parsed;
+    } catch { return null; }
+  }, [cacheKey]);
+
   const fetchGame = async () => {
     if (!id || !user) return;
     try {
@@ -244,9 +270,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         pendingLuckyHits: pendingLuckyData,
       } = await gamesApi.getFullState(id, user.id);
 
-      setGame({ ...gameData, created_at: gameData.created_at || new Date().toISOString() });
+      const normalizedGame = { ...gameData, created_at: gameData.created_at || new Date().toISOString() };
+      setGame(normalizedGame);
       setBuyIns(buyInsData);
       setPlayers(playersData);
+
+      // 写入缓存
+      writeCache(normalizedGame, buyInsData, playersData);
 
       // 房主: 恢复待审核购买列表
       setPendingRequests(pendingData.map(r => ({
@@ -277,6 +307,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
   };
 
   useEffect(() => {
+    // Stale-While-Revalidate：有缓存先渲染，后台静默刷新
+    const cached = readCache();
+    if (cached && user) {
+      setGame(cached.game);
+      setBuyIns(cached.buyIns);
+      setPlayers(cached.players);
+      const isMember = cached.players.some(p => p.user_id === user.id);
+      if (!isMember) setNeedsPassword(true);
+      setIsLoading(false);
+    }
     fetchGame();
     return () => {
       // 清理 fetchTimeout，防止卸载后更新 state
@@ -804,52 +844,53 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     const pinFull = passwordPin.join('').length === 6;
     return (
       <AnimatedPage animationType="slide-left">
-        <div className="relative flex h-full min-h-full w-full flex-col bg-[#0f1923] text-white">
+        <div className="relative flex h-full min-h-full w-full flex-col bg-[#0c1219] text-white poker-texture">
           <div className="absolute top-6 left-4 z-50">
-            <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/50 hover:bg-slate-700 transition-colors">
-              <span className="material-symbols-outlined text-[24px] text-white">close</span>
+            <button onClick={() => navigate('/lobby', { replace: true })} className="flex items-center justify-center size-10 rounded-full bg-slate-800/60 hover:bg-slate-700 transition-all duration-200 active:scale-90">
+              <span className="material-symbols-outlined text-[22px] text-slate-400">close</span>
             </button>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-12">
-            <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-6">
-              <span className="material-symbols-outlined text-primary text-[32px]">lock</span>
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(19,127,236,0.15)]">
+              <span className="material-symbols-outlined text-primary text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
             </div>
-            <h2 className="text-2xl font-bold mb-2">输入房间密码</h2>
-            <p className="text-slate-400 text-sm mb-8">需要6位密码才能进入此房间</p>
-            <div className="flex gap-2 mb-8">
+            <h2 className="text-2xl font-black mb-1.5 tracking-tight">输入房间密码</h2>
+            <p className="text-slate-500 text-sm mb-8">6位数字密码</p>
+            <div className="flex gap-2.5 mb-8">
               {passwordPin.map((d, i) => (
-                <div key={i} className={`w-10 h-13 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all ${d ? 'border-primary bg-primary/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-600'}`}>
+                <div key={i} className={`w-10 h-12 flex items-center justify-center rounded-xl border-2 text-2xl font-black transition-all duration-200 ${d ? 'border-primary/60 bg-primary/10 text-white shadow-[0_0_12px_rgba(19,127,236,0.2)]' : 'border-slate-700/50 bg-slate-800/30 text-slate-700'}`}
+                  style={d ? { animation: 'pin-glow 2s ease-in-out infinite', animationDelay: `${i * 0.1}s` } : undefined}>
                   {d ? '•' : ''}
                 </div>
               ))}
             </div>
             {passwordError && (
-              <div className="flex items-center gap-2 text-red-400 text-sm mb-6">
+              <div className="flex items-center gap-2 text-red-400 text-sm mb-6 bg-red-500/10 px-4 py-2 rounded-xl">
                 <span className="material-symbols-outlined text-[16px]">error</span>
-                <span>{passwordError}</span>
+                <span className="font-medium">{passwordError}</span>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+            <div className="grid grid-cols-3 gap-2.5 w-full max-w-[280px]">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'].map((key, i) => (
                 key === 'clear' ? (
-                  <button key={i} onClick={() => handlePinKey('clear')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors text-xs font-medium text-slate-400">
+                  <button key={i} onClick={() => handlePinKey('clear')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800/50 hover:bg-slate-700/60 active:scale-95 active:bg-slate-600/60 transition-all duration-150 text-xs font-bold text-slate-500">
                     清空
                   </button>
                 ) :
                   key === 'backspace' ? (
-                    <button key={i} onClick={() => handlePinKey('backspace')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors">
-                      <span className="material-symbols-outlined text-slate-400 text-[22px]">backspace</span>
+                    <button key={i} onClick={() => handlePinKey('backspace')} className="flex items-center justify-center h-14 rounded-xl bg-slate-800/50 hover:bg-slate-700/60 active:scale-95 active:bg-slate-600/60 transition-all duration-150">
+                      <span className="material-symbols-outlined text-slate-500 text-[22px]">backspace</span>
                     </button>
                   ) : (
-                    <button key={i} onClick={() => handlePinKey(key)} className="flex items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 transition-colors text-2xl font-bold">
+                    <button key={i} onClick={() => handlePinKey(key)} className="flex items-center justify-center h-14 rounded-xl bg-slate-800/50 hover:bg-slate-700/60 active:scale-95 active:bg-slate-600/60 transition-all duration-150 text-2xl font-black text-slate-200">
                       {key}
                     </button>
                   )
               ))}
             </div>
             <button onClick={handlePasswordSubmit} disabled={!pinFull || joiningGame}
-              className="mt-6 w-full max-w-[280px] py-4 rounded-2xl bg-primary hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-base transition-all">
-              {joiningGame ? '验证中...' : '进入房间'}
+              className="mt-6 w-full max-w-[280px] py-4 rounded-2xl bg-primary hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+              {joiningGame ? '验证中...' : <><span>进入房间</span><span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}
             </button>
           </div>
         </div>
@@ -872,45 +913,48 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
         {/* Toast 通知 */}
         {toast && (
-          <div className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-slate-700'
+          <div className={`fixed bottom-28 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 px-5 py-3 rounded-xl shadow-2xl text-sm font-bold text-white transition-all ${toast.type === 'success' ? 'bg-emerald-600 shadow-emerald-500/20' : toast.type === 'error' ? 'bg-red-600 shadow-red-500/20' : 'bg-slate-700 shadow-slate-900/30'
             }`}>
-            <span className="material-symbols-outlined text-[16px]">
+            <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
               {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
             </span>
             {toast.msg}
           </div>
         )}
 
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-3">
+        <header className="sticky top-0 z-20 flex items-center justify-between bg-background-light dark:bg-background-dark px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.25)]">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">
-              <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>arrow_back</span>
+            <button onClick={() => navigate(-1)} className="flex items-center justify-center size-9 rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-primary/10 transition-all duration-200">
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_back</span>
             </button>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white">{game?.name || '牌局'}</h2>
+              <h2 className="text-lg font-black leading-tight tracking-tight text-slate-900 dark:text-white">{game?.name || '牌局'}</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-500 tracking-wider">{game?.room_code}</span>
+                <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                <span className="text-[10px] font-bold text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md">盲注 {game?.blind_level}</span>
+                {needsApproval && <span className="bg-amber-500/15 text-amber-600 dark:text-amber-500 text-[10px] font-bold px-1.5 py-0.5 rounded-md">审核</span>}
               </div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <span>{game?.room_code} • 盲注 {game?.blind_level}</span>
-                {needsApproval && <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded">带入审核</span>}
-              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowRoomCode(true)} className="flex items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setShowRoomCode(true)} className="flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 size-9 text-slate-500 dark:text-slate-400 hover:bg-primary/10 hover:text-primary transition-all duration-200">
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>lock</span>
             </button>
-            <button onClick={() => navigate(`/settlement/${id}`)} className="flex items-center justify-center rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
-              <span className="material-symbols-outlined mr-1" style={{ fontSize: '18px' }}>receipt_long</span>账单
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60 mx-0.5" />
+            <button onClick={() => navigate(`/settlement/${id}`)} className="flex items-center justify-center gap-1 rounded-full bg-primary/10 px-3.5 py-1.5 text-sm font-bold text-primary hover:bg-primary/20 transition-all duration-200">
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>receipt_long</span>账单
             </button>
           </div>
+          {/* primary 品牌渐变线 */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
         </header>
 
         {/* 房间参与者列表 */}
-        <div className="flex items-center border-b border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark">
+        <div className="flex items-center bg-background-light dark:bg-gradient-to-b dark:from-[#0d1620] dark:to-background-dark border-b border-slate-200 dark:border-transparent">
           {/* 头像滚动区 — flex-1 占满剩余空间 */}
           <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex items-center gap-4 px-4 py-3">
               {[...players]
                 .sort((a, b) => {
                   // 房主永远排第一
@@ -925,8 +969,9 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   const isPlayerHost = player.user_id === game?.created_by;
                   const hasCheckedOut = buyIns.some(b => b.user_id === player.user_id && b.type === 'checkout');
                   const isBeingTimed = activeTimer?.targetUserId === player.user_id;
+                  const isSelf = player.user_id === user?.id;
                   return (
-                    <div key={player.id} data-player-id={player.user_id} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                    <div key={player.id} data-player-id={player.user_id} className="flex flex-col items-center gap-1 shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
                       onClick={() => handleAvatarClick(player.user_id, player.users?.username || '?')}
                       onTouchStart={(e) => handleAvatarTouchStart(player.user_id, player.users?.username || '?', e)}
                       onTouchEnd={handleAvatarTouchEnd}
@@ -938,19 +983,27 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                       <div className="relative">
                         {/* 被催促时：脉冲发光环 */}
                         {isBeingTimed && (
-                          <div className="absolute -inset-1 rounded-full animate-ping bg-amber-400/30" />
+                          <div className="absolute -inset-1.5 rounded-full animate-ping bg-red-500/20" />
                         )}
                         {isBeingTimed && (
-                          <div className="absolute -inset-1 rounded-full bg-amber-400/20 animate-pulse" />
+                          <div className="absolute -inset-1.5 rounded-full bg-red-500/15 animate-pulse" />
+                        )}
+                        {/* 自己的头像 primary 光环 */}
+                        {isSelf && !hasCheckedOut && !isBeingTimed && (
+                          <div className="absolute -inset-0.5 rounded-full ring-2 ring-primary/40" />
                         )}
                         <Avatar
                           username={player.users?.username || '?'}
                           isAdmin={isPlayerHost}
-                          className={`w-10 h-10 ${hasCheckedOut ? 'opacity-50 grayscale' : ''} ${isBeingTimed ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]' : ''}`}
+                          className={`${isSelf ? 'w-12 h-12' : 'w-10 h-10'} ${hasCheckedOut ? 'opacity-40 grayscale' : ''} ${isBeingTimed ? 'ring-2 ring-red-500 shadow-[0_0_16px_rgba(239,68,68,0.5)]' : ''}`}
                         />
+                        {/* 房主：金皇冠 */}
                         {isPlayerHost && !hasCheckedOut && !isBeingTimed && (
-                          <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse" />
+                          <div className="absolute -top-1.5 -right-1.5 text-amber-400 drop-shadow-md">
+                            <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>crown</span>
+                          </div>
                         )}
+                        {/* 结账勾 */}
                         {hasCheckedOut && (
                           <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
                             <span className="material-symbols-outlined text-white text-[10px]">check</span>
@@ -986,8 +1039,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           </div>
                         )}
                       </div>
-                      <span className={`text-[11px] font-bold truncate max-w-[50px] ${isBeingTimed ? 'text-amber-400' : hasCheckedOut ? 'text-emerald-500' : isPlayerHost ? 'text-amber-500' : 'text-slate-500'}`}>
-                        {player.user_id === user?.id ? '自己' : player.users?.username}
+                      <span className={`text-[11px] font-bold truncate max-w-[50px] ${isBeingTimed ? 'text-red-500 dark:text-red-400' : hasCheckedOut ? 'text-emerald-500/70' : isSelf ? 'text-primary' : isPlayerHost ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500'}`}>
+                        {isSelf ? '自己' : player.users?.username}
                       </span>
                     </div>
                   );
@@ -996,16 +1049,16 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
 
           {/* 分隔线 */}
-          <div className="shrink-0 w-px self-stretch my-2 bg-slate-200 dark:bg-slate-700" />
+          <div className="shrink-0 w-px self-stretch my-2 bg-slate-700/40" />
 
           {/* 工具按钮 — 固定在右侧，不参与滚动 */}
           <div className="shrink-0 flex items-center px-3">
             <button
               ref={toolsBtnRef}
               onClick={handleToggleToolsFan}
-              className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-slate-700 active:scale-90"
+              className="tools-fan-btn w-9 h-9 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800/80 ring-1 ring-primary/20 active:scale-90 transition-transform duration-150"
             >
-              <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              <span className="material-symbols-outlined text-primary/80 text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                 handyman
               </span>
             </button>
@@ -1024,15 +1077,15 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           className="relative z-40 overflow-hidden"
           style={{ height: 0, opacity: 0 }}
         >
-          <div className="bg-white/95 dark:bg-[#1a2632]/95 border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+          <div className="bg-white/98 dark:bg-[#151f2b]/98 border-b border-slate-200 dark:border-slate-700/50 px-4 py-4 dark:poker-texture">
             <div className="grid grid-cols-6 gap-2">
               {[
-                { icon: 'event_seat', label: '座位', color: 'text-emerald-500', bg: 'bg-emerald-500/10', path: '/tools/seat', withPlayers: true },
-                { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-500', bg: 'bg-purple-500/10', path: '/tools/picker', withPlayers: true },
-                { icon: 'timer', label: '时钟', color: 'text-blue-500', bg: 'bg-blue-500/10', path: '/tools/clock', withPlayers: false },
-                { icon: 'monetization_on', label: '硬币', color: 'text-amber-500', bg: 'bg-amber-500/10', path: '/tools/coin', withPlayers: false },
-                { icon: 'analytics', label: '概率', color: 'text-indigo-500', bg: 'bg-indigo-500/10', path: '/tools/odds', withPlayers: false },
-                { icon: 'casino', label: '骰子', color: 'text-orange-500', bg: 'bg-orange-500/10', path: '/tools/dice', withPlayers: false },
+                { icon: 'event_seat', label: '座位', color: 'text-emerald-400', bg: 'bg-emerald-500/8', path: '/tools/seat', withPlayers: true },
+                { icon: 'person_pin_circle', label: '庄家', color: 'text-purple-400', bg: 'bg-purple-500/8', path: '/tools/picker', withPlayers: true },
+                { icon: 'timer', label: '时钟', color: 'text-blue-400', bg: 'bg-blue-500/8', path: '/tools/clock', withPlayers: false },
+                { icon: 'monetization_on', label: '硬币', color: 'text-amber-400', bg: 'bg-amber-500/8', path: '/tools/coin', withPlayers: false },
+                { icon: 'analytics', label: '概率', color: 'text-indigo-400', bg: 'bg-indigo-500/8', path: '/tools/odds', withPlayers: false },
+                { icon: 'casino', label: '骰子', color: 'text-orange-400', bg: 'bg-orange-500/8', path: '/tools/dice', withPlayers: false },
               ].map((tool, idx) => (
                 <button
                   key={tool.path}
@@ -1049,11 +1102,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                     }
                     navigate(tool.path, { state });
                   }}
-                  className={`tools-fan-item flex flex-col items-center gap-1.5 py-2.5 rounded-xl active:scale-90 ${tool.bg}`}
+                  className={`tools-fan-item flex flex-col items-center gap-1.5 py-2.5 rounded-xl active:scale-90 transition-transform duration-150 ${tool.bg} hover:bg-white/5`}
                   style={{ opacity: 0, transform: 'scale(0) translateY(-10px)' }}
                 >
-                  <span className={`material-symbols-outlined text-[24px] ${tool.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
-                  <span className={`text-[11px] font-bold ${tool.color}`}>{tool.label}</span>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tool.bg}`}>
+                    <span className={`material-symbols-outlined text-[22px] ${tool.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold ${tool.color}`}>{tool.label}</span>
                 </button>
               ))}
             </div>
@@ -1096,11 +1151,14 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         )}
 
         <main ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-center py-2">
-              <span className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                {game?.created_at ? `开始于 ${formatTime(game.created_at)}` : '游戏进行中'}
+          <div className="flex flex-col gap-4 timeline-line">
+            {/* 时间线起始标签 */}
+            <div className="flex items-center gap-3 py-2">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-slate-300 dark:to-slate-700/40" />
+              <span className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+                {game?.created_at ? `${formatTime(game.created_at)} 开局` : '游戏进行中'}
               </span>
+              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-300 dark:to-slate-700/40" />
             </div>
 
             {/* 如果是房主，在此插入 幸运手牌待审核 卡片区域 */}
@@ -1164,42 +1222,43 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 // 非房主只能看自己的待审核记录
                 if (!isHost && !isMine) return null;
                 return (
-                  <div key={`p-${req.id}`} className="flex items-end gap-3">
-                    <div className="relative">
-                      <div className="h-10 w-10 rounded-full border-2 border-amber-300 dark:border-amber-600 overflow-hidden">
+                  <div key={`p-${req.id}`} className="flex items-start gap-3">
+                    <div className="relative shrink-0">
+                      <div className="h-10 w-10 rounded-full border-2 border-dashed border-amber-400/50 dark:border-amber-500/50 overflow-hidden">
                         <Avatar username={req.username || '?'} isAdmin={req.userId === game?.created_by} />
                       </div>
-                      <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 ring-2 ring-background-dark">
-                        <span className="material-symbols-outlined text-white text-[10px]">pending</span>
+                      <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background-light dark:ring-background-dark">
+                        <span className="material-symbols-outlined text-white text-[10px]">schedule</span>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 items-start flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 ml-1">
-                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{req.username}</span>
+                    <div className="flex flex-col gap-1.5 items-start flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px]">{req.username}</span>
                         {req.userId === game?.created_by && (
-                          <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
-                            <span className="material-symbols-outlined text-[10px]">grade</span>
-                            房主
+                          <span className="text-amber-500 dark:text-amber-400 text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-[10px] align-middle" style={{ fontVariationSettings: "'FILL' 1" }}>crown</span>
                           </span>
                         )}
-                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">• {new Date(req.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-                        <span className="ml-1 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-500 px-1.5 py-0.5 rounded font-bold">待审核</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-600">• {new Date(req.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <div className="w-full flex items-center gap-2">
-                        <div className="flex-1 rounded-2xl rounded-bl-none bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 p-3">
-                          <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-0.5">{req.type === 'initial' ? '初始买入申请' : '重买申请'}</p>
-                          <span className="text-xl font-bold text-amber-600 dark:text-amber-400">${req.amount}</span>
-                          <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-700/50">
-                            <span className="material-symbols-outlined text-amber-500 dark:text-amber-400 text-[12px]">account_balance_wallet</span>
-                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                        <div className="flex-1 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-600/30 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400/80">{req.type === 'initial' ? '初始买入申请' : '重买申请'}</p>
+                            <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">待审核</span>
+                          </div>
+                          <span className="text-2xl font-black text-amber-600 dark:text-amber-400">${req.amount}</span>
+                          <div className="flex items-center gap-1 mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/30">
+                            <span className="material-symbols-outlined text-amber-500 dark:text-amber-600 text-[12px]">account_balance_wallet</span>
+                            <span className="text-[11px] text-amber-600/70 dark:text-amber-500/70 font-medium">
                               已有总买入: ${buyIns.filter(b => b.user_id === req.userId && (b.type === 'initial' || b.type === 'rebuy')).reduce((sum, b) => sum + b.amount, 0)}
                             </span>
                           </div>
                           {/* 非房主看到自己的审核状态提示 */}
                           {!isHost && isMine && (
-                            <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-700/50">
+                            <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-800/30">
                               <span className="material-symbols-outlined text-amber-500 text-[12px] animate-spin" style={{ animationDuration: '2s' }}>progress_activity</span>
-                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">等待房主审核中...</span>
+                              <span className="text-[11px] text-amber-600/70 dark:text-amber-500/70 font-medium">等待房主审核中...</span>
                             </div>
                           )}
                         </div>
@@ -1208,13 +1267,13 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                           <div className="flex flex-col gap-1.5 shrink-0">
                             <button
                               onClick={() => setConfirmReq(req)}
-                              className="flex items-center gap-1 bg-primary hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                              className="flex items-center gap-1 bg-primary hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-primary/20"
                             >
                               <span className="material-symbols-outlined text-[14px]">check</span>批准
                             </button>
                             <button
                               onClick={() => handleReject(req)}
-                              className="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 text-slate-500 dark:text-slate-400 text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-500 dark:hover:text-red-400 text-slate-500 text-xs font-bold py-2.5 px-3.5 rounded-xl transition-all duration-200"
                             >
                               <span className="material-symbols-outlined text-[14px]">close</span>拒绝
                             </button>
@@ -1231,8 +1290,8 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                 if (b.type === 'seat_report') {
                   return (
                     <div key={b.id} className="flex items-center justify-center py-1">
-                      <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold px-3 py-1 rounded-full">
-                        <span className="material-symbols-outlined text-[12px] align-middle mr-0.5">event_seat</span>
+                      <span className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold px-3 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/20">
+                        <span className="material-symbols-outlined text-[12px] align-middle mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>event_seat</span>
                         {b.users?.username || '玩家'} 报座位：{b.amount}号位
                       </span>
                     </div>
@@ -1247,45 +1306,56 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
                   const profit = b.amount - playerTotalBuyin;
 
                   return (
-                    <div key={b.id} className="flex items-end gap-3 group">
-                      <div className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                    <div key={b.id} className="flex items-start gap-3 group">
+                      <div className="relative shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
                         onClick={() => setSelectedPlayerStats({ id: b.user_id, username: b.users?.username || '?' })}
                       >
-                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-emerald-300 dark:border-emerald-600 ring-2 ring-emerald-500/20 grayscale-[30%]">
+                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-emerald-400/40 dark:border-emerald-500/40 grayscale-[30%]">
                           <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
                         </div>
-                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-dark">
+                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background-light dark:ring-background-dark">
                           <span className="material-symbols-outlined text-white text-[10px]">check</span>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1 items-start max-w-[80%]">
-                        <div className="flex items-center gap-1.5 ml-1">
-                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{b.users?.username || '玩家'}</span>
+                      <div className="flex flex-col gap-1.5 items-start flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px]">{b.users?.username || '玩家'}</span>
                           {b.user_id === game?.created_by && (
-                            <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
-                              <span className="material-symbols-outlined text-[10px]">grade</span>
-                              房主
+                            <span className="text-amber-500 dark:text-amber-400 text-[10px] font-bold">
+                              <span className="material-symbols-outlined text-[10px] align-middle" style={{ fontVariationSettings: "'FILL' 1" }}>crown</span>
                             </span>
                           )}
-                          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">. {formatTime(b.created_at)}</span>
-                          <span className="ml-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">已结账</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-600">• {formatTime(b.created_at)}</span>
                         </div>
-                        <div className="rounded-2xl rounded-bl-none bg-emerald-50 dark:bg-emerald-900/10 p-4 shadow-sm border border-emerald-200 dark:border-emerald-800/50">
-                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">结账离场</p>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${b.amount}</span>
-                            <div className="flex items-center gap-1.5 pt-1 border-t border-emerald-200 dark:border-emerald-800/50 mt-1">
-                              <span className="material-symbols-outlined text-emerald-500 text-[14px]">trending_flat</span>
-                              <span className={`text-[11px] font-bold ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                盈亏: {profit >= 0 ? '+' : ''}${profit}
-                              </span>
-                            </div>
-                            {b.created_by && (
-                              <div className="flex items-center gap-1 pt-1 border-t border-emerald-200 dark:border-emerald-800/50 mt-1">
-                                <span className="material-symbols-outlined text-violet-500 text-[12px]">admin_panel_settings</span>
-                                <span className="text-[11px] font-medium text-violet-500">由管理员代为结账</span>
+                        <div className="w-full rounded-xl overflow-hidden border border-emerald-200 dark:border-emerald-800/30">
+                          <div className="flex">
+                            {/* 左侧 emerald 竖条 */}
+                            <div className="w-1 bg-emerald-500 shrink-0" />
+                            <div className="flex-1 bg-emerald-50 dark:bg-emerald-950/20 p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400/80">结账离场</p>
+                                <div className="flex items-center gap-1.5">
+                                  {b.created_by ? (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-500 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded-md">
+                                      <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                                      代结
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-500 dark:text-emerald-400/70 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded-md">
+                                      <span className="material-symbols-outlined text-[10px]">person</span>
+                                      自结
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">已结账</span>
+                                </div>
                               </div>
-                            )}
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">${b.amount}</span>
+                                <span className={`text-base font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                  {profit >= 0 ? '+' : ''}{profit}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1295,48 +1365,63 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
 
                 // ── 已确认买入条目 ──
                 return (
-                  <div key={b.id} className="flex items-end gap-3 group">
-                    <div className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                  <div key={b.id} className="flex items-start gap-3 group">
+                    <div className="relative shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
                       onClick={() => setSelectedPlayerStats({ id: b.user_id, username: b.users?.username || '?' })}
                     >
-                      <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-background-light dark:border-background-dark ring-2 ring-primary/20">
+                      <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-slate-200 dark:border-slate-700 ring-2 ring-primary/15">
                         <Avatar username={b.users?.username || '?'} isAdmin={b.user_id === game?.created_by} />
                       </div>
                       {b.user_id === game?.created_by && (
-                        <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 ring-2 ring-background-dark animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                        <div className="absolute -top-1 -right-1 text-amber-500 dark:text-amber-400 drop-shadow-md">
+                          <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>crown</span>
+                        </div>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 items-start max-w-[80%]">
-                      <div className="flex items-center gap-1.5 ml-1">
-                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px] inline-block align-bottom">{b.users?.username || '玩家'}</span>
-                        {b.user_id === game?.created_by && (
-                          <span className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-700/50">
-                            <span className="material-symbols-outlined text-[10px]">grade</span>
-                            房主
-                          </span>
-                        )}
-                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">. {formatTime(b.created_at)}</span>
+                    <div className="flex flex-col gap-1.5 items-start flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-wide truncate max-w-[120px]">{b.users?.username || '玩家'}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-600">• {formatTime(b.created_at)}</span>
                       </div>
-                      <div className="rounded-2xl rounded-bl-none bg-white dark:bg-[#1e2936] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">{b.type === 'initial' ? '初始买入' : '重买/加注'}</p>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-2xl font-bold text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}{b.hand_count ? <span className="text-sm font-medium text-slate-400 ml-1">({b.hand_count}手)</span> : null}</span>
-                          <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
-                            <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 text-[14px]">account_balance_wallet</span>
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">当前总买入: ${
-                              buyIns
-                                .filter(prev => prev.user_id === b.user_id &&
-                                  (prev.type === 'initial' || prev.type === 'rebuy') &&
-                                  new Date(prev.created_at).getTime() <= new Date(b.created_at).getTime())
-                                .reduce((sum, prev) => sum + prev.amount, 0)
-                            }</span>
-                          </div>
-                          {b.created_by && (
-                            <div className="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/50 mt-1">
-                              <span className="material-symbols-outlined text-violet-500 text-[12px]">admin_panel_settings</span>
-                              <span className="text-[11px] font-medium text-violet-500">由管理员代为购买</span>
+                      <div className="w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                        <div className="flex">
+                          {/* 左侧 primary 竖条 */}
+                          <div className={`w-1 shrink-0 ${b.type === 'initial' ? 'bg-primary' : 'bg-sky-400'}`} />
+                          <div className="flex-1 bg-white dark:bg-surface-dark/60 p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px] text-primary/60" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                  {b.type === 'initial' ? 'login' : 'add_circle'}
+                                </span>
+                                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{b.type === 'initial' ? '初始买入' : '重买/加注'}</p>
+                              </div>
+                              {b.created_by ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-500 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded-md">
+                                  <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                                  代买
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md">
+                                  <span className="material-symbols-outlined text-[10px]">person</span>
+                                  自购
+                                </span>
+                              )}
                             </div>
-                          )}
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-black text-primary">{b.type === 'rebuy' ? '+' : ''}${b.amount}</span>
+                              {b.hand_count ? <span className="text-xs font-bold text-slate-400 dark:text-slate-500">({b.hand_count}手)</span> : null}
+                            </div>
+                            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/40">
+                              <span className="material-symbols-outlined text-slate-400 dark:text-slate-600 text-[12px]">account_balance_wallet</span>
+                              <span className="text-[11px] font-medium text-slate-500">累计: ${
+                                buyIns
+                                  .filter(prev => prev.user_id === b.user_id &&
+                                    (prev.type === 'initial' || prev.type === 'rebuy') &&
+                                    new Date(prev.created_at).getTime() <= new Date(b.created_at).getTime())
+                                  .reduce((sum, prev) => sum + prev.amount, 0)
+                              }</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1346,17 +1431,25 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             })}
 
             {buyIns.length === 0 && pendingRequests.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-3">casino</span>
-                <p className="text-slate-400 text-sm">游戏已开始，点击下方"买入"加入</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center mb-4">
+                  <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-600" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span>
+                </div>
+                <p className="text-slate-500 text-sm font-medium">牌局已开始</p>
+                <p className="text-slate-400 dark:text-slate-600 text-xs mt-1">点击下方"买入"加入游戏</p>
               </div>
             )}
 
             {myTotalBuyIn > 0 && !buyIns.some(b => b.user_id === user?.id && b.type === 'checkout') && (
-              <div className="flex justify-center w-full my-2">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg py-3 px-4 w-full flex items-center gap-3">
-                  <span className="material-symbols-outlined text-blue-500 text-sm">account_balance_wallet</span>
-                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">你的当前总买入: <strong>${myTotalBuyIn}</strong></p>
+              <div className="w-full my-2">
+                <div className="bg-primary/5 border border-primary/15 rounded-xl py-3 px-4 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-primary text-[18px]">account_balance_wallet</span>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-500 font-medium">你的当前总买入</p>
+                    <p className="text-lg font-black text-primary">${myTotalBuyIn}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -1365,79 +1458,95 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
           </div>
         </main>
 
-        <div className="fixed left-0 right-0 px-4 pointer-events-none flex justify-center z-10 gap-3" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 8px))' }}>
-          <button onClick={() => {
-            setShowBuyIn(true);
-            setBuyInAmount('1');
-          }} className="pointer-events-auto shadow-lg shadow-primary/20 flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-white transition-transform active:scale-95 hover:bg-primary/90 max-w-[200px]">
-            <span className="material-symbols-outlined font-semibold" style={{ fontSize: '24px' }}>add_circle</span>
-            <span className="text-base font-bold tracking-wide">买入</span>
-          </button>
-          <button onClick={() => setShowCheckout(true)} className="pointer-events-auto shadow-lg shadow-emerald-500/20 flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-white transition-transform active:scale-95 hover:bg-emerald-500 max-w-[200px]">
-            <span className="material-symbols-outlined font-semibold" style={{ fontSize: '24px' }}>receipt_long</span>
-            <span className="text-base font-bold tracking-wide">结账</span>
-          </button>
+        {/* 底部渐变遮罩 + 操作按钮 */}
+        <div className="fixed left-0 right-0 z-10 pointer-events-none" style={{ bottom: 0 }}>
+          <div className="h-28 bg-gradient-to-t from-background-light via-background-light/80 dark:from-background-dark dark:via-background-dark/80 to-transparent" />
+          <div className="absolute left-0 right-0 px-5 flex justify-center gap-3" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 8px))' }}>
+            <button onClick={() => {
+              setShowBuyIn(true);
+              setBuyInAmount('1');
+            }} className="pointer-events-auto shadow-[0_8px_32px_rgba(19,127,236,0.3)] flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-t from-primary to-[#2b93f7] px-6 py-3.5 text-white transition-all duration-200 active:scale-95 max-w-[200px]">
+              <span className="material-symbols-outlined" style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+              <span className="text-base font-black tracking-wide">买入</span>
+            </button>
+            <button onClick={() => setShowCheckout(true)} className="pointer-events-auto shadow-[0_8px_32px_rgba(16,185,129,0.25)] flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-t from-emerald-600 to-emerald-500 px-6 py-3.5 text-white transition-all duration-200 active:scale-95 max-w-[200px]">
+              <span className="material-symbols-outlined" style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>receipt_long</span>
+              <span className="text-base font-black tracking-wide">结账</span>
+            </button>
+          </div>
         </div>
 
         {/* Buy-in Modal */}
         {showBuyIn && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setBuyInAmount(''); setShowBuyIn(false); setBuyinSuccess(null); }} />
-            <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setBuyInAmount(''); setShowBuyIn(false); setBuyinSuccess(null); }} />
+            <div className="relative w-full sm:max-w-sm overflow-hidden rounded-t-3xl sm:rounded-2xl bg-[#1a2530] shadow-2xl">
 
               {buyinSuccess ? (
                 <div className="px-6 py-10 text-center">
-                  <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-emerald-500 text-[40px]">check_circle</span>
+                  <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-emerald-400 text-[40px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">买入成功</h3>
-                  <div className="space-y-1 mb-8">
-                    <p className="text-slate-400 text-sm">本次买入: <span className="text-white font-bold">${buyinSuccess.amount}</span></p>
-                    <p className="text-slate-400 text-sm">当前总买入: <span className="text-primary font-bold text-lg">${buyinSuccess.total}</span></p>
+                  <h3 className="text-xl font-black text-white mb-4">买入成功</h3>
+                  <div className="flex justify-center gap-6 mb-8">
+                    <div className="text-center">
+                      <p className="text-[11px] text-slate-500 font-medium mb-1">本次买入</p>
+                      <p className="text-xl font-black text-white">${buyinSuccess.amount}</p>
+                    </div>
+                    <div className="w-px bg-slate-700/60" />
+                    <div className="text-center">
+                      <p className="text-[11px] text-slate-500 font-medium mb-1">当前总买入</p>
+                      <p className="text-xl font-black text-primary">${buyinSuccess.total}</p>
+                    </div>
                   </div>
                   <button
                     onClick={() => { setBuyinSuccess(null); setShowBuyIn(false); }}
-                    className="w-full py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-colors"
+                    className="w-full py-3.5 bg-primary hover:bg-blue-500 text-white font-black rounded-xl transition-all duration-200"
                   >
                     我知道了
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="px-6 py-5 text-center border-b border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white">按手数买入</h3>
-                    <p className="mt-1 text-xs text-slate-400">
+                  <div className="px-6 pt-6 pb-4 text-center">
+                    <div className="mx-auto mb-3 w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                    </div>
+                    <h3 className="text-lg font-black text-white">按手数买入</h3>
+                    <p className="mt-1 text-xs text-slate-500">
                       {game ? `每手 $${game.points_per_hand || 100}，单次最多 ${game.max_hands_per_buy || 10} 手` : '请输入买入手数'}
                     </p>
                   </div>
-                  <div className="px-6 py-8">
+                  <div className="px-6 pb-6">
                     <div className="relative">
-                      <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 px-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
+                      <input autoFocus className="block w-full rounded-xl border-2 border-slate-700/60 bg-slate-900/40 px-4 py-4 text-3xl font-black text-white placeholder-slate-700 focus:border-primary focus:outline-none text-center tracking-wider transition-colors duration-200"
                         inputMode="numeric" placeholder="1" type="number" min="1" max={game?.max_hands_per_buy || 10} value={buyInAmount} onChange={e => setBuyInAmount(e.target.value)} onClick={e => (e.target as HTMLInputElement).select()} />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                        <span className="text-lg font-bold text-slate-500">手</span>
+                        <span className="text-lg font-bold text-slate-600">手</span>
                       </div>
                     </div>
                     {buyInAmount && parseInt(buyInAmount) > 0 && game && (
-                      <p className="text-center text-lg font-bold text-primary mt-3">
+                      <p className="text-center text-xl font-black text-primary mt-3">
                         = ${parseInt(buyInAmount) * (game.points_per_hand || 100)}
                       </p>
                     )}
-                    <div className="mt-3 flex flex-col gap-2">
+                    <div className="mt-4 flex flex-col gap-2">
                       <p className="text-center text-xs text-slate-500 font-medium">
-                        当前总买入: <span className="text-slate-300">${myTotalBuyIn}</span>
+                        当前总买入: <span className="text-slate-300 font-bold">${myTotalBuyIn}</span>
                       </p>
                       {needsApproval && !isHost && (
-                        <p className="text-center text-xs text-amber-400 flex items-center justify-center gap-1">
-                          <span className="material-symbols-outlined text-[14px]">info</span>已开启带入审核，提交后等待房主批准
+                        <p className="text-center text-xs text-amber-400/80 flex items-center justify-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">info</span>提交后等待房主批准
                         </p>
                       )}
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-px bg-slate-700/50">
-                    <button onClick={() => { setBuyInAmount(''); setShowBuyIn(false); }} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors">取消</button>
-                    <button onClick={handleBuyInSubmit} disabled={submitting || !buyInAmount} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-bold text-primary hover:bg-slate-800 transition-colors disabled:opacity-50">
+                    <button onClick={handleBuyInSubmit} disabled={submitting || !buyInAmount}
+                      className="w-full mt-5 py-3.5 bg-primary hover:bg-blue-500 text-white font-black rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-primary/20">
                       {submitting ? '处理中...' : (needsApproval && !isHost) ? '提交申请' : '确认买入'}
+                    </button>
+                    <button onClick={() => { setBuyInAmount(''); setShowBuyIn(false); }}
+                      className="w-full mt-2 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors">
+                      取消
                     </button>
                   </div>
                 </>
@@ -1450,37 +1559,41 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         {confirmReq && (
           <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !confirming && setConfirmReq(null)} />
-            <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10">
-              <div className="px-6 pt-6 pb-4 text-center">
-                <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-[24px]">how_to_reg</span>
+            <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1a2530] shadow-2xl">
+              <div className="px-6 pt-6 pb-5 text-center">
+                <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>how_to_reg</span>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">确认批准买入？</h3>
-                <p className="text-slate-400 text-sm">
-                  <strong className="text-white">{confirmReq.username}</strong> 申请
-                  {confirmReq.type === 'initial' ? '初始买入' : '重买'}&nbsp;
-                  <strong className="text-primary text-base">${confirmReq.amount}</strong>
-                </p>
-                <p className="text-slate-500 text-xs mt-2">批准后将同步通知房间内所有用户</p>
+                <h3 className="text-lg font-black text-white mb-2">确认批准买入？</h3>
+                <div className="inline-flex items-center gap-2 bg-slate-800/60 rounded-xl px-4 py-2.5">
+                  <Avatar username={confirmReq.username || '?'} isAdmin={false} className="w-8 h-8" />
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-white">{confirmReq.username}</p>
+                    <p className="text-[11px] text-slate-400">
+                      {confirmReq.type === 'initial' ? '初始买入' : '重买'} <span className="text-primary font-black">${confirmReq.amount}</span>
+                    </p>
+                  </div>
+                </div>
+                <p className="text-slate-600 text-[11px] mt-3">批准后将同步通知房间内所有用户</p>
               </div>
-              <div className="grid grid-cols-2 gap-px bg-slate-700/50 mt-2">
-                <button
-                  onClick={() => setConfirmReq(null)}
-                  disabled={confirming}
-                  className="bg-[#1e2936] py-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  取消
-                </button>
+              <div className="px-6 pb-6 flex flex-col gap-2">
                 <button
                   onClick={handleConfirmApprove}
                   disabled={confirming}
-                  className="bg-[#1e2936] py-4 text-sm font-bold text-primary hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                  className="w-full py-3.5 bg-primary hover:bg-blue-500 text-white font-black rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20"
                 >
                   {confirming ? (
                     <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>处理中...</>
                   ) : (
-                    <><span className="material-symbols-outlined text-[16px]">check_circle</span>确认批准</>
+                    <><span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>确认批准</>
                   )}
+                </button>
+                <button
+                  onClick={() => setConfirmReq(null)}
+                  disabled={confirming}
+                  className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
+                >
+                  取消
                 </button>
               </div>
             </div>
@@ -1490,32 +1603,52 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
         {/* Checkout Modal */}
 
         {showCheckout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setCheckoutChips(''); setShowCheckout(false); }} />
-            <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1e2936] shadow-2xl ring-1 ring-white/10">
-              <div className="px-6 py-5 text-center border-b border-slate-700/50">
-                <h3 className="text-lg font-bold text-white">输入剩余筹码</h3>
-                <p className="mt-1 text-xs text-slate-400">请输入您当前的筹码总量以完成结算</p>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setCheckoutChips(''); setShowCheckout(false); }} />
+            <div className="relative w-full sm:max-w-sm overflow-hidden rounded-t-3xl sm:rounded-2xl bg-[#1a2530] shadow-2xl">
+              <div className="px-6 pt-6 pb-4 text-center">
+                <div className="mx-auto mb-3 w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-emerald-400 text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>receipt_long</span>
+                </div>
+                <h3 className="text-lg font-black text-white">结账离场</h3>
+                <p className="mt-1 text-xs text-slate-500">输入你当前的筹码总量</p>
               </div>
-              <div className="px-6 py-8">
+              <div className="px-6 pb-6">
+                {/* 总买入 vs 筹码 对比 */}
+                <div className="flex items-center justify-center gap-4 mb-4 bg-slate-800/40 rounded-xl p-3">
+                  <div className="text-center">
+                    <p className="text-[10px] text-slate-500 font-medium">总买入</p>
+                    <p className="text-lg font-black text-slate-300">${myTotalBuyIn}</p>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-600 text-[20px]">arrow_forward</span>
+                  <div className="text-center">
+                    <p className="text-[10px] text-slate-500 font-medium">剩余筹码</p>
+                    <p className="text-lg font-black text-emerald-400">{checkoutChips ? `$${checkoutChips}` : '--'}</p>
+                  </div>
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                    <span className="text-2xl font-bold text-primary">$</span>
+                    <span className="text-2xl font-black text-primary">$</span>
                   </div>
-                  <input autoFocus className="block w-full rounded-xl border-2 border-slate-700 bg-slate-900/50 pl-10 pr-4 py-4 text-3xl font-bold text-white placeholder-slate-600 focus:border-primary focus:outline-none text-center tracking-wider"
+                  <input autoFocus className="block w-full rounded-xl border-2 border-slate-700/60 bg-slate-900/40 pl-10 pr-4 py-4 text-3xl font-black text-white placeholder-slate-700 focus:border-emerald-500 focus:outline-none text-center tracking-wider transition-colors duration-200"
                     inputMode="decimal" placeholder="0" type="number" value={checkoutChips} onChange={e => setCheckoutChips(e.target.value)} onClick={e => (e.target as HTMLInputElement).select()} />
                 </div>
-                <div className="mt-4 flex justify-between text-xs font-medium text-slate-500 px-1">
-                  <span>当前总买入: ${myTotalBuyIn}</span>
-                  <span>预计盈亏: <span className={parseInt(checkoutChips || '0') - myTotalBuyIn >= 0 ? 'text-green-400' : 'text-red-400'}>
-                    {checkoutChips ? `${parseInt(checkoutChips) - myTotalBuyIn >= 0 ? '+' : ''}$${parseInt(checkoutChips) - myTotalBuyIn}` : '--'}
-                  </span></span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-px bg-slate-700/50">
-                <button onClick={() => { setCheckoutChips(''); setShowCheckout(false); }} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 transition-colors">取消</button>
-                <button onClick={handleCheckoutSubmit} disabled={submitting || !checkoutChips} className="flex items-center justify-center bg-[#1e2936] py-4 text-sm font-bold text-primary hover:bg-slate-800 transition-colors disabled:opacity-50">
+                {/* 盈亏预览 */}
+                {checkoutChips && (
+                  <div className="mt-3 text-center">
+                    <p className="text-[11px] text-slate-500 font-medium mb-0.5">预计盈亏</p>
+                    <p className={`text-2xl font-black ${parseInt(checkoutChips || '0') - myTotalBuyIn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {parseInt(checkoutChips) - myTotalBuyIn >= 0 ? '+' : ''}${parseInt(checkoutChips) - myTotalBuyIn}
+                    </p>
+                  </div>
+                )}
+                <button onClick={handleCheckoutSubmit} disabled={submitting || !checkoutChips}
+                  className="w-full mt-5 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20">
                   {submitting ? '处理中...' : '提交结算'}
+                </button>
+                <button onClick={() => { setCheckoutChips(''); setShowCheckout(false); }}
+                  className="w-full mt-2 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors">
+                  取消
                 </button>
               </div>
             </div>
