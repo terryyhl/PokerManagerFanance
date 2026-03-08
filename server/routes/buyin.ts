@@ -108,7 +108,7 @@ router.get('/player/:gameId/:userId', async (req, res) => {
 
         const { data, error } = await supabase
             .from('buy_ins')
-            .select('amount, type, created_at')
+            .select('amount, type, created_by, created_at')
             .eq('game_id', gameId)
             .eq('user_id', userId)
             .order('created_at', { ascending: true });
