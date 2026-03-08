@@ -55,7 +55,7 @@ export default function PlayerStatsModal({
                 const { buyIns: buyinData } = await playerStatsApi.getBuyIns(gameId, userId);
 
                 if (isMounted) {
-                    setBuyInRecords(buyinData.filter(b => b.type !== 'checkout'));
+                    setBuyInRecords(buyinData.filter(b => b.type !== 'checkout' && (b.type === 'withdraw' || b.hand_count != null)));
                     const checkout = buyinData.find(b => b.type === 'checkout');
                     setCheckoutRecord(checkout ? { amount: checkout.amount, created_by: checkout.created_by, created_at: checkout.created_at } : null);
                 }

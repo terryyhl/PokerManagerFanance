@@ -858,7 +858,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
     new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
   const myTotalBuyIn = buyIns
-    .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw'))
+    .filter(b => b.user_id === user?.id && (b.type === 'initial' || b.type === 'rebuy' || b.type === 'withdraw') && b.hand_count != null)
     .reduce((sum, b) => sum + b.amount, 0);
 
   // ── 加载中 ──────────────────────────────────────────────────────────────────
@@ -1247,7 +1247,7 @@ export default function GameRoom({ forcedId }: GameRoomProps = {}) {
             {/* 时间线：待审核申请（房主可见）+ 已确认买入/结账记录 合并显示，并按时间升序排列 */}
             {[
               ...pendingRequests.map(r => ({ ...r, _pending: true as const, _time: new Date(r.createdAt).getTime() })),
-              ...buyIns.map(b => ({ ...b, _pending: false as const, _time: new Date(b.created_at).getTime() })),
+              ...buyIns.filter(b => b.type === 'checkout' || b.type === 'seat_report' || b.type === 'withdraw' || b.hand_count != null).map(b => ({ ...b, _pending: false as const, _time: new Date(b.created_at).getTime() })),
             ].sort((a, b) => a._time - b._time).map((item) => {
               if (item._pending) {
                 const req = item as PendingBuyinEvent & { _pending: true };

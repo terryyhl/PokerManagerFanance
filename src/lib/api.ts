@@ -308,6 +308,7 @@ export interface PlayerBuyInRecord {
     amount: number;
     type: string;
     created_by?: string | null;
+    hand_count?: number | null;
     created_at: string;
 }
 
